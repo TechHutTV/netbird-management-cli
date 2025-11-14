@@ -2,6 +2,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 )
@@ -16,31 +17,25 @@ func main() {
 
 	command := args[0]
 
-	// The 'connect' command is special: it creates the config, so it doesn't need to load one.
+	// The 'connect' command is special: it can create or show the config.
 	if command == "connect" {
-		if len(args) != 3 || args[1] != "--token" {
-			fmt.Fprintln(os.Stderr, "Usage: netbird-manage connect --token <api_token>")
-			os.Exit(1)
-		}
-		token := args[2]
-		client := NewClient(token) // Use the provided token
-		if err := testAndSaveToken(client, token); err != nil {
-			fmt.Fprintf(os.Stderr, "Error connecting: %v\n", err)
+		if err := handleConnectCommand(args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 		os.Exit(0)
 	}
 
-	// For all other commands, load the token first
-	apiToken, err := loadToken()
+	// For all other commands, load the config first
+	config, err := loadConfig()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error: API token not found.")
+		fmt.Fprintln(os.Stderr, "Error: Not connected.")
 		fmt.Fprintln(os.Stderr, "Please run 'netbird-manage connect --token <your_token>'")
 		fmt.Fprintln(os.Stderr, "or set the NETBIRD_API_TOKEN environment variable.")
 		os.Exit(1)
 	}
 
-	client := NewClient(apiToken)
+	client := NewClient(config.Token, config.ManagementURL)
 
 	// Route the command to the correct handler
 	switch command {
@@ -72,4 +67,59 @@ func main() {
 		printUsage()
 		os.Exit(1)
 	}
+}
+
+// handleConnectCommand parses flags for the connect command
+func handleConnectCommand(args []string) error {
+	connectCmd := flag.NewFlagSet("connect", flag.ContinueOnError)
+	tokenFlag := connectCmd.String("token", "", "Your NetBird API token (Personal Access Token or Service User token)")
+	urlFlag := connectCmd.String("management-url", "", "Your self-hosted management URL (optional, defaults to NetBird cloud)")
+
+	if err := connectCmd.Parse(args[1:]); err != nil {
+		return nil // flag package will print error
+	}
+
+	// If no flags are provided, show status
+	if *tokenFlag == "" && *urlFlag == "" {
+		return handleConnectStatus()
+	}
+
+	// If token is missing
+	if *tokenFlag == "" {
+		return fmt.Errorf("missing required flag: --token")
+	}
+
+	// If URL is missing, use default
+	mgmtURL := *urlFlag
+	if mgmtURL == "" {
+		mgmtURL = defaultCloudURL
+	}
+
+	// Test and save the new configuration
+	return testAndSaveConfig(*tokenFlag, mgmtURL)
+}
+
+// handleConnectStatus shows the current connection status
+func handleConnectStatus() error {
+	fmt.Println("Checking connection status...")
+	config, err := loadConfig()
+	if err != nil {
+		fmt.Println("Status: Not connected.")
+		fmt.Println("Run 'netbird-manage connect --token <token>' to connect.")
+		return nil
+	}
+
+	fmt.Printf("Status:         Connected\n")
+	fmt.Printf("Management URL: %s\n", config.ManagementURL)
+
+	// Try to validate the token
+	client := NewClient(config.Token, config.ManagementURL)
+	resp, err := client.makeRequest("GET", "/peers", nil)
+	if err != nil {
+		fmt.Printf("Token Status:   Validation Failed (%v)\n", err)
+		return nil
+	}
+	resp.Body.Close()
+	fmt.Printf("Token Status:   Valid\n")
+	return nil
 }
