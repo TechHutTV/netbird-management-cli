@@ -1,49 +1,25 @@
-# NetBird Management CLI (netbird-manage)
+# NetBird Management CLI
 
 netbird-manage is an unofficial command-line tool written in Go for interacting with the [NetBird](https://netbird.io/) API. It allows you to quickly manage peers, groups, policies, and other network resources directly from your terminal. This tool is built based on the official [NetBird REST API documentation](https://docs.netbird.io/api).
 
+![](https://github.com/TechHutTV/netbird-management-cli/blob/main/demo.png)
+
 ## Setup & Installation
 
-### **Prerequisites
-
-You must have the [Go toolchain](https://go.dev/doc/install) (version 1.18 or later) installed on your system.
-
-### 1. Initial Setup
-
-Place all .go files from this project into a new directory (e.g., netbird-manage). From inside that directory, initialize the Go module:  
+You must have the [Go toolchain](https://go.dev/doc/install) (version 1.18 or later) installed on your system. Place all .go files from this project into a new directory (e.g., netbird-manage). From inside that directory, initialize the Go module and run the go build command:  
 ```
 go mod init netbird-manage
-```
-
-### 2. Build the Executable
-
-Run the go build command. This will find all package main files in the directory, compile them, and create a single executable.  
-```
 go build
 ```
-
-You will now have an executable file named netbird-manage (or netbird-manage.exe on Windows) in your directory.
-
-### 3. Connect Your Account
-
-Before you can use the tool, you must authenticate. This tool stores your API token in a configuration file at `$HOME/.netbird-manage.conf`
-
-Generate a Personal Access Token (PAT) or a Service User token from your NetBird dashboard. Then, run the connect command:
-
-```
-./netbird-manage connect --token <service-user-api-token>
-```
-
-If successful, you will see a "Connection successful" message. The tool is now ready to use.
 
 ## Current Commands & Functionality
 
 ### Connect
-
-Saves your API token to the local config file after testing it.  
+Before you can use the tool, you must authenticate. This tool stores your API token in a configuration file at `$HOME/.netbird-manage.conf`. Generate a Personal Access Token (PAT) or a Service User token from your NetBird dashboard. Then, run the connect command: 
 ```
 netbird-manage connect --token <service-user-api-token>
 ```
+If successful, you will see a "Connection successful" message. The tool is now ready to use.
 
 ### Peer
 
