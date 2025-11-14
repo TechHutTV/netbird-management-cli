@@ -2,53 +2,60 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 )
 
-// BaseURL for the NetBird API
-const apiBaseURL = "https://api.netbird.io/api"
-
-// Client holds the HTTP client and API token
+// Client holds the API token and HTTP client
 type Client struct {
-	httpClient *http.Client
-	apiToken   string
+	Token         string
+	ManagementURL string // URL to the NetBird Management API
+	HTTPClient    *http.Client
 }
 
-// NewClient creates a new API client
-func NewClient(apiToken string) *Client {
+// NewClient creates a new NetBird API client
+func NewClient(token, managementURL string) *Client {
 	return &Client{
-		httpClient: &http.Client{Timeout: 10 * time.Second},
-		apiToken:   apiToken,
+		Token:         token,
+		ManagementURL: managementURL,
+		HTTPClient:    &http.Client{},
 	}
 }
 
-// makeRequest is a helper function to create and send API requests
+// makeRequest is a helper function to create and send authenticated API requests
 func (c *Client) makeRequest(method, endpoint string, body io.Reader) (*http.Response, error) {
-	url := apiBaseURL + endpoint
+	url := c.ManagementURL + endpoint
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
 
-	// Set required headers
-	req.Header.Set("Authorization", "Token "+c.apiToken)
+	// Set authentication and content type headers
+	req.Header.Set("Authorization", "Token "+c.Token)
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %v", err)
+		return nil, fmt.Errorf("api request failed: %v", err)
 	}
 
-	// Check for non-2xx status codes
+	// Check for non-success status codes
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("api request failed: %s (status code: %d) %s", resp.Status, resp.StatusCode, string(respBody))
+		var apiError struct {
+			Message string `json:"message"`
+			Code    int    `json:"code"`
+		}
+		// Try to decode the error response from NetBird
+		if err := json.NewDecoder(resp.Body).Decode(&apiError); err == nil {
+			return nil, fmt.Errorf("api request failed: %d %s (status code: %d) %s", apiError.Code, apiError.Message, resp.StatusCode, resp.Status)
+		}
+		// Fallback for non-JSON errors
+		return nil, fmt.Errorf("api request failed: %s", resp.Status)
 	}
 
 	return resp, nil
