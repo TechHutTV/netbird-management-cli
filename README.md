@@ -1,76 +1,83 @@
-# **NetBird Management CLI (netbird-manage)**
+# NetBird Management CLI (netbird-manage)
 
-netbird-manage is an unofficial command-line tool written in Go for interacting with the [NetBird](https://netbird.io/) API. It allows you to quickly manage peers, groups, policies, and other network resources directly from your terminal.  
-This tool is built based on the official NetBird API documentation.
+netbird-manage is an unofficial command-line tool written in Go for interacting with the [NetBird](https://netbird.io/) API. It allows you to quickly manage peers, groups, policies, and other network resources directly from your terminal. This tool is built based on the official [NetBird REST API documentation](https://docs.netbird.io/api).
 
-## **Setup & Installation**
+## Setup & Installation
 
-### **Prerequisites**
+### **Prerequisites
 
 You must have the [Go toolchain](https://go.dev/doc/install) (version 1.18 or later) installed on your system.
 
-### **1\. Initial Setup**
+### 1. Initial Setup
 
-Place all .go files from this project into a new directory (e.g., netbird-manage).  
-From inside that directory, initialize the Go module:  
+Place all .go files from this project into a new directory (e.g., netbird-manage). From inside that directory, initialize the Go module:  
+```
 go mod init netbird-manage
+```
 
-### **2\. Build the Executable**
+### 2. Build the Executable
 
 Run the go build command. This will find all package main files in the directory, compile them, and create a single executable.  
+```
 go build
+```
 
 You will now have an executable file named netbird-manage (or netbird-manage.exe on Windows) in your directory.
 
-### **3\. Connect Your Account**
+### 3. Connect Your Account
 
-Before you can use the tool, you must authenticate. This tool stores your API token in a configuration file at $HOME/.netbird-manage.conf.  
-Generate a Personal Access Token (PAT) or a Service User token from your NetBird dashboard. Then, run the connect command:  
-./netbird-manage connect \--token \<your-netbird-token-here\>
+Before you can use the tool, you must authenticate. This tool stores your API token in a configuration file at `$HOME/.netbird-manage.conf`
+
+Generate a Personal Access Token (PAT) or a Service User token from your NetBird dashboard. Then, run the connect command:
+
+```
+./netbird-manage connect --token <service-user-api-token>
+```
 
 If successful, you will see a "Connection successful" message. The tool is now ready to use.
 
-## **Current Commands & Functionality**
+## Current Commands & Functionality
 
-### **connect**
+### Connect
 
 Saves your API token to the local config file after testing it.  
-netbird-manage connect \--token \<api\_token\>
+```
+netbird-manage connect --token <service-user-api-token>
+```
 
-### **peer**
+### Peer
 
 Manage network peers. Running netbird-manage peer by itself will display the help menu.
+```
+netbird-manage peer --list # List all peers in your network.
+netbird-manage peer --inspect <peer-id> # View detailed information for a single peer.
+netbird-manage peer --remove <peer-id> # Remove a peer from your network.
+netbird-manage peer --edit <peer-id> --add-group <group-name> # Add a peer to a specified group.
+netbird-manage peer --edit <peer-id> --remove-group <group-name> # Remove a peer from a specified group.
+```
 
-| Command | Description |
-| :---- | :---- |
-| netbird-manage peer \--list | List all peers in your network. |
-| netbird-manage peer \--inspect \<peer-id\> | View detailed information for a single peer. |
-| netbird-manage peer \--remove \<peer-id\> | Remove a peer from your network. |
-| netbird-manage peer \--edit \<peer-id\> \--add-group \<group-name\> | Add a peer to a specified group. |
-| netbird-manage peer \--edit \<peer-id\> \--remove-group \<group-name\> | Remove a peer from a specified group. |
+### Group
 
-### **group**
+Manage peer groups.
+```
+netbird-manage group # Lists all available groups in your account.
+```
 
-Manage peer groups.  
-netbird-manage group
+### Network
 
-* Lists all available groups in your account.
+Manage networks.
+```
+netbird-manage networks # Lists all configured networks.
+```
 
-### **networks**
-
-Manage networks.  
-netbird-manage networks
-
-* Lists all configured networks.
-
-### **policy**
+### Policy
 
 Manage access control policies.  
-netbird-manage policy
+```
+netbird-manage policy # Lists all access control policies and their rules.
+```
 
-* Lists all access control policies and their rules.
-
-## **🚀 Future Plans**
+## 🚀 Future Plans
 
 This tool is in active development. The goal is to build a comprehensive and easy-to-use CLI for all NetBird management tasks.
 
