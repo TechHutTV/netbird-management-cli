@@ -4,88 +4,95 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 )
 
-// Environment variable that holds the API token
-const apiTokenEnvVar = "NETBIRD_API_TOKEN"
+// configFileName is the name of the config file in the user's home directory
+const configFileName = ".netbird-manage.json"
+const defaultCloudURL = "https://api.netbird.io/api"
 
-// configFileName is the name of the config file stored in the user's home dir
-const configFileName = ".netbird-manage.conf"
-
-// Config struct for saving the token
-type Config struct {
-	APIToken string `json:"api_token"`
+// getConfigPath returns the full path to the configuration file
+func getConfigPath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("could not find user home directory: %v", err)
+	}
+	return filepath.Join(homeDir, configFileName), nil
 }
 
-// testAndSaveToken tests a token by fetching the peer list and saves it to the config
-func testAndSaveToken(client *Client, token string) error {
-	// Use "GET /api/peers" as a simple check, as "GET /api/users/current" can be problematic for service users.
-	// This endpoint is used in the quickstart guide.
-	resp, err := client.makeRequest("GET", "/peers", nil)
+// testAndSaveConfig validates a token by making an API call and saves it if successful
+func testAndSaveConfig(token, managementURL string) error {
+	fmt.Println("Testing connection to NetBird API at", managementURL)
+
+	// Create a temporary client to test the new credentials
+	testClient := NewClient(token, managementURL)
+
+	// Use "GET /api/peers" as the test endpoint
+	resp, err := testClient.makeRequest("GET", "/peers", nil)
 	if err != nil {
-		return fmt.Errorf("invalid token: %v", err)
+		return err
 	}
-	defer resp.Body.Close()
+	resp.Body.Close()
 
-	// We just need to know the request was successful (200 OK)
-	// We can try to decode to give the user some feedback
-	var peers []Peer
-	if err := json.NewDecoder(resp.Body).Decode(&peers); err != nil {
-		// io.EOF is fine if the list is empty, but any other decode error is bad
-		if err != io.EOF && err != nil {
-			return fmt.Errorf("failed to decode peers response during test: %v", err)
-		}
-	}
-
-	fmt.Printf("Successfully authenticated token! Found %d peers in your network.\n", len(peers))
-
-	// Get home directory
-	home, err := os.UserHomeDir()
+	fmt.Println("Connection successful. Saving configuration...")
+	configPath, err := getConfigPath()
 	if err != nil {
-		return fmt.Errorf("could not find home directory: %v", err)
+		return err
 	}
-	configPath := filepath.Join(home, configFileName)
 
-	// Create config struct and marshal to JSON
-	config := Config{APIToken: token}
-	data, err := json.MarshalIndent(config, "", "  ")
+	// Create the config struct
+	config := Config{
+		Token:         token,
+		ManagementURL: managementURL,
+	}
+
+	// Marshal to JSON
+	configData, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal config: %v", err)
+		return fmt.Errorf("failed to serialize config: %v", err)
 	}
 
-	// Write to config file with secure permissions
-	if err := os.WriteFile(configPath, data, 0600); err != nil {
-		return fmt.Errorf("failed to save token to %s: %v", configPath, err)
+	// Write the token to the config file
+	if err := os.WriteFile(configPath, configData, 0600); err != nil {
+		return fmt.Errorf("failed to write config file: %v", err)
 	}
 
-	fmt.Printf("Token saved to %s\n", configPath)
+	fmt.Printf("Configuration saved successfully to %s\n", configPath)
 	return nil
 }
 
-// loadToken loads the API token from the config file or environment variable
-func loadToken() (string, error) {
-	// 1. Try loading from config file
-	home, err := os.UserHomeDir()
+// loadConfig loads the API token and URL from the config file or environment variable
+func loadConfig() (*Config, error) {
+	configPath, err := getConfigPath()
+	if err != nil {
+		return nil, err
+	}
+
+	// Try loading from config file first
+	configData, err := os.ReadFile(configPath)
 	if err == nil {
-		configPath := filepath.Join(home, configFileName)
-		data, err := os.ReadFile(configPath)
-		if err == nil {
-			var config Config
-			if json.Unmarshal(data, &config) == nil && config.APIToken != "" {
-				return config.APIToken, nil
+		var config Config
+		if err := json.Unmarshal(configData, &config); err == nil {
+			// If URL is somehow empty in file, set default
+			if config.ManagementURL == "" {
+				config.ManagementURL = defaultCloudURL
+			}
+			if config.Token != "" {
+				return &config, nil
 			}
 		}
 	}
 
-	// 2. Fallback to environment variable
-	token := os.Getenv(apiTokenEnvVar)
+	// If file doesn't exist or is empty, try environment variable
+	token := os.Getenv("NETBIRD_API_TOKEN")
 	if token != "" {
-		return token, nil
+		// If using env var, assume default cloud URL
+		return &Config{
+			Token:         token,
+			ManagementURL: defaultCloudURL,
+		}, nil
 	}
 
-	// 3. If no token is found, return an error
-	return "", fmt.Errorf("api token not found")
+	return nil, fmt.Errorf("no token found")
 }
