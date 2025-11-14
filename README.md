@@ -22,9 +22,9 @@ netbird-manage connect --token <token>
 If successful, you will see a "Connection successful" message. To check status or change api url see the flags below.
 
 ```
-  connect                       Check current connection status
+netbird-manage connect          Check current connection status
   connect [flags]               Connect and save your API token
-    --token <token>               (Required) Your NetBird API token
+    --token <token>             (Required) Your NetBird API token
     --management-url <url>      (Optional) Your self-hosted management URL
 ```
 
@@ -32,11 +32,14 @@ If successful, you will see a "Connection successful" message. To check status o
 
 Manage network peers. Running netbird-manage peer by itself will display the help menu.
 ```
-netbird-manage peer --list # List all peers in your network.
-netbird-manage peer --inspect <peer-id> # View detailed information for a single peer.
-netbird-manage peer --remove <peer-id> # Remove a peer from your network.
-netbird-manage peer --edit <peer-id> --add-group <group-name> # Add a peer to a specified group.
-netbird-manage peer --edit <peer-id> --remove-group <group-name> # Remove a peer from a specified group.
+netbird-manage peer              View the help page
+  peer [flags]                   Managment of peers
+    --list                       List all peers in your network
+    --inspect <peer-id>          View detailed information for a single peer
+    --remove <peer-id>           Remove a peer from your network
+    --edit <peer-id>             Edit peers
+      --add-group <group>        Add a peer to a specified group
+      --remove-group <group>     Remove a peer from a specified group
 ```
 
 ### Group
