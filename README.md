@@ -17,9 +17,16 @@ go build
 ### Connect
 Before you can use the tool, you must authenticate. This tool stores your API token in a configuration file at `$HOME/.netbird-manage.conf`. Generate a Personal Access Token (PAT) or a Service User token from your NetBird dashboard. Then, run the connect command: 
 ```
-netbird-manage connect --token <service-user-api-token>
+netbird-manage connect --token <token>
 ```
-If successful, you will see a "Connection successful" message. The tool is now ready to use.
+If successful, you will see a "Connection successful" message. To check status or change api url see the flags below.
+
+```
+  connect                       Check current connection status
+  connect [flags]               Connect and save your API token
+    --token <token>               (Required) Your NetBird API token
+    --management-url <url>      (Optional) Your self-hosted management URL
+```
 
 ### Peer
 
