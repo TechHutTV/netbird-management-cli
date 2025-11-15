@@ -199,3 +199,39 @@ type PolicyUpdateRequest struct {
 	Rules               []PolicyRule `json:"rules"`
 	SourcePostureChecks []string     `json:"source_posture_checks,omitempty"`
 }
+
+// SetupKey represents a setup key for peer registration
+type SetupKey struct {
+	ID                  int      `json:"id"`
+	Name                string   `json:"name"`
+	Expires             string   `json:"expires"`
+	Type                string   `json:"type"` // "one-off" or "reusable"
+	Valid               bool     `json:"valid"`
+	Revoked             bool     `json:"revoked"`
+	UsedTimes           int      `json:"used_times"`
+	LastUsed            string   `json:"last_used"`
+	State               string   `json:"state"`
+	AutoGroups          []string `json:"auto_groups"`
+	UpdatedAt           string   `json:"updated_at"`
+	UsageLimit          int      `json:"usage_limit"`
+	Ephemeral           bool     `json:"ephemeral"`
+	AllowExtraDNSLabels bool     `json:"allow_extra_dns_labels"`
+	Key                 string   `json:"key,omitempty"` // Only in create response
+}
+
+// SetupKeyCreateRequest represents the request body for creating a setup key
+type SetupKeyCreateRequest struct {
+	Name                string   `json:"name"`
+	Type                string   `json:"type"` // "one-off" or "reusable"
+	ExpiresIn           int      `json:"expires_in"`
+	AutoGroups          []string `json:"auto_groups"`
+	UsageLimit          int      `json:"usage_limit"`
+	Ephemeral           bool     `json:"ephemeral,omitempty"`
+	AllowExtraDNSLabels bool     `json:"allow_extra_dns_labels,omitempty"`
+}
+
+// SetupKeyUpdateRequest represents the request body for updating a setup key
+type SetupKeyUpdateRequest struct {
+	Revoked    bool     `json:"revoked"`
+	AutoGroups []string `json:"auto_groups"`
+}
