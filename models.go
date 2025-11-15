@@ -81,6 +81,68 @@ type Network struct {
 	Description       string   `json:"description"`
 }
 
+// NetworkDetail represents the full network object (GET /networks/{id} returns IDs as strings)
+type NetworkDetail struct {
+	ID                string   `json:"id"`
+	Name              string   `json:"name"`
+	Description       string   `json:"description"`
+	Routers           []string `json:"routers"`           // Router IDs
+	RoutingPeersCount int      `json:"routing_peers_count"`
+	Resources         []string `json:"resources"`         // Resource IDs
+	Policies          []string `json:"policies"`          // Policy IDs
+}
+
+// NetworkResource represents a resource within a network (host, subnet, or domain)
+type NetworkResource struct {
+	ID          string        `json:"id"`
+	Type        string        `json:"type"`
+	Name        string        `json:"name"`
+	Description string        `json:"description"`
+	Address     string        `json:"address"` // IP (1.1.1.1 or 1.1.1.1/32), subnet (192.168.0.0/24), or domain (*.example.com)
+	Enabled     bool          `json:"enabled"`
+	Groups      []PolicyGroup `json:"groups"` // Group objects with id and name
+}
+
+// NetworkRouter represents a routing peer in a network
+type NetworkRouter struct {
+	ID         string   `json:"id"`
+	Peer       string   `json:"peer,omitempty"`        // Single peer ID (mutually exclusive with peer_groups)
+	PeerGroups []string `json:"peer_groups,omitempty"` // Peer group IDs (mutually exclusive with peer)
+	Metric     int      `json:"metric"`                // 1-9999, lower = higher priority
+	Masquerade bool     `json:"masquerade"`            // Enable NAT
+	Enabled    bool     `json:"enabled"`
+}
+
+// NetworkCreateRequest represents the request body for creating a network
+type NetworkCreateRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+}
+
+// NetworkUpdateRequest represents the request body for updating a network
+type NetworkUpdateRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+// NetworkResourceRequest represents the request body for creating/updating a network resource
+type NetworkResourceRequest struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description,omitempty"`
+	Address     string   `json:"address"`
+	Enabled     bool     `json:"enabled"`
+	Groups      []string `json:"groups"`
+}
+
+// NetworkRouterRequest represents the request body for creating/updating a network router
+type NetworkRouterRequest struct {
+	Peer       string   `json:"peer,omitempty"`        // Single peer ID
+	PeerGroups []string `json:"peer_groups,omitempty"` // Peer group IDs
+	Metric     int      `json:"metric"`
+	Masquerade bool     `json:"masquerade"`
+	Enabled    bool     `json:"enabled"`
+}
+
 // Policy represents an access control policy (from policies.mdx)
 type Policy struct {
 	ID          string       `json:"id"`
