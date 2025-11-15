@@ -3,6 +3,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -11,17 +12,35 @@ import (
 
 // handlePoliciesCommand routes policy-related commands
 func handlePoliciesCommand(client *Client, args []string) error {
-	if len(args) != 1 {
-		return fmt.Errorf("usage: netbird-manage policy")
-	}
+	// Create a new flag set for the 'policy' command
+	policyCmd := flag.NewFlagSet("policy", flag.ContinueOnError)
+	policyCmd.SetOutput(os.Stderr) // Send errors to stderr
+	policyCmd.Usage = printPolicyUsage // Set our custom usage function
 
-	switch args[0] {
-	case "policy":
-		return client.listPolicies()
-	default:
-		printUsage()
+	// Define the flags for the 'policy' command
+	listFlag := policyCmd.Bool("list", false, "List all policies")
+
+	// If no flags are provided (just 'netbird-manage policy'), show usage
+	if len(args) == 1 {
+		printPolicyUsage()
 		return nil
 	}
+
+	// Parse the flags (all args *after* 'policy')
+	if err := policyCmd.Parse(args[1:]); err != nil {
+		// The flag package will print an error, so we just return
+		return nil
+	}
+
+	// Handle the flags
+	if *listFlag {
+		return client.listPolicies()
+	}
+
+	// If no known flag was used
+	fmt.Fprintln(os.Stderr, "Error: Invalid or missing flags for 'policy' command.")
+	printPolicyUsage()
+	return nil
 }
 
 // listPolicies implements the "policy" command

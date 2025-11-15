@@ -4,6 +4,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -11,21 +12,35 @@ import (
 
 // handleGroupsCommand routes group-related commands
 func handleGroupsCommand(client *Client, args []string) error {
-	if len(args) == 0 {
-		printUsage()
+	// Create a new flag set for the 'group' command
+	groupCmd := flag.NewFlagSet("group", flag.ContinueOnError)
+	groupCmd.SetOutput(os.Stderr) // Send errors to stderr
+	groupCmd.Usage = printGroupUsage // Set our custom usage function
+
+	// Define the flags for the 'group' command
+	listFlag := groupCmd.Bool("list", false, "List all groups")
+
+	// If no flags are provided (just 'netbird-manage group'), show usage
+	if len(args) == 1 {
+		printGroupUsage()
 		return nil
 	}
 
-	switch args[0] {
-	case "group", "groups":
-		if len(args) != 1 {
-			return fmt.Errorf("usage: netbird-manage group")
-		}
-		return client.listGroups()
-	default:
-		printUsage()
+	// Parse the flags (all args *after* 'group')
+	if err := groupCmd.Parse(args[1:]); err != nil {
+		// The flag package will print an error, so we just return
 		return nil
 	}
+
+	// Handle the flags
+	if *listFlag {
+		return client.listGroups()
+	}
+
+	// If no known flag was used
+	fmt.Fprintln(os.Stderr, "Error: Invalid or missing flags for 'group' command.")
+	printGroupUsage()
+	return nil
 }
 
 // listGroups implements the "group" command
