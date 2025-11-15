@@ -44,23 +44,29 @@ netbird-manage peer              View the help page
 
 ### Group
 
-Manage peer groups.
+Manage peer groups. Running netbird-manage group by itself will display the help menu.
 ```
-netbird-manage group # Lists all available groups in your account.
+netbird-manage group             View the help page
+  group [flags]                  Management of groups
+    --list                       List all groups in your network
 ```
 
 ### Network
 
-Manage networks.
+Manage networks. Running netbird-manage network by itself will display the help menu.
 ```
-netbird-manage networks # Lists all configured networks.
+netbird-manage network           View the help page
+  network [flags]                Management of networks
+    --list                       List all networks in your network
 ```
 
 ### Policy
 
-Manage access control policies.  
+Manage access control policies. Running netbird-manage policy by itself will display the help menu.
 ```
-netbird-manage policy # Lists all access control policies and their rules.
+netbird-manage policy            View the help page
+  policy [flags]                 Management of policies
+    --list                       List all access control policies and their rules
 ```
 
 ## 🚀 Future Plans
