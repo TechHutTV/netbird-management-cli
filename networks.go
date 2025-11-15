@@ -3,24 +3,43 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"text/tabwriter"
 )
 
-// handleNetworksCommand routes network-related commands
-func handleNetworksCommand(client *Client, args []string) error {
-	if len(args) != 1 {
-		return fmt.Errorf("usage: netbird-manage networks")
-	}
+// handleNetworkCommand routes network-related commands
+func handleNetworkCommand(client *Client, args []string) error {
+	// Create a new flag set for the 'network' command
+	networkCmd := flag.NewFlagSet("network", flag.ContinueOnError)
+	networkCmd.SetOutput(os.Stderr) // Send errors to stderr
+	networkCmd.Usage = printNetworkUsage // Set our custom usage function
 
-	switch args[0] {
-	case "networks":
-		return client.listNetworks()
-	default:
-		printUsage()
+	// Define the flags for the 'network' command
+	listFlag := networkCmd.Bool("list", false, "List all networks")
+
+	// If no flags are provided (just 'netbird-manage network'), show usage
+	if len(args) == 1 {
+		printNetworkUsage()
 		return nil
 	}
+
+	// Parse the flags (all args *after* 'network')
+	if err := networkCmd.Parse(args[1:]); err != nil {
+		// The flag package will print an error, so we just return
+		return nil
+	}
+
+	// Handle the flags
+	if *listFlag {
+		return client.listNetworks()
+	}
+
+	// If no known flag was used
+	fmt.Fprintln(os.Stderr, "Error: Invalid or missing flags for 'network' command.")
+	printNetworkUsage()
+	return nil
 }
 
 // listNetworks implements the "networks" command

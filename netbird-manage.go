@@ -26,6 +26,27 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Show help without requiring connection if just the command name is provided
+	if len(args) == 1 {
+		switch command {
+		case "peer":
+			printPeerUsage()
+			os.Exit(0)
+		case "group", "groups":
+			printGroupUsage()
+			os.Exit(0)
+		case "network":
+			printNetworkUsage()
+			os.Exit(0)
+		case "policy":
+			printPolicyUsage()
+			os.Exit(0)
+		case "help", "--help":
+			printUsage()
+			os.Exit(0)
+		}
+	}
+
 	// For all other commands, load the config first
 	config, err := loadConfig()
 	if err != nil {
@@ -44,8 +65,8 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-	case "networks":
-		if err := handleNetworksCommand(client, args); err != nil {
+	case "network":
+		if err := handleNetworkCommand(client, args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
