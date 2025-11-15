@@ -421,19 +421,57 @@ netbird-manage policy --remove-rule <rule-id> --policy-id <policy-id>
 - Rules can be identified by either name or ID for editing/removal
 - Bidirectional rules apply the same action in both source→destination and destination→source directions
 
-## 🚀 Future Plans
+## 🚀 Roadmap
 
 This tool is in active development. The goal is to build a comprehensive and easy-to-use CLI for all NetBird management tasks.
 
-* **Full API Coverage:** Implement the entire NetBird API, including:
-  * ✅ Full CRUD (Create, Read, Update, Delete) for **Groups** - **COMPLETE**
-  * ✅ Full CRUD for **Networks** and **Network Resources** - **COMPLETE**
-  * ✅ Full CRUD for **Policies** and **Rules** - **COMPLETE**
-  * Full **User Management** (invite, remove, update roles)
-  * Management for **Setup Keys**, **Routes**, and **DNS**
-* **YAML-based Policy Management:**
-  * Add `netbird-manage policy export > my-policies.yml` to save all policies to a file
-  * Add `netbird-manage policy apply -f my-policies.yml` to apply policy changes from a YAML file, enabling GitOps workflows
-* **Interactive CLI Features:**
-  * Implement interactive prompts for complex operations (e.g., `netbird-manage peer --remove <id>` asking for confirmation)
-  * Use interactive selectors (like [bubbletea](https://github.com/charmbracelet/bubbletea)) for picking peers or groups from a list
+### ✅ Completed Features
+
+**Core Resource Management:**
+- ✅ **Peers** - List, inspect, remove, and group assignment
+- ✅ **Groups** - Full CRUD operations with bulk peer management
+- ✅ **Networks** - Full CRUD operations including resource and router management
+- ✅ **Policies** - Full CRUD operations with advanced rule management
+
+**API Coverage:** 4/14 NetBird API resource types fully implemented
+
+### 🚧 High Priority (Phase 1)
+
+**Core Operations:**
+- ❌ **Setup Keys** - Create and manage device onboarding keys (simplify new device enrollment)
+- ❌ **Users** - Invite users, manage roles and permissions
+- ❌ **Tokens** - Manage personal access tokens for secure API access
+
+### 📋 Planned Features
+
+**Network Services (Phase 2):**
+- ❌ **Routes** - Network routing configuration and priorities
+- ❌ **DNS** - DNS nameserver groups and domain management
+- ❌ **Posture Checks** - Device compliance validation and zero-trust policies
+
+**Monitoring & Analytics (Phase 3):**
+- ❌ **Events** - Audit logs and activity monitoring
+- ❌ **Peer Update** - Modify peer properties (SSH, login expiration, IP assignment)
+- ❌ **JSON Output** - Machine-readable output for scripting (`--output json`)
+
+### 🎯 Enhancement Features
+
+**GitOps & Automation:**
+- ❌ **YAML Export/Import** - Infrastructure as Code workflows
+  ```bash
+  netbird-manage policy export > policies.yml
+  netbird-manage policy apply -f policies.yml
+  ```
+
+**Interactive CLI:**
+- ❌ **Confirmation Prompts** - Safety for destructive operations
+- ❌ **Interactive Selection** - User-friendly resource picking with [bubbletea](https://github.com/charmbracelet/bubbletea)
+- ❌ **TUI Mode** - Full-screen terminal interface with real-time updates
+- ❌ **Shell Completion** - Tab completion for bash/zsh/fish
+
+**Quality of Life:**
+- ❌ **Batch Operations** - Process multiple resources at once
+- ❌ **Colorized Output** - Improve readability with color coding
+- ❌ **Debug Mode** - Verbose output showing HTTP requests/responses
+
+For detailed implementation notes and architecture guidance, see [CLAUDE.md](CLAUDE.md).
