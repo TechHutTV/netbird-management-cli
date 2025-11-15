@@ -868,148 +868,205 @@ go mod tidy
 
 ## Future Development Areas
 
-### Planned Features (from README)
+### Feature Roadmap
 
-**1. Full CRUD Operations**
-- Groups: Create, update, delete (currently read-only)
-- Networks: Full management (currently read-only)
-- Policies: Create, update, delete rules (currently read-only)
-- Users: Invite, remove, update roles (not implemented)
-- Setup Keys, Routes, DNS (not implemented)
+This section tracks the implementation status of CLI features and planned enhancements.
 
-**2. YAML-based Policy Management**
-```bash
-# Export policies to YAML
-netbird-manage policy export > my-policies.yml
+#### ✅ Completed Features
 
-# Apply policies from YAML (GitOps workflow)
-netbird-manage policy apply -f my-policies.yml
-```
+**Core Resource Management:**
+- ✅ **Peers** - Full read operations including list, inspect, remove, and group assignment
+- ✅ **Groups** - Full CRUD operations including creation, deletion, renaming, and bulk peer management
+- ✅ **Networks** - Full CRUD operations including resource and router management
+- ✅ **Policies** - Full CRUD operations with advanced rule management including protocol/port configuration, bidirectional traffic, and group name resolution
 
-**3. Interactive CLI Features**
-- Confirmation prompts for destructive operations
-- Interactive peer/group selection (using bubbletea library)
-- TUI mode for browsing resources
+**Project Status:**
+- **API Coverage:** 4/14 resource types fully implemented
+- **Zero External Dependencies** - Pure Go stdlib implementation maintained
 
-### Implementation Guidance for New Features
+#### 🚧 In Progress / High Priority
 
-**Adding CRUD for Groups:**
+**Core Resource Management:**
+- ❌ **Setup Keys** - Device registration and onboarding keys (5 API endpoints available)
+  - Create setup keys for device onboarding
+  - List all setup keys with filtering
+  - Get key details and usage statistics
+  - Update key properties (expiration, usage limits, auto-groups)
+  - Revoke setup keys
+  - **Use Case:** Streamline new device enrollment
+  - **Implementation File:** `setup-keys.go` (to be created)
+  - **API Docs:** `docs/api/resources/setup-keys.md`
 
-1. **Create Group:**
-```go
-func (c *Client) createGroup(name string, description string) error {
-    reqBody := map[string]interface{}{
-        "name": name,
-        "description": description,
-        "peers": []string{},
-        "resources": []interface{}{},
-    }
+**User & Access Management:**
+- ❌ **Users** - User account management (6 API endpoints available)
+  - Invite users, manage roles and permissions
+  - List, update, and remove users
+  - Resend invitations and get current user info
+  - **Implementation File:** `users.go` (to be created)
+  - **API Docs:** `docs/api/resources/users.md`
 
-    bodyBytes, _ := json.Marshal(reqBody)
-    resp, err := c.makeRequest("POST", "/groups", bytes.NewReader(bodyBytes))
-    if err != nil {
-        return err
-    }
-    defer resp.Body.Close()
+- ❌ **Tokens** - Personal access token management (4 API endpoints available)
+  - Create, list, revoke, and inspect API tokens
+  - Essential for secure API access management
+  - **Implementation File:** `tokens.go` (to be created)
+  - **API Docs:** `docs/api/resources/tokens.md`
 
-    fmt.Println("Group created successfully")
-    return nil
-}
-```
+#### 📋 Planned Features
 
-2. **Delete Group:**
-```go
-func (c *Client) deleteGroup(groupID string) error {
-    resp, err := c.makeRequest("DELETE", "/groups/"+groupID, nil)
-    if err != nil {
-        return err
-    }
-    defer resp.Body.Close()
+**Network Services:**
+- ❌ **Routes** - Network routing configuration (5 API endpoints available)
+  - Define custom network routes, manage priorities, configure routing peers
+  - **Implementation File:** `routes.go` (to be created)
+  - **API Docs:** `docs/api/resources/routes.md`
 
-    fmt.Println("Group deleted successfully")
-    return nil
-}
-```
+- ❌ **DNS** - DNS nameserver groups (6 API endpoints available)
+  - Create DNS nameserver groups, configure settings, manage domains
+  - **Implementation File:** `dns.go` (to be created)
+  - **API Docs:** `docs/api/resources/dns.md`
 
-3. **Add flags to handleGroupsCommand:**
-```go
-createFlag := groupCmd.String("create", "", "Create new group")
-deleteFlag := groupCmd.String("delete", "", "Delete group by ID")
-descFlag := groupCmd.String("description", "", "Group description")
+**Security & Compliance:**
+- ❌ **Posture Checks** - Device compliance validation (5 API endpoints available)
+  - Define compliance requirements (OS version, geolocation, etc.)
+  - Enforce zero-trust security policies on peer groups
+  - **Implementation File:** `posture-checks.go` (to be created)
+  - **API Docs:** `docs/api/resources/posture-checks.md`
 
-if *createFlag != "" {
-    return client.createGroup(*createFlag, *descFlag)
-}
-if *deleteFlag != "" {
-    return client.deleteGroup(*deleteFlag)
-}
-```
+**Monitoring & Analytics:**
+- ❌ **Events** - Audit logs and activity monitoring (2 API endpoints available)
+  - Query audit logs, monitor network traffic, track policy changes
+  - **Implementation File:** `events.go` (to be created)
+  - **API Docs:** `docs/api/resources/events.md`
 
-**Adding YAML Export/Apply:**
+- ❌ **Geo-Locations** - Location data for access control (2 API endpoints available)
+  - Manage country/city location databases for use in posture checks and policies
+  - **Implementation File:** `geo-locations.go` (to be created)
+  - **API Docs:** `docs/api/resources/geo-locations.md`
 
-1. **Install YAML library:**
-```bash
-go get gopkg.in/yaml.v3
-```
+**Account Management:**
+- ❌ **Accounts** - Account settings and configuration (3 API endpoints available)
+  - Get account information, update settings, manage billing
+  - **Implementation File:** `accounts.go` (to be created)
+  - **API Docs:** `docs/api/resources/accounts.md`
 
-2. **Export implementation:**
-```go
-func (c *Client) exportPolicies(outputPath string) error {
-    // Fetch all policies
-    resp, err := c.makeRequest("GET", "/policies", nil)
-    // ...
+**Cloud-Only Features:**
+- ❌ **Ingress Ports** - Port forwarding and ingress peers (10 API endpoints available)
+  - Configure port forwarding, manage ingress peer assignments
+  - **Note:** Only available on NetBird Cloud
+  - **Implementation File:** `ingress-ports.go` (to be created)
+  - **API Docs:** `docs/api/resources/ingress-ports.md`
 
-    var policies []Policy
-    json.NewDecoder(resp.Body).Decode(&policies)
+#### 🎯 Enhancement Features
 
-    // Convert to YAML
-    yamlData, err := yaml.Marshal(policies)
-    if err != nil {
-        return fmt.Errorf("failed to marshal YAML: %v", err)
-    }
+**YAML/JSON Configuration Management:**
+- ❌ **YAML Export/Import** - GitOps workflow support
+  ```bash
+  # Export resources to YAML
+  netbird-manage policy export > policies.yml
+  netbird-manage group export > groups.yml
 
-    // Write to file
-    if err := os.WriteFile(outputPath, yamlData, 0644); err != nil {
-        return fmt.Errorf("failed to write file: %v", err)
-    }
+  # Apply from YAML (declarative configuration)
+  netbird-manage policy apply -f policies.yml
+  ```
+  - **Benefits:** Infrastructure as Code, version control, team collaboration
+  - **Implementation:** Add YAML library dependency (`gopkg.in/yaml.v3`)
 
-    fmt.Printf("Policies exported to %s\n", outputPath)
-    return nil
-}
-```
+- ❌ **JSON Output Mode** - Machine-readable output for scripting
+  ```bash
+  netbird-manage peer --list --output json
+  netbird-manage policy --inspect abc123 --output json | jq '.rules'
+  ```
 
-3. **Apply implementation:**
-```go
-func (c *Client) applyPolicies(inputPath string) error {
-    // Read YAML file
-    yamlData, err := os.ReadFile(inputPath)
-    if err != nil {
-        return fmt.Errorf("failed to read file: %v", err)
-    }
+**Interactive CLI Enhancements:**
+- ❌ **Confirmation Prompts** - Safety for destructive operations
+  ```bash
+  $ netbird-manage peer --remove abc123
+  ⚠️  Are you sure you want to remove peer 'laptop-001'? [y/N]: _
+  ```
 
-    // Parse YAML
-    var policies []Policy
-    if err := yaml.Unmarshal(yamlData, &policies); err != nil {
-        return fmt.Errorf("failed to parse YAML: %v", err)
-    }
+- ❌ **Interactive Selection** - User-friendly resource picking
+  ```bash
+  $ netbird-manage peer --interactive
+  ? Select a peer:
+  ❯ laptop-001 (abc123) - Online
+    server-002 (def456) - Offline
+  ```
+  - **Library:** `github.com/charmbracelet/bubbletea` or `github.com/manifoldco/promptui`
 
-    // Apply each policy (PUT or POST depending on ID)
-    for _, policy := range policies {
-        if policy.ID != "" {
-            // Update existing
-            reqBody, _ := json.Marshal(policy)
-            c.makeRequest("PUT", "/policies/"+policy.ID, bytes.NewReader(reqBody))
-        } else {
-            // Create new
-            reqBody, _ := json.Marshal(policy)
-            c.makeRequest("POST", "/policies", bytes.NewReader(reqBody))
-        }
-    }
+- ❌ **TUI Mode** - Full-screen terminal interface with real-time updates
+  ```bash
+  netbird-manage tui
+  ```
+  - **Library:** `github.com/charmbracelet/bubbletea` + `github.com/charmbracelet/bubbles`
 
-    fmt.Printf("Applied %d policies from %s\n", len(policies), inputPath)
-    return nil
-}
-```
+**Advanced Peer Management:**
+- ❌ **Peer Update** - Modify peer properties including SSH settings and login expiration
+  - **API Endpoint:** `PUT /peers/{id}` (available but not implemented)
+
+- ❌ **Accessible Peers** - Query peer connectivity
+  - **API Endpoint:** `GET /peers/{id}/accessible-peers` (available but not implemented)
+
+**Bulk Operations:**
+- ❌ **Batch Commands** - Process multiple resources at once
+  ```bash
+  netbird-manage peer --remove-batch abc123,def456,ghi789
+  netbird-manage group --add-peers my-group --peers abc,def,ghi
+  ```
+
+**Quality of Life:**
+- ❌ **Shell Completion** - Tab completion for bash/zsh/fish
+- ❌ **Colorized Output** - Improve readability with color coding
+- ❌ **Verbose/Debug Mode** - Show HTTP requests and responses for troubleshooting
+
+#### 📊 Implementation Priority
+
+**Phase 1: Core Coverage (High Priority)**
+1. Setup Keys (device onboarding - critical for operations)
+2. Users management (critical for team management)
+3. Tokens management (security and access control)
+
+**Phase 2: Network Services (Medium Priority)**
+4. Routes management
+5. DNS configuration
+6. Posture Checks (security enhancement)
+
+**Phase 3: Observability (Medium Priority)**
+7. Events/Audit logs
+8. Peer update operations
+9. JSON output mode
+
+**Phase 4: Developer Experience (Lower Priority)**
+10. YAML export/import
+11. Interactive prompts
+12. Shell completion
+13. TUI mode
+
+**Phase 5: Advanced Features (Nice to Have)**
+14. Batch operations
+15. Colorized output
+16. Accessible peers query
+17. Geo-locations management
+18. Accounts management
+
+### Implementation Notes
+
+**Maintaining Zero Dependencies:**
+- Current implementation uses only Go stdlib
+- Adding features like YAML/TUI requires external libraries
+- Consider a "lite" vs "full" build option:
+  - Lite build: zero dependencies (current state)
+  - Full build: includes YAML, TUI, colors, etc.
+
+**API Coverage Status:**
+- ✅ **100% Coverage:** Policies, Networks, Groups
+- ✅ **80% Coverage:** Peers (missing update, accessible-peers)
+- ❌ **0% Coverage:** Setup Keys, Users, Tokens, Routes, DNS, Posture Checks, Events, Geo-Locations, Accounts, Ingress Ports
+
+**Code Architecture:**
+- Each resource type gets its own file (`{resource}.go`)
+- Follow existing patterns in `policies.go`, `groups.go`, `networks.go`
+- Use flag-based command parsing (consistent with current implementation)
+- Keep HTTP client methods on `Client` struct
+- Maintain table output with `tabwriter` for consistency
 
 ---
 
