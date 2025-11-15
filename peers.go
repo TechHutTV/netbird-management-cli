@@ -307,7 +307,7 @@ func (c *Client) modifyPeerGroup(peerID, groupID, action string) error {
 	if groupID == "" {
 		fmt.Println("Error: No group ID specified.")
 		fmt.Println("Listing available groups:")
-		if err := c.listGroups(); err != nil {
+		if err := c.listGroups(""); err != nil {
 			fmt.Fprintf(os.Stderr, "Could not list groups: %v\n", err)
 		}
 		return fmt.Errorf("missing <group-id> argument for --add-group or --remove-group")
