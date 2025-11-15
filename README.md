@@ -78,6 +78,107 @@ netbird-manage peer --update d3mjakrl0ubs738ajj00 --ip 100.64.1.50
 netbird-manage peer --accessible-peers d3mjakrl0ubs738ajj00
 ```
 
+### Setup Key
+
+Manage device registration and onboarding keys. Setup keys are used to register new peers to your NetBird network. Running `netbird-manage setup-key` by itself will display the help menu.
+
+#### Query Operations
+```bash
+# List all setup keys
+netbird-manage setup-key --list
+
+# Filter by name (supports wildcards)
+netbird-manage setup-key --list --filter-name "office-*"
+
+# Filter by type (one-off or reusable)
+netbird-manage setup-key --list --filter-type reusable
+
+# Show only valid (non-revoked, non-expired) keys
+netbird-manage setup-key --list --valid-only
+
+# Inspect a specific setup key
+netbird-manage setup-key --inspect <key-id>
+```
+
+#### Create Operations
+```bash
+# Quick create a one-off key (7d expiration, single use)
+netbird-manage setup-key --quick "office-laptop"
+
+# Create a one-off key with custom settings
+netbird-manage setup-key --create "temp-access" \
+  --type one-off \
+  --expires-in 1d \
+  --usage-limit 1
+
+# Create a reusable key for team onboarding
+netbird-manage setup-key --create "team-onboarding" \
+  --type reusable \
+  --expires-in 30d \
+  --usage-limit 10 \
+  --auto-groups "group-id-1,group-id-2"
+
+# Create an ephemeral peer key (peer deleted when disconnected)
+netbird-manage setup-key --create "ephemeral-test" \
+  --expires-in 7d \
+  --ephemeral
+```
+
+#### Update Operations
+```bash
+# Revoke a setup key (prevent new device registrations)
+netbird-manage setup-key --revoke <key-id>
+
+# Enable a previously revoked key
+netbird-manage setup-key --enable <key-id>
+
+# Update auto-groups for a key
+netbird-manage setup-key --update-groups <key-id> \
+  --groups "new-group-1,new-group-2"
+```
+
+#### Delete Operations
+```bash
+# Delete a setup key
+netbird-manage setup-key --delete <key-id>
+```
+
+**Examples:**
+```bash
+# Create a quick one-off key for a new office computer
+netbird-manage setup-key --quick "johns-laptop"
+
+# Create a reusable key that expires in 90 days for contractor onboarding
+netbird-manage setup-key --create "contractor-key" \
+  --type reusable \
+  --expires-in 90d \
+  --usage-limit 5 \
+  --auto-groups "contractors,limited-access"
+
+# List all valid keys
+netbird-manage setup-key --list --valid-only
+
+# Revoke a compromised key immediately
+netbird-manage setup-key --revoke 12345
+
+# Inspect a key to check usage statistics
+netbird-manage setup-key --inspect 12345
+```
+
+**Key Configuration Options:**
+- **`--type`**: `one-off` (single use) or `reusable` (multiple uses) - default: one-off
+- **`--expires-in`**: Human-readable duration: `1d`, `7d`, `30d`, `90d`, `1y` - default: 7d
+- **`--usage-limit`**: Maximum number of uses, `0` = unlimited - default: 0
+- **`--auto-groups`**: Comma-separated group IDs for automatic peer assignment
+- **`--ephemeral`**: Mark peers registered with this key as ephemeral (deleted when offline)
+- **`--allow-extra-dns-labels`**: Allow additional DNS labels for registered peers
+
+**Note:**
+- Setup keys are displayed **only once** during creation - save them immediately!
+- Expiration must be between 1 day and 1 year (API constraint)
+- Revoked keys cannot be used to register new devices but existing devices remain active
+- One-off keys are automatically revoked after first use
+
 ### Group
 
 Manage peer groups. Running netbird-manage group by itself will display the help menu.
@@ -432,13 +533,13 @@ This tool is in active development. The goal is to build a comprehensive and eas
 - ✅ **Groups** - Full CRUD operations with bulk peer management
 - ✅ **Networks** - Full CRUD operations including resource and router management
 - ✅ **Policies** - Full CRUD operations with advanced rule management
+- ✅ **Setup Keys** - Full CRUD operations for device registration and onboarding
 
-**API Coverage:** 4/14 NetBird API resource types fully implemented
+**API Coverage:** 5/14 NetBird API resource types fully implemented (36%)
 
 ### 🚧 High Priority (Phase 1)
 
 **Core Operations:**
-- ❌ **Setup Keys** - Create and manage device onboarding keys (simplify new device enrollment)
 - ❌ **Users** - Invite users, manage roles and permissions
 - ❌ **Tokens** - Manage personal access tokens for secure API access
 
