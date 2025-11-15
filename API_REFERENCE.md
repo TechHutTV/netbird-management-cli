@@ -53,20 +53,27 @@ Authorization: Bearer <YOUR_TOKEN>
 | List Peers | `peer --list` | `GET /peers` | `peers.go:79` |
 | Inspect Peer | `peer --inspect <id>` | `GET /peers/{id}` | `peers.go:122` |
 | Remove Peer | `peer --remove <id>` | `DELETE /peers/{id}` | `peers.go:144` |
-| List Groups | `group` | `GET /groups` | `groups.go:49` |
+| List Groups | `group --list` | `GET /groups` | `groups.go:49` |
 | Get Group | (internal) | `GET /groups/{id}` | `groups.go:80` |
 | Update Group | `peer --edit --add/remove-group` | `PUT /groups/{id}` | `groups.go:102` |
-| List Networks | `networks` | `GET /networks` | `networks.go:15` |
-| List Policies | `policy` | `GET /policies` | `policies.go:15` |
+| List Networks | `network --list` | `GET /networks` | `networks.go:15` |
+| List Policies | `policy --list` | `GET /policies` | `policies.go:181` |
+| **Create Policy** | `policy --create` | `POST /policies` | `policies.go:315` |
+| **Inspect Policy** | `policy --inspect <id>` | `GET /policies/{id}` | `policies.go:252` |
+| **Update Policy** | `policy --enable/--disable` | `PUT /policies/{id}` | `policies.go:359` |
+| **Delete Policy** | `policy --delete <id>` | `DELETE /policies/{id}` | `policies.go:347` |
+| **Add Rule** | `policy --add-rule` | `PUT /policies/{id}` | `policies.go:404` |
+| **Edit Rule** | `policy --edit-rule` | `PUT /policies/{id}` | `policies.go:451` |
+| **Remove Rule** | `policy --remove-rule` | `PUT /policies/{id}` | `policies.go:544` |
 
 ### 📋 Planned Endpoints
 
 See [`docs/api/resources/README.md`](docs/api/resources/README.md) for full catalog of available endpoints.
 
 **High Priority:**
-- Full CRUD for Groups (create, delete)
-- Full CRUD for Networks (create, update, delete)
-- Full CRUD for Policies (create, update, delete)
+- ✅ Full CRUD for Groups (create, delete) - **COMPLETE**
+- ✅ Full CRUD for Networks (create, update, delete) - **COMPLETE**
+- ✅ Full CRUD for Policies (create, update, delete) - **COMPLETE**
 - User Management (list, create, delete)
 - Setup Keys (create, list, delete)
 
@@ -199,11 +206,19 @@ Plus 7 additional endpoints for network resources and routers.
 
 | Method | Endpoint | Purpose | CLI Support |
 |--------|----------|---------|-------------|
-| GET | `/policies` | List all policies | ✅ `policy` |
-| POST | `/policies` | Create policy | ❌ Planned |
-| GET | `/policies/{id}` | Get policy details | ❌ Planned |
-| PUT | `/policies/{id}` | Update policy | ❌ Planned |
-| DELETE | `/policies/{id}` | Delete policy | ❌ Planned |
+| GET | `/policies` | List all policies | ✅ `policy --list` |
+| POST | `/policies` | Create policy | ✅ `policy --create` |
+| GET | `/policies/{id}` | Get policy details | ✅ `policy --inspect` |
+| PUT | `/policies/{id}` | Update policy | ✅ `policy --enable/--disable/--add-rule/--edit-rule/--remove-rule` |
+| DELETE | `/policies/{id}` | Delete policy | ✅ `policy --delete` |
+
+**Features:**
+- Full CRUD operations for policies
+- Rule management (add, edit, remove)
+- Protocol, port, and port range configuration
+- Bidirectional traffic support
+- Group name resolution (use friendly names instead of IDs)
+- List filtering (enabled/disabled, name search)
 
 **Docs:** [`docs/api/resources/policies.md`](docs/api/resources/policies.md)
 
