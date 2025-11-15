@@ -2,10 +2,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"text/tabwriter"
 )
 
@@ -24,6 +26,20 @@ func handlePeersCommand(client *Client, args []string) error {
 	addGrpFlag := peerCmd.String("add-group", "", "Group to add to the peer (requires --edit)")
 	rmGrpFlag := peerCmd.String("remove-group", "", "Group to remove from the peer (requires --edit)")
 
+	// Update flags
+	updateFlag := peerCmd.String("update", "", "Update a peer by its ID (use with update flags)")
+	renameFlag := peerCmd.String("rename", "", "New name for the peer (requires --update)")
+	sshFlag := peerCmd.String("ssh-enabled", "", "Enable/disable SSH (true/false, requires --update)")
+	loginExpFlag := peerCmd.String("login-expiration", "", "Enable/disable login expiration (true/false, requires --update)")
+	inactivityExpFlag := peerCmd.String("inactivity-expiration", "", "Enable/disable inactivity expiration (true/false, requires --update)")
+	approvalFlag := peerCmd.String("approval-required", "", "Enable/disable approval requirement (true/false, requires --update, cloud-only)")
+	ipFlag := peerCmd.String("ip", "", "Set peer IP address (requires --update)")
+
+	// Query flags
+	accessiblePeersFlag := peerCmd.String("accessible-peers", "", "List peers accessible from the specified peer ID")
+	filterNameFlag := peerCmd.String("filter-name", "", "Filter peers by name pattern (use with --list)")
+	filterIPFlag := peerCmd.String("filter-ip", "", "Filter peers by IP pattern (use with --list)")
+
 	// If no flags are provided (just 'netbird-manage peer'), show usage
 	if len(args) == 1 {
 		printPeerUsage()
@@ -38,7 +54,7 @@ func handlePeersCommand(client *Client, args []string) error {
 
 	// Handle the flags
 	if *listFlag {
-		return client.listPeers()
+		return client.listPeers(*filterNameFlag, *filterIPFlag)
 	}
 
 	if *inspectFlag != "" {
@@ -47,6 +63,10 @@ func handlePeersCommand(client *Client, args []string) error {
 
 	if *removeFlag != "" {
 		return client.removePeerByID(*removeFlag)
+	}
+
+	if *accessiblePeersFlag != "" {
+		return client.getAccessiblePeers(*accessiblePeersFlag)
 	}
 
 	if *editFlag != "" {
@@ -60,14 +80,108 @@ func handlePeersCommand(client *Client, args []string) error {
 		return fmt.Errorf("flag --edit requires --add-group or --remove-group")
 	}
 
+	if *updateFlag != "" {
+		return handlePeerUpdate(client, *updateFlag, *renameFlag, *sshFlag, *loginExpFlag, *inactivityExpFlag, *approvalFlag, *ipFlag)
+	}
+
 	// If no known flag was used
 	fmt.Fprintln(os.Stderr, "Error: Invalid or missing flags for 'peer' command.")
 	printPeerUsage()
 	return nil
 }
 
+// handlePeerUpdate processes peer update requests
+func handlePeerUpdate(client *Client, peerID, rename, ssh, loginExp, inactivityExp, approval, ip string) error {
+	// First, get the current peer state
+	peer, err := client.getPeerByID(peerID)
+	if err != nil {
+		return fmt.Errorf("failed to get peer: %v", err)
+	}
+
+	// Build update request starting with current values
+	updateReq := PeerUpdateRequest{
+		Name:                        peer.Name,
+		SSHEnabled:                  peer.SSHEnabled,
+		LoginExpirationEnabled:      peer.LoginExpirationEnabled,
+		InactivityExpirationEnabled: peer.InactivityExpirationEnabled,
+	}
+
+	// Track if any changes were made
+	changes := make([]string, 0)
+
+	// Apply rename if provided
+	if rename != "" {
+		updateReq.Name = rename
+		changes = append(changes, fmt.Sprintf("name: %s -> %s", peer.Name, rename))
+	}
+
+	// Apply SSH flag if provided
+	if ssh != "" {
+		sshBool, err := strconv.ParseBool(ssh)
+		if err != nil {
+			return fmt.Errorf("invalid value for --ssh-enabled: %s (must be true or false)", ssh)
+		}
+		updateReq.SSHEnabled = sshBool
+		changes = append(changes, fmt.Sprintf("ssh_enabled: %t -> %t", peer.SSHEnabled, sshBool))
+	}
+
+	// Apply login expiration flag if provided
+	if loginExp != "" {
+		loginExpBool, err := strconv.ParseBool(loginExp)
+		if err != nil {
+			return fmt.Errorf("invalid value for --login-expiration: %s (must be true or false)", loginExp)
+		}
+		updateReq.LoginExpirationEnabled = loginExpBool
+		changes = append(changes, fmt.Sprintf("login_expiration_enabled: %t -> %t", peer.LoginExpirationEnabled, loginExpBool))
+	}
+
+	// Apply inactivity expiration flag if provided
+	if inactivityExp != "" {
+		inactivityExpBool, err := strconv.ParseBool(inactivityExp)
+		if err != nil {
+			return fmt.Errorf("invalid value for --inactivity-expiration: %s (must be true or false)", inactivityExp)
+		}
+		updateReq.InactivityExpirationEnabled = inactivityExpBool
+		changes = append(changes, fmt.Sprintf("inactivity_expiration_enabled: %t -> %t", peer.InactivityExpirationEnabled, inactivityExpBool))
+	}
+
+	// Apply approval flag if provided (cloud-only, optional)
+	if approval != "" {
+		approvalBool, err := strconv.ParseBool(approval)
+		if err != nil {
+			return fmt.Errorf("invalid value for --approval-required: %s (must be true or false)", approval)
+		}
+		updateReq.ApprovalRequired = &approvalBool
+		if peer.ApprovalRequired != nil {
+			changes = append(changes, fmt.Sprintf("approval_required: %t -> %t", *peer.ApprovalRequired, approvalBool))
+		} else {
+			changes = append(changes, fmt.Sprintf("approval_required: (not set) -> %t", approvalBool))
+		}
+	}
+
+	// Apply IP if provided
+	if ip != "" {
+		updateReq.IP = ip
+		changes = append(changes, fmt.Sprintf("ip: %s -> %s", peer.IP, ip))
+	}
+
+	// Check if any changes were made
+	if len(changes) == 0 {
+		return fmt.Errorf("no update flags provided (use --rename, --ssh-enabled, --login-expiration, --inactivity-expiration, --approval-required, or --ip)")
+	}
+
+	// Display changes
+	fmt.Printf("Updating peer %s (%s):\n", peer.Name, peerID)
+	for _, change := range changes {
+		fmt.Printf("  - %s\n", change)
+	}
+
+	// Perform the update
+	return client.updatePeer(peerID, updateReq)
+}
+
 // listPeers implements the "peer --list" command
-func (c *Client) listPeers() error {
+func (c *Client) listPeers(filterName, filterIP string) error {
 	resp, err := c.makeRequest("GET", "/peers", nil)
 	if err != nil {
 		return err
@@ -79,8 +193,26 @@ func (c *Client) listPeers() error {
 		return fmt.Errorf("failed to decode peers response: %v", err)
 	}
 
-	if len(peers) == 0 {
-		fmt.Println("No peers found in your network.")
+	// Apply filters if provided
+	var filteredPeers []Peer
+	for _, peer := range peers {
+		// Apply name filter
+		if filterName != "" && !matchesPattern(peer.Name, filterName) {
+			continue
+		}
+		// Apply IP filter
+		if filterIP != "" && !matchesPattern(peer.IP, filterIP) {
+			continue
+		}
+		filteredPeers = append(filteredPeers, peer)
+	}
+
+	if len(filteredPeers) == 0 {
+		if filterName != "" || filterIP != "" {
+			fmt.Println("No peers found matching the specified filters.")
+		} else {
+			fmt.Println("No peers found in your network.")
+		}
 		return nil
 	}
 
@@ -89,7 +221,7 @@ func (c *Client) listPeers() error {
 	fmt.Fprintln(w, "ID\tNAME\tIP\tCONNECTED\tOS\tVERSION\tHOSTNAME")
 	fmt.Fprintln(w, "--\t----\t--\t---------\t--\t-------\t--------")
 
-	for _, peer := range peers {
+	for _, peer := range filteredPeers {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%t\t%s\t%s\t%s\n",
 			peer.ID,
 			peer.Name,
@@ -244,5 +376,70 @@ func (c *Client) modifyPeerGroup(peerID, groupID, action string) error {
 	}
 
 	fmt.Println("Successfully updated group membership.")
+	return nil
+}
+
+// updatePeer implements the peer update functionality (PUT /peers/{id})
+func (c *Client) updatePeer(peerID string, updates PeerUpdateRequest) error {
+	// Validate IP if provided
+	if updates.IP != "" {
+		if err := validateNetBirdIP(updates.IP); err != nil {
+			return err
+		}
+	}
+
+	payload, err := json.Marshal(updates)
+	if err != nil {
+		return fmt.Errorf("failed to marshal update request: %v", err)
+	}
+
+	endpoint := "/peers/" + peerID
+	resp, err := c.makeRequest("PUT", endpoint, bytes.NewBuffer(payload))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("Successfully updated peer %s\n", peerID)
+	return nil
+}
+
+// getAccessiblePeers lists peers that the specified peer can connect to
+func (c *Client) getAccessiblePeers(peerID string) error {
+	endpoint := "/peers/" + peerID + "/accessible-peers"
+	resp, err := c.makeRequest("GET", endpoint, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var accessiblePeers []Peer
+	if err := json.NewDecoder(resp.Body).Decode(&accessiblePeers); err != nil {
+		return fmt.Errorf("failed to decode accessible peers response: %v", err)
+	}
+
+	if len(accessiblePeers) == 0 {
+		fmt.Println("This peer cannot access any other peers.")
+		return nil
+	}
+
+	fmt.Printf("Peers accessible from %s:\n\n", peerID)
+
+	// Print a formatted table
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "ID\tNAME\tIP\tCONNECTED\tOS\tHOSTNAME")
+	fmt.Fprintln(w, "--\t----\t--\t---------\t--\t--------")
+
+	for _, peer := range accessiblePeers {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%t\t%s\t%s\n",
+			peer.ID,
+			peer.Name,
+			peer.IP,
+			peer.Connected,
+			formatOS(peer.OS),
+			peer.Hostname,
+		)
+	}
+	w.Flush()
 	return nil
 }

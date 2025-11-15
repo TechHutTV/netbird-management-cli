@@ -9,15 +9,29 @@ type Config struct {
 
 // Peer represents a single NetBird peer (from peers.mdx)
 type Peer struct {
-	ID        string      `json:"id"`
-	Name      string      `json:"name"`
-	IP        string      `json:"ip"`
-	Connected bool        `json:"connected"`
-	LastSeen  string      `json:"last_seen"`
-	OS        string      `json:"os"`
-	Version   string      `json:"version"`
-	Groups    []PolicyGroup `json:"groups"` // This uses the simplified group object
-	Hostname  string      `json:"hostname"`
+	ID                        string        `json:"id"`
+	Name                      string        `json:"name"`
+	IP                        string        `json:"ip"`
+	Connected                 bool          `json:"connected"`
+	LastSeen                  string        `json:"last_seen"`
+	OS                        string        `json:"os"`
+	Version                   string        `json:"version"`
+	Groups                    []PolicyGroup `json:"groups"` // This uses the simplified group object
+	Hostname                  string        `json:"hostname"`
+	SSHEnabled                bool          `json:"ssh_enabled"`
+	LoginExpirationEnabled    bool          `json:"login_expiration_enabled"`
+	InactivityExpirationEnabled bool        `json:"inactivity_expiration_enabled"`
+	ApprovalRequired          *bool         `json:"approval_required,omitempty"` // Optional, cloud-only
+}
+
+// PeerUpdateRequest represents the request body for updating a peer
+type PeerUpdateRequest struct {
+	Name                      string `json:"name"`
+	SSHEnabled                bool   `json:"ssh_enabled"`
+	LoginExpirationEnabled    bool   `json:"login_expiration_enabled"`
+	InactivityExpirationEnabled bool   `json:"inactivity_expiration_enabled"`
+	ApprovalRequired          *bool  `json:"approval_required,omitempty"`
+	IP                        string `json:"ip,omitempty"`
 }
 
 // PolicyGroup represents the simplified group object found inside other resources (like Peer)
