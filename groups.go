@@ -14,7 +14,7 @@ import (
 func handleGroupsCommand(client *Client, args []string) error {
 	// Create a new flag set for the 'group' command
 	groupCmd := flag.NewFlagSet("group", flag.ContinueOnError)
-	groupCmd.SetOutput(os.Stderr) // Send errors to stderr
+	groupCmd.SetOutput(os.Stderr)    // Send errors to stderr
 	groupCmd.Usage = printGroupUsage // Set our custom usage function
 
 	// Query flags

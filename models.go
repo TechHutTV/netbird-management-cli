@@ -9,29 +9,29 @@ type Config struct {
 
 // Peer represents a single NetBird peer (from peers.mdx)
 type Peer struct {
-	ID                        string        `json:"id"`
-	Name                      string        `json:"name"`
-	IP                        string        `json:"ip"`
-	Connected                 bool          `json:"connected"`
-	LastSeen                  string        `json:"last_seen"`
-	OS                        string        `json:"os"`
-	Version                   string        `json:"version"`
-	Groups                    []PolicyGroup `json:"groups"` // This uses the simplified group object
-	Hostname                  string        `json:"hostname"`
-	SSHEnabled                bool          `json:"ssh_enabled"`
-	LoginExpirationEnabled    bool          `json:"login_expiration_enabled"`
-	InactivityExpirationEnabled bool        `json:"inactivity_expiration_enabled"`
-	ApprovalRequired          *bool         `json:"approval_required,omitempty"` // Optional, cloud-only
+	ID                          string        `json:"id"`
+	Name                        string        `json:"name"`
+	IP                          string        `json:"ip"`
+	Connected                   bool          `json:"connected"`
+	LastSeen                    string        `json:"last_seen"`
+	OS                          string        `json:"os"`
+	Version                     string        `json:"version"`
+	Groups                      []PolicyGroup `json:"groups"` // This uses the simplified group object
+	Hostname                    string        `json:"hostname"`
+	SSHEnabled                  bool          `json:"ssh_enabled"`
+	LoginExpirationEnabled      bool          `json:"login_expiration_enabled"`
+	InactivityExpirationEnabled bool          `json:"inactivity_expiration_enabled"`
+	ApprovalRequired            *bool         `json:"approval_required,omitempty"` // Optional, cloud-only
 }
 
 // PeerUpdateRequest represents the request body for updating a peer
 type PeerUpdateRequest struct {
-	Name                      string `json:"name"`
-	SSHEnabled                bool   `json:"ssh_enabled"`
-	LoginExpirationEnabled    bool   `json:"login_expiration_enabled"`
+	Name                        string `json:"name"`
+	SSHEnabled                  bool   `json:"ssh_enabled"`
+	LoginExpirationEnabled      bool   `json:"login_expiration_enabled"`
 	InactivityExpirationEnabled bool   `json:"inactivity_expiration_enabled"`
-	ApprovalRequired          *bool  `json:"approval_required,omitempty"`
-	IP                        string `json:"ip,omitempty"`
+	ApprovalRequired            *bool  `json:"approval_required,omitempty"`
+	IP                          string `json:"ip,omitempty"`
 }
 
 // PolicyGroup represents the simplified group object found inside other resources (like Peer)
@@ -42,12 +42,12 @@ type PolicyGroup struct {
 
 // GroupDetail represents the full group object (from groups.mdx)
 type GroupDetail struct {
-	ID             string                  `json:"id"`
-	Name           string                  `json:"name"`
-	PeersCount     int                     `json:"peers_count"`
-	ResourcesCount int                     `json:"resources_count"`
-	Issued         string                  `json:"issued"`
-	Peers          []Peer                  `json:"peers"` // Contains list of full Peer objects
+	ID             string          `json:"id"`
+	Name           string          `json:"name"`
+	PeersCount     int             `json:"peers_count"`
+	ResourcesCount int             `json:"resources_count"`
+	Issued         string          `json:"issued"`
+	Peers          []Peer          `json:"peers"` // Contains list of full Peer objects
 	Resources      []GroupResource `json:"resources"`
 }
 
@@ -86,10 +86,10 @@ type NetworkDetail struct {
 	ID                string   `json:"id"`
 	Name              string   `json:"name"`
 	Description       string   `json:"description"`
-	Routers           []string `json:"routers"`           // Router IDs
+	Routers           []string `json:"routers"` // Router IDs
 	RoutingPeersCount int      `json:"routing_peers_count"`
-	Resources         []string `json:"resources"`         // Resource IDs
-	Policies          []string `json:"policies"`          // Policy IDs
+	Resources         []string `json:"resources"` // Resource IDs
+	Policies          []string `json:"policies"`  // Policy IDs
 }
 
 // NetworkResource represents a resource within a network (host, subnet, or domain)
@@ -155,19 +155,19 @@ type Policy struct {
 
 // PolicyRule is a rule within a policy
 type PolicyRule struct {
-	ID                  string            `json:"id,omitempty"`
-	Name                string            `json:"name"`
-	Description         string            `json:"description,omitempty"`
-	Enabled             bool              `json:"enabled"`
-	Action              string            `json:"action"` // "accept" or "drop"
-	Bidirectional       bool              `json:"bidirectional"`
-	Protocol            string            `json:"protocol"` // tcp, udp, icmp, all
-	Ports               []string          `json:"ports,omitempty"`
-	PortRanges          []PortRange       `json:"port_ranges,omitempty"`
-	Sources             []PolicyGroup     `json:"sources,omitempty"`
-	Destinations        []PolicyGroup     `json:"destinations,omitempty"`
-	SourceResource      *PolicyResource   `json:"sourceResource,omitempty"`
-	DestinationResource *PolicyResource   `json:"destinationResource,omitempty"`
+	ID                  string          `json:"id,omitempty"`
+	Name                string          `json:"name"`
+	Description         string          `json:"description,omitempty"`
+	Enabled             bool            `json:"enabled"`
+	Action              string          `json:"action"` // "accept" or "drop"
+	Bidirectional       bool            `json:"bidirectional"`
+	Protocol            string          `json:"protocol"` // tcp, udp, icmp, all
+	Ports               []string        `json:"ports,omitempty"`
+	PortRanges          []PortRange     `json:"port_ranges,omitempty"`
+	Sources             []PolicyGroup   `json:"sources,omitempty"`
+	Destinations        []PolicyGroup   `json:"destinations,omitempty"`
+	SourceResource      *PolicyResource `json:"sourceResource,omitempty"`
+	DestinationResource *PolicyResource `json:"destinationResource,omitempty"`
 }
 
 // PortRange represents a port range for policy rules
