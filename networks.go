@@ -15,7 +15,7 @@ import (
 func handleNetworkCommand(client *Client, args []string) error {
 	// Create a new flag set for the 'network' command
 	networkCmd := flag.NewFlagSet("network", flag.ContinueOnError)
-	networkCmd.SetOutput(os.Stderr) // Send errors to stderr
+	networkCmd.SetOutput(os.Stderr)      // Send errors to stderr
 	networkCmd.Usage = printNetworkUsage // Set our custom usage function
 
 	// Query flags
@@ -315,7 +315,7 @@ func (c *Client) inspectNetwork(networkID string) error {
 		w.Flush()
 		fmt.Println()
 	} else {
-		fmt.Println("  Routers:         None\n")
+		fmt.Println("  Routers:         None")
 	}
 
 	// Display resources

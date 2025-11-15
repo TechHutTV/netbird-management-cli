@@ -15,7 +15,7 @@ import (
 func handlePeersCommand(client *Client, args []string) error {
 	// Create a new flag set for the 'peer' command
 	peerCmd := flag.NewFlagSet("peer", flag.ContinueOnError)
-	peerCmd.SetOutput(os.Stderr) // Send errors to stderr
+	peerCmd.SetOutput(os.Stderr)   // Send errors to stderr
 	peerCmd.Usage = printPeerUsage // Set our custom usage function
 
 	// Define the flags for the 'peer' command
