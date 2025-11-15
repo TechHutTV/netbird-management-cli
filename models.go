@@ -145,20 +145,57 @@ type NetworkRouterRequest struct {
 
 // Policy represents an access control policy (from policies.mdx)
 type Policy struct {
-	ID          string       `json:"id"`
-	Name        string       `json:"name"`
-	Description string       `json:"description"`
-	Enabled     bool         `json:"enabled"`
-	Rules       []PolicyRule `json:"rules"`
+	ID                  string       `json:"id"`
+	Name                string       `json:"name"`
+	Description         string       `json:"description"`
+	Enabled             bool         `json:"enabled"`
+	Rules               []PolicyRule `json:"rules"`
+	SourcePostureChecks []string     `json:"source_posture_checks,omitempty"`
 }
 
 // PolicyRule is a rule within a policy
 type PolicyRule struct {
-	ID           string        `json:"id"`
-	Name         string        `json:"name"`
-	Enabled      bool          `json:"enabled"`
-	Action       string        `json:"action"` // "accept" or "drop"
-	Protocol     string        `json:"protocol"`
-	Sources      []PolicyGroup `json:"sources"`
-	Destinations []PolicyGroup `json:"destinations"`
+	ID                  string            `json:"id,omitempty"`
+	Name                string            `json:"name"`
+	Description         string            `json:"description,omitempty"`
+	Enabled             bool              `json:"enabled"`
+	Action              string            `json:"action"` // "accept" or "drop"
+	Bidirectional       bool              `json:"bidirectional"`
+	Protocol            string            `json:"protocol"` // tcp, udp, icmp, all
+	Ports               []string          `json:"ports,omitempty"`
+	PortRanges          []PortRange       `json:"port_ranges,omitempty"`
+	Sources             []PolicyGroup     `json:"sources,omitempty"`
+	Destinations        []PolicyGroup     `json:"destinations,omitempty"`
+	SourceResource      *PolicyResource   `json:"sourceResource,omitempty"`
+	DestinationResource *PolicyResource   `json:"destinationResource,omitempty"`
+}
+
+// PortRange represents a port range for policy rules
+type PortRange struct {
+	Start int `json:"start"`
+	End   int `json:"end"`
+}
+
+// PolicyResource represents a resource in policy rules
+type PolicyResource struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
+}
+
+// PolicyCreateRequest represents the request body for creating a policy
+type PolicyCreateRequest struct {
+	Name                string       `json:"name"`
+	Description         string       `json:"description,omitempty"`
+	Enabled             bool         `json:"enabled"`
+	Rules               []PolicyRule `json:"rules,omitempty"`
+	SourcePostureChecks []string     `json:"source_posture_checks,omitempty"`
+}
+
+// PolicyUpdateRequest represents the request body for updating a policy
+type PolicyUpdateRequest struct {
+	Name                string       `json:"name"`
+	Description         string       `json:"description"`
+	Enabled             bool         `json:"enabled"`
+	Rules               []PolicyRule `json:"rules"`
+	SourcePostureChecks []string     `json:"source_posture_checks,omitempty"`
 }
