@@ -170,19 +170,19 @@ func (c *Client) inspectPeer(peerID string) error {
 
 // modifyPeerGroup adds or removes a peer from a group.
 // This is an "edit group" operation under the hood.
-func (c *Client) modifyPeerGroup(peerID, groupName, action string) error {
-	// If no group name is provided, list available groups
-	if groupName == "" {
-		fmt.Println("Error: No group name specified.")
+func (c *Client) modifyPeerGroup(peerID, groupID, action string) error {
+	// If no group ID is provided, list available groups
+	if groupID == "" {
+		fmt.Println("Error: No group ID specified.")
 		fmt.Println("Listing available groups:")
 		if err := c.listGroups(); err != nil {
 			fmt.Fprintf(os.Stderr, "Could not list groups: %v\n", err)
 		}
-		return fmt.Errorf("missing <group-name> argument for --add-group or --remove-group")
+		return fmt.Errorf("missing <group-id> argument for --add-group or --remove-group")
 	}
 
-	// 1. Get the Group's full details by name
-	group, err := c.getGroupByName(groupName)
+	// 1. Get the Group's full details by ID
+	group, err := c.getGroupByID(groupID)
 	if err != nil {
 		return err
 	}
@@ -210,11 +210,11 @@ func (c *Client) modifyPeerGroup(peerID, groupName, action string) error {
 	}
 
 	if action == "add" && peerFound {
-		fmt.Printf("Peer %s is already in group %s.\n", peerID, groupName)
+		fmt.Printf("Peer %s is already in group %s (%s).\n", peerID, group.Name, group.ID)
 		return nil
 	}
 	if action == "remove" && !peerFound {
-		fmt.Printf("Peer %s is not in group %s.\n", peerID, groupName)
+		fmt.Printf("Peer %s is not in group %s (%s).\n", peerID, group.Name, group.ID)
 		return nil
 	}
 
@@ -233,9 +233,9 @@ func (c *Client) modifyPeerGroup(peerID, groupName, action string) error {
 
 	// 6. Send the PUT request to update the group
 	if action == "add" {
-		fmt.Printf("Adding peer %s to group %s...\n", peerID, groupName)
+		fmt.Printf("Adding peer %s to group %s (%s)...\n", peerID, group.Name, group.ID)
 	} else {
-		fmt.Printf("Removing peer %s from group %s...\n", peerID, groupName)
+		fmt.Printf("Removing peer %s from group %s (%s)...\n", peerID, group.Name, group.ID)
 	}
 
 	err = c.updateGroup(group.ID, reqBody)

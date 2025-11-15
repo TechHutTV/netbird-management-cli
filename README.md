@@ -38,8 +38,8 @@ netbird-manage peer              View the help page
     --inspect <peer-id>          View detailed information for a single peer
     --remove <peer-id>           Remove a peer from your network
     --edit <peer-id>             Edit peers
-      --add-group <group>        Add a peer to a specified group
-      --remove-group <group>     Remove a peer from a specified group
+      --add-group <group-id>     Add a peer to a specified group
+      --remove-group <group-id>  Remove a peer from a specified group
 ```
 
 ### Group

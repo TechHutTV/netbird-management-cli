@@ -38,8 +38,8 @@ func printPeerUsage() {
 	fmt.Println("  --inspect <peer-id>          Inspect a single peer")
 	fmt.Println("  --remove <peer-id>           Remove a peer by its ID")
 	fmt.Println("  --edit <peer-id>             Specify a peer to edit (used with group flags)")
-	fmt.Println("  --add-group <group-name>     Add peer to a group (requires --edit)")
-	fmt.Println("  --remove-group <group-name>  Remove peer from a group (requires --edit)")
+	fmt.Println("  --add-group <group-id>       Add peer to a group (requires --edit)")
+	fmt.Println("  --remove-group <group-id>    Remove peer from a group (requires --edit)")
 }
 
 // printGroupUsage provides specific help for the 'group' command
