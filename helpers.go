@@ -85,9 +85,84 @@ func printGroupUsage() {
 // printNetworkUsage provides specific help for the 'network' command
 func printNetworkUsage() {
 	fmt.Println("Usage: netbird-manage network <flag> [arguments]")
-	fmt.Println("\nManage network networks.")
-	fmt.Println("\nFlags:")
-	fmt.Println("  --list                       List all networks")
+	fmt.Println("\nManage networks, resources, and routers.")
+	fmt.Println("\n=== Network Operations ===")
+	fmt.Println("\nQuery Flags:")
+	fmt.Println("  --list                              List all networks")
+	fmt.Println("    --filter-name <pattern>           Filter by name (supports wildcards: prod-*)")
+	fmt.Println("  --inspect <network-id>              Inspect a specific network")
+	fmt.Println()
+	fmt.Println("Modification Flags:")
+	fmt.Println("  --create <name>                     Create a new network")
+	fmt.Println("    --description <desc>              Network description (optional)")
+	fmt.Println()
+	fmt.Println("  --delete <network-id>               Delete a network")
+	fmt.Println()
+	fmt.Println("  --rename <network-id>               Rename a network")
+	fmt.Println("    --new-name <name>                 New name (required)")
+	fmt.Println()
+	fmt.Println("  --update <network-id>               Update network description")
+	fmt.Println("    --description <desc>              New description (required)")
+	fmt.Println()
+	fmt.Println("\n=== Resource Operations ===")
+	fmt.Println("\nQuery Flags:")
+	fmt.Println("  --list-resources <network-id>       List all resources in a network")
+	fmt.Println("  --inspect-resource                  Inspect a specific resource")
+	fmt.Println("    --network-id <id>                 Network ID (required)")
+	fmt.Println("    --resource-id <id>                Resource ID (required)")
+	fmt.Println()
+	fmt.Println("Modification Flags:")
+	fmt.Println("  --add-resource <network-id>         Add a resource to a network")
+	fmt.Println("    --name <name>                     Resource name (required)")
+	fmt.Println("    --address <address>               IP (1.1.1.1), subnet (192.168.0.0/24), or domain (*.example.com) (required)")
+	fmt.Println("    --groups <id1,id2,...>            Comma-separated group IDs (required)")
+	fmt.Println("    --description <desc>              Resource description (optional)")
+	fmt.Println("    --enabled                         Enable resource (default)")
+	fmt.Println("    --disabled                        Disable resource")
+	fmt.Println()
+	fmt.Println("  --update-resource                   Update a resource")
+	fmt.Println("    --network-id <id>                 Network ID (required)")
+	fmt.Println("    --resource-id <id>                Resource ID (required)")
+	fmt.Println("    --name <name>                     New name (optional)")
+	fmt.Println("    --address <address>               New address (optional)")
+	fmt.Println("    --groups <id1,id2,...>            New groups (optional)")
+	fmt.Println("    --description <desc>              New description (optional)")
+	fmt.Println("    --enabled/--disabled              Toggle enabled status")
+	fmt.Println()
+	fmt.Println("  --remove-resource                   Remove a resource")
+	fmt.Println("    --network-id <id>                 Network ID (required)")
+	fmt.Println("    --resource-id <id>                Resource ID (required)")
+	fmt.Println()
+	fmt.Println("\n=== Router Operations ===")
+	fmt.Println("\nQuery Flags:")
+	fmt.Println("  --list-routers <network-id>         List all routers in a network")
+	fmt.Println("  --list-all-routers                  List all routers across all networks")
+	fmt.Println("  --inspect-router                    Inspect a specific router")
+	fmt.Println("    --network-id <id>                 Network ID (required)")
+	fmt.Println("    --router-id <id>                  Router ID (required)")
+	fmt.Println()
+	fmt.Println("Modification Flags:")
+	fmt.Println("  --add-router <network-id>           Add a router to a network")
+	fmt.Println("    --peer <peer-id>                  Use single peer as router (use this OR --peer-groups)")
+	fmt.Println("    --peer-groups <id1,id2,...>       Use peer groups as routers (use this OR --peer)")
+	fmt.Println("    --metric <1-9999>                 Route metric, lower = higher priority (default: 100)")
+	fmt.Println("    --masquerade                      Enable masquerading (NAT)")
+	fmt.Println("    --no-masquerade                   Disable masquerading (default)")
+	fmt.Println("    --enabled                         Enable router (default)")
+	fmt.Println("    --disabled                        Disable router")
+	fmt.Println()
+	fmt.Println("  --update-router                     Update a router")
+	fmt.Println("    --network-id <id>                 Network ID (required)")
+	fmt.Println("    --router-id <id>                  Router ID (required)")
+	fmt.Println("    --peer <peer-id>                  Change to single peer (optional)")
+	fmt.Println("    --peer-groups <id1,id2,...>       Change to peer groups (optional)")
+	fmt.Println("    --metric <1-9999>                 Update metric (optional)")
+	fmt.Println("    --masquerade/--no-masquerade      Toggle masquerading")
+	fmt.Println("    --enabled/--disabled              Toggle enabled status")
+	fmt.Println()
+	fmt.Println("  --remove-router                     Remove a router")
+	fmt.Println("    --network-id <id>                 Network ID (required)")
+	fmt.Println("    --router-id <id>                  Router ID (required)")
 }
 
 // printPolicyUsage provides specific help for the 'policy' command
@@ -123,6 +198,43 @@ func validateNetBirdIP(ipStr string) error {
 	_, cgnatRange, _ := net.ParseCIDR("100.64.0.0/10")
 	if !cgnatRange.Contains(ip) {
 		return fmt.Errorf("IP address %s is outside NetBird's allowed range (100.64.0.0/10)", ipStr)
+	}
+
+	return nil
+}
+
+// validateNetworkAddress validates network resource addresses
+// Accepts: IP (1.1.1.1 or 1.1.1.1/32), subnet (192.168.0.0/24), or domain (example.com, *.example.com)
+func validateNetworkAddress(address string) error {
+	// Check if it's a CIDR notation (IP with /prefix)
+	if strings.Contains(address, "/") {
+		_, _, err := net.ParseCIDR(address)
+		if err != nil {
+			return fmt.Errorf("invalid CIDR notation: %s", address)
+		}
+		return nil
+	}
+
+	// Check if it's a plain IP address
+	if ip := net.ParseIP(address); ip != nil {
+		return nil
+	}
+
+	// Must be a domain name (supports wildcards like *.example.com)
+	// Simple validation: check for valid domain characters
+	if len(address) == 0 {
+		return fmt.Errorf("address cannot be empty")
+	}
+
+	// Domain can contain: letters, numbers, hyphens, dots, and wildcards (*)
+	// Basic validation - more permissive to allow wildcard domains
+	for _, char := range address {
+		if !((char >= 'a' && char <= 'z') ||
+			(char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') ||
+			char == '.' || char == '-' || char == '*') {
+			return fmt.Errorf("invalid domain name: %s (contains invalid character: %c)", address, char)
+		}
 	}
 
 	return nil
