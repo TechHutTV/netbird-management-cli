@@ -27,6 +27,8 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("  policy ...                    Manage access control policies (run 'netbird-manage policy' for options)")
 	fmt.Println()
+	fmt.Println("  setup-key ...                 Manage device registration keys (run 'netbird-manage setup-key' for options)")
+	fmt.Println()
 	fmt.Println("  help                          Show this help message")
 }
 

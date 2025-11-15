@@ -41,6 +41,9 @@ func main() {
 		case "policy":
 			printPolicyUsage()
 			os.Exit(0)
+		case "setup-key":
+			printSetupKeyUsage()
+			os.Exit(0)
 		case "help", "--help":
 			printUsage()
 			os.Exit(0)
@@ -77,6 +80,11 @@ func main() {
 		}
 	case "group", "groups":
 		if err := handleGroupsCommand(client, args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "setup-key":
+		if err := handleSetupKeysCommand(client, args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
