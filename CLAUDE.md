@@ -17,6 +17,10 @@ This document provides comprehensive guidance for AI assistants working on the N
 - NetBird API Documentation: https://docs.netbird.io/api
 - NetBird Website: https://netbird.io/
 
+**Local API References:**
+- `API_REFERENCE.md` - Comprehensive endpoint documentation with examples
+- `.claude/commands/api-docs.md` - Slash command to fetch live API docs (use `/api-docs`)
+
 ---
 
 ## Codebase Structure
@@ -36,8 +40,12 @@ netbird-management-cli/
 ├── policies.go          # Policy command handlers (83 lines)
 ├── go.mod               # Go module definition
 ├── README.md            # User-facing documentation
+├── API_REFERENCE.md     # NetBird API endpoint documentation
 ├── LICENSE              # MIT/Apache dual license
-└── CLAUDE.md            # This file - AI assistant guide
+├── CLAUDE.md            # This file - AI assistant guide
+└── .claude/
+    └── commands/
+        └── api-docs.md  # Slash command for fetching API docs
 ```
 
 ### Module Responsibilities
@@ -1120,6 +1128,12 @@ When creating a PR:
 ---
 
 ## Resources & References
+
+### API Documentation
+- **Live API Docs:** https://docs.netbird.io/api (official, always up-to-date)
+- **Local API Reference:** `API_REFERENCE.md` (detailed endpoint guide with CLI mappings)
+- **Slash Command:** `/api-docs` (fetch specific API documentation on demand)
+- **OpenAPI Spec:** Available at `https://api.netbird.io/api/openapi.json`
 
 ### Official Documentation
 - **NetBird API Docs:** https://docs.netbird.io/api
