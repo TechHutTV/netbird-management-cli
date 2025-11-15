@@ -18,7 +18,12 @@ This document provides comprehensive guidance for AI assistants working on the N
 - NetBird Website: https://netbird.io/
 
 **Local API References:**
-- `API_REFERENCE.md` - Comprehensive endpoint documentation with examples
+- `API_REFERENCE.md` - Quick navigation and endpoint reference
+- `docs/api/` - Complete API documentation directory:
+  - `README.md` - Main documentation index
+  - `introduction.md` - API overview and getting started
+  - `guides/` - Authentication, quickstart, error handling guides
+  - `resources/` - Detailed documentation for all API endpoints
 - `.claude/commands/api-docs.md` - Slash command to fetch live API docs (use `/api-docs`)
 
 ---
@@ -40,9 +45,19 @@ netbird-management-cli/
 ├── policies.go          # Policy command handlers (83 lines)
 ├── go.mod               # Go module definition
 ├── README.md            # User-facing documentation
-├── API_REFERENCE.md     # NetBird API endpoint documentation
+├── API_REFERENCE.md     # Quick API navigation and reference
 ├── LICENSE              # MIT/Apache dual license
 ├── CLAUDE.md            # This file - AI assistant guide
+├── docs/
+│   └── api/             # Complete NetBird API documentation
+│       ├── README.md    # API documentation index
+│       ├── introduction.md
+│       ├── guides/
+│       │   ├── authentication.md
+│       │   ├── quickstart.md
+│       │   └── errors.md
+│       └── resources/   # Per-resource endpoint documentation
+│           └── README.md
 └── .claude/
     └── commands/
         └── api-docs.md  # Slash command for fetching API docs
@@ -1130,10 +1145,22 @@ When creating a PR:
 ## Resources & References
 
 ### API Documentation
+
+**Local Documentation:**
+- **API Documentation Hub:** `docs/api/README.md` (comprehensive documentation index)
+- **Quick Reference:** `API_REFERENCE.md` (quick navigation and CLI mappings)
+- **Introduction:** `docs/api/introduction.md` (API overview and getting started)
+- **Guides:**
+  - `docs/api/guides/authentication.md` - OAuth2 and PAT setup
+  - `docs/api/guides/quickstart.md` - Your first API request
+  - `docs/api/guides/errors.md` - Error handling and troubleshooting
+- **Resources:** `docs/api/resources/` (detailed per-endpoint documentation)
+- **Slash Command:** `/api-docs` (fetch live API documentation on demand)
+
+**External Resources:**
 - **Live API Docs:** https://docs.netbird.io/api (official, always up-to-date)
-- **Local API Reference:** `API_REFERENCE.md` (detailed endpoint guide with CLI mappings)
-- **Slash Command:** `/api-docs` (fetch specific API documentation on demand)
-- **OpenAPI Spec:** Available at `https://api.netbird.io/api/openapi.json`
+- **OpenAPI Spec:** https://api.netbird.io/api/openapi.json
+- **Source Documentation:** https://github.com/netbirdio/docs/tree/main/src/pages/ipa
 
 ### Official Documentation
 - **NetBird API Docs:** https://docs.netbird.io/api

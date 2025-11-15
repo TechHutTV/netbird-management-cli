@@ -1,380 +1,236 @@
-# NetBird API Reference
+# NetBird API Reference - Quick Navigation
 
-This document provides a quick reference for the NetBird Management API endpoints used by this CLI tool.
+This file provides quick-reference information for the NetBird Management API. For comprehensive documentation, see the `docs/api/` directory.
 
-**Base URL:** `https://api.netbird.io/api` (default cloud)
-**Authentication:** Bearer token via `Authorization: Token <token>` header
-**Documentation:** https://docs.netbird.io/api
+## 📚 Complete Documentation
 
----
+**Main Documentation:** [`docs/api/README.md`](docs/api/README.md)
 
-## Authentication
+### Getting Started
+- **[Introduction](docs/api/introduction.md)** - API overview and quick examples
+- **[Quickstart Guide](docs/api/guides/quickstart.md)** - Your first API request
+- **[Authentication](docs/api/guides/authentication.md)** - OAuth2 and PAT setup
+- **[Error Handling](docs/api/guides/errors.md)** - Understanding API responses
 
-### Headers Required
-```
-Authorization: Token <your-api-token>
-Accept: application/json
-Content-Type: application/json (for POST/PUT requests)
-```
-
-### Getting a Token
-1. Log into your NetBird dashboard
-2. Navigate to Settings → Access Tokens
-3. Create a Personal Access Token or Service User token
-4. Use with: `netbird-manage connect --token <token>`
+### API Resources
+- **[All Resources](docs/api/resources/README.md)** - Complete endpoint catalog
+- **Individual Resources:** See `docs/api/resources/` for detailed per-resource documentation
 
 ---
 
-## Accounts
+## Quick Reference
 
-### GET /accounts
-**Purpose:** Retrieve account information
-**Response:** Account details including ID, settings, and metadata
-**Used by:** N/A (not currently implemented in CLI)
+### Base URLs
+
+**Cloud (Default):**
+```
+https://api.netbird.io/api
+```
+
+**Self-Hosted:**
+```
+https://your-server.com/api
+```
+
+### Authentication
+
+```bash
+# Personal Access Token (Recommended for CLI)
+Authorization: Token <YOUR_PAT>
+
+# OAuth2 Bearer Token
+Authorization: Bearer <YOUR_TOKEN>
+```
 
 ---
 
-## Users
+## CLI Implementation Status
 
-### GET /users
-**Purpose:** List all users in the account
-**Response:** Array of user objects
-**Used by:** N/A (not currently implemented in CLI)
+### ✅ Implemented Endpoints
 
-### POST /users
-**Purpose:** Create a new user (invite)
-**Request Body:**
-```json
-{
-  "email": "user@example.com",
-  "name": "User Name",
-  "role": "user"
-}
-```
-**Used by:** N/A (planned feature)
+| Resource | CLI Command | API Endpoint | Implementation File |
+|----------|-------------|--------------|---------------------|
+| List Peers | `peer --list` | `GET /peers` | `peers.go:79` |
+| Inspect Peer | `peer --inspect <id>` | `GET /peers/{id}` | `peers.go:122` |
+| Remove Peer | `peer --remove <id>` | `DELETE /peers/{id}` | `peers.go:144` |
+| List Groups | `group` | `GET /groups` | `groups.go:49` |
+| Get Group | (internal) | `GET /groups/{id}` | `groups.go:80` |
+| Update Group | `peer --edit --add/remove-group` | `PUT /groups/{id}` | `groups.go:102` |
+| List Networks | `networks` | `GET /networks` | `networks.go:15` |
+| List Policies | `policy` | `GET /policies` | `policies.go:15` |
 
----
+### 📋 Planned Endpoints
 
-## Peers
+See [`docs/api/resources/README.md`](docs/api/resources/README.md) for full catalog of available endpoints.
 
-### GET /peers
-**Purpose:** List all peers in the network
-**Response:**
-```json
-[
-  {
-    "id": "peer-uuid",
-    "name": "peer-name",
-    "ip": "100.64.0.1",
-    "connected": true,
-    "last_seen": "2024-01-15T10:30:00Z",
-    "os": "linux",
-    "version": "0.24.0",
-    "groups": [
-      {"id": "group-uuid", "name": "group-name"}
-    ],
-    "hostname": "hostname"
-  }
-]
-```
-**Used by:** `netbird-manage peer --list`
-**Implementation:** `client.go:listPeers()`, `peers.go:handlePeersCommand()`
+**High Priority:**
+- Full CRUD for Groups (create, delete)
+- Full CRUD for Networks (create, update, delete)
+- Full CRUD for Policies (create, update, delete)
+- User Management (list, create, delete)
+- Setup Keys (create, list, delete)
 
-### GET /peers/{peerId}
-**Purpose:** Get detailed information for a specific peer
-**Response:** Single peer object (same structure as above)
-**Used by:** `netbird-manage peer --inspect <peer-id>`
-**Implementation:** `client.go:getPeerByID()`, `peers.go:inspectPeer()`
-
-### DELETE /peers/{peerId}
-**Purpose:** Remove a peer from the network
-**Response:** 200 OK on success
-**Used by:** `netbird-manage peer --remove <peer-id>`
-**Implementation:** `client.go:removePeerByID()`, `peers.go:handlePeersCommand()`
-
-**Note:** Peers cannot be directly updated via API. To modify peer groups, you must update the group membership instead.
+**See README.md** for complete feature roadmap.
 
 ---
 
-## Groups
+## Common API Patterns
 
-### GET /groups
-**Purpose:** List all groups
-**Response:**
-```json
-[
-  {
-    "id": "group-uuid",
-    "name": "group-name",
-    "peers_count": 5,
-    "resources_count": 2,
-    "issued": "api"
-  }
-]
+### Listing Resources
+
+```bash
+curl -X GET https://api.netbird.io/api/{resource} \
+  -H 'Authorization: Token <TOKEN>' \
+  -H 'Accept: application/json'
 ```
-**Used by:** `netbird-manage group`
-**Implementation:** `groups.go:listGroups()`
 
-### GET /groups/{groupId}
-**Purpose:** Get full group details including members
-**Response:**
-```json
-{
-  "id": "group-uuid",
-  "name": "group-name",
-  "peers_count": 5,
-  "resources_count": 2,
-  "issued": "api",
-  "peers": [
-    {
-      "id": "peer-uuid",
-      "name": "peer-name",
-      "ip": "100.64.0.1",
-      "connected": true,
-      "last_seen": "2024-01-15T10:30:00Z",
-      "os": "linux",
-      "version": "0.24.0",
-      "groups": [],
-      "hostname": "hostname"
-    }
-  ],
-  "resources": [
-    {
-      "id": "resource-uuid",
-      "type": "host"
-    }
-  ]
-}
+**Example: List Peers**
+```bash
+curl -X GET https://api.netbird.io/api/peers \
+  -H 'Authorization: Token nb_pat_abc123' \
+  -H 'Accept: application/json'
 ```
-**Used by:** `netbird-manage peer --edit <id> --add-group <name>`
-**Implementation:** `groups.go:getGroupByID()`, `groups.go:getGroupByName()`
 
-### PUT /groups/{groupId}
-**Purpose:** Update group (modify members or resources)
-**Request Body:**
-```json
-{
-  "name": "group-name",
-  "peers": ["peer-uuid-1", "peer-uuid-2"],
-  "resources": [
-    {
-      "id": "resource-uuid",
-      "type": "host"
-    }
-  ]
-}
+### Creating Resources
+
+```bash
+curl -X POST https://api.netbird.io/api/{resource} \
+  -H 'Authorization: Token <TOKEN>' \
+  -H 'Content-Type: application/json' \
+  -d '{ "key": "value" }'
 ```
-**Response:** Updated group object
-**Used by:** `netbird-manage peer --edit <id> --add-group <name>`, `--remove-group <name>`
-**Implementation:** `groups.go:updateGroup()`, `peers.go:modifyPeerGroup()`
 
-**Important:** PUT requires the complete group object. To add/remove a peer:
-1. GET /groups/{groupId} to fetch current state
-2. Modify the peers array
-3. PUT /groups/{groupId} with updated data
-
-### POST /groups
-**Purpose:** Create a new group
-**Request Body:**
-```json
-{
-  "name": "new-group-name",
-  "peers": [],
-  "resources": []
-}
+**Example: Create Group**
+```bash
+curl -X POST https://api.netbird.io/api/groups \
+  -H 'Authorization: Token nb_pat_abc123' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "developers",
+    "peers": [],
+    "resources": []
+  }'
 ```
-**Used by:** N/A (planned feature)
 
-### DELETE /groups/{groupId}
-**Purpose:** Delete a group
-**Response:** 200 OK on success
-**Used by:** N/A (planned feature)
+### Updating Resources
+
+**Important:** PUT requires the complete object. To modify a resource:
+1. GET the current state
+2. Modify the data
+3. PUT the complete updated object
+
+**Example: Add Peer to Group**
+```bash
+# Step 1: Get current group state
+curl -X GET https://api.netbird.io/api/groups/group-id \
+  -H 'Authorization: Token <TOKEN>'
+
+# Step 2: Modify peer list locally (add new peer ID)
+
+# Step 3: Send complete updated group
+curl -X PUT https://api.netbird.io/api/groups/group-id \
+  -H 'Authorization: Token <TOKEN>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "developers",
+    "peers": ["peer-1", "peer-2", "new-peer-3"],
+    "resources": []
+  }'
+```
+
+See `peers.go:modifyPeerGroup()` for implementation example.
+
+### Deleting Resources
+
+```bash
+curl -X DELETE https://api.netbird.io/api/{resource}/{id} \
+  -H 'Authorization: Token <TOKEN>'
+```
+
+**Example: Delete Peer**
+```bash
+curl -X DELETE https://api.netbird.io/api/peers/peer-id \
+  -H 'Authorization: Token nb_pat_abc123'
+```
 
 ---
 
-## Networks
+## Quick Endpoint Reference
 
-### GET /networks
-**Purpose:** List all networks
-**Response:**
-```json
-[
-  {
-    "id": "network-uuid",
-    "name": "network-name",
-    "description": "Network description",
-    "routers": ["peer-uuid-1", "peer-uuid-2"],
-    "routing_peers_count": 2,
-    "resources": ["resource-uuid"],
-    "policies": ["policy-uuid"]
-  }
-]
-```
-**Used by:** `netbird-manage networks`
-**Implementation:** `networks.go:listNetworks()`
+### Peers
 
-### GET /networks/{networkId}
-**Purpose:** Get detailed network information
-**Response:** Single network object
-**Used by:** N/A (not currently implemented)
+| Method | Endpoint | Purpose | CLI Support |
+|--------|----------|---------|-------------|
+| GET | `/peers` | List all peers | ✅ `peer --list` |
+| GET | `/peers/{id}` | Get peer details | ✅ `peer --inspect` |
+| PUT | `/peers/{id}` | Update peer settings | ❌ Not implemented |
+| DELETE | `/peers/{id}` | Remove peer | ✅ `peer --remove` |
+| GET | `/peers/{id}/accessible-peers` | List accessible peers | ❌ Not implemented |
 
-### POST /networks
-**Purpose:** Create a new network
-**Request Body:**
-```json
-{
-  "name": "network-name",
-  "description": "Description",
-  "routers": [],
-  "resources": []
-}
-```
-**Used by:** N/A (planned feature)
+**Docs:** [`docs/api/resources/peers.md`](docs/api/resources/peers.md)
 
-### PUT /networks/{networkId}
-**Purpose:** Update network configuration
-**Used by:** N/A (planned feature)
+### Groups
 
-### DELETE /networks/{networkId}
-**Purpose:** Delete a network
-**Used by:** N/A (planned feature)
+| Method | Endpoint | Purpose | CLI Support |
+|--------|----------|---------|-------------|
+| GET | `/groups` | List all groups | ✅ `group` |
+| POST | `/groups` | Create group | ❌ Planned |
+| GET | `/groups/{id}` | Get group details | ✅ Internal |
+| PUT | `/groups/{id}` | Update group | ✅ `peer --edit --add/remove-group` |
+| DELETE | `/groups/{id}` | Delete group | ❌ Planned |
 
----
+**Docs:** [`docs/api/resources/groups.md`](docs/api/resources/groups.md)
 
-## Policies
+### Networks
 
-### GET /policies
-**Purpose:** List all access control policies
-**Response:**
-```json
-[
-  {
-    "id": "policy-uuid",
-    "name": "policy-name",
-    "description": "Policy description",
-    "enabled": true,
-    "rules": [
-      {
-        "id": "rule-uuid",
-        "name": "rule-name",
-        "enabled": true,
-        "action": "accept",
-        "protocol": "tcp",
-        "sources": [
-          {"id": "group-uuid", "name": "source-group"}
-        ],
-        "destinations": [
-          {"id": "group-uuid", "name": "dest-group"}
-        ]
-      }
-    ]
-  }
-]
-```
-**Used by:** `netbird-manage policy`
-**Implementation:** `policies.go:listPolicies()`
+| Method | Endpoint | Purpose | CLI Support |
+|--------|----------|---------|-------------|
+| GET | `/networks` | List all networks | ✅ `networks` |
+| POST | `/networks` | Create network | ❌ Planned |
+| GET | `/networks/{id}` | Get network details | ❌ Planned |
+| PUT | `/networks/{id}` | Update network | ❌ Planned |
+| DELETE | `/networks/{id}` | Delete network | ❌ Planned |
 
-**Rule Actions:**
-- `accept` - Allow traffic
-- `drop` - Block traffic
+Plus 7 additional endpoints for network resources and routers.
 
-**Protocols:** `tcp`, `udp`, `icmp`, `all`
+**Docs:** [`docs/api/resources/networks.md`](docs/api/resources/networks.md)
 
-### GET /policies/{policyId}
-**Purpose:** Get detailed policy information
-**Response:** Single policy object
-**Used by:** N/A (not currently implemented)
+### Policies
 
-### POST /policies
-**Purpose:** Create a new policy
-**Request Body:**
-```json
-{
-  "name": "policy-name",
-  "description": "Description",
-  "enabled": true,
-  "rules": [
-    {
-      "name": "rule-name",
-      "enabled": true,
-      "action": "accept",
-      "protocol": "tcp",
-      "sources": ["group-uuid"],
-      "destinations": ["group-uuid"]
-    }
-  ]
-}
-```
-**Used by:** N/A (planned feature)
+| Method | Endpoint | Purpose | CLI Support |
+|--------|----------|---------|-------------|
+| GET | `/policies` | List all policies | ✅ `policy` |
+| POST | `/policies` | Create policy | ❌ Planned |
+| GET | `/policies/{id}` | Get policy details | ❌ Planned |
+| PUT | `/policies/{id}` | Update policy | ❌ Planned |
+| DELETE | `/policies/{id}` | Delete policy | ❌ Planned |
 
-### PUT /policies/{policyId}
-**Purpose:** Update policy configuration
-**Used by:** N/A (planned feature)
+**Docs:** [`docs/api/resources/policies.md`](docs/api/resources/policies.md)
 
-### DELETE /policies/{policyId}
-**Purpose:** Delete a policy
-**Used by:** N/A (planned feature)
+### Users
 
----
+| Method | Endpoint | Purpose | CLI Support |
+|--------|----------|---------|-------------|
+| GET | `/users` | List all users | ❌ Planned |
+| POST | `/users` | Create/invite user | ❌ Planned |
+| PUT | `/users/{id}` | Update user | ❌ Planned |
+| DELETE | `/users/{id}` | Delete user | ❌ Planned |
+| POST | `/users/{id}/invite` | Resend invitation | ❌ Planned |
+| GET | `/users/current` | Get current user | ❌ Planned |
 
-## Setup Keys
+**Docs:** [`docs/api/resources/users.md`](docs/api/resources/users.md)
 
-### GET /setup-keys
-**Purpose:** List all setup keys for device onboarding
-**Response:** Array of setup key objects
-**Used by:** N/A (not currently implemented)
+### Other Resources
 
-### POST /setup-keys
-**Purpose:** Create a new setup key
-**Request Body:**
-```json
-{
-  "name": "key-name",
-  "type": "reusable",
-  "expires_in": 86400,
-  "auto_groups": ["group-uuid"]
-}
-```
-**Used by:** N/A (planned feature)
-
----
-
-## DNS
-
-### GET /dns/nameservers
-**Purpose:** List DNS nameserver groups
-**Response:** Array of nameserver group objects
-**Used by:** N/A (not currently implemented)
-
-### GET /dns/settings
-**Purpose:** Get DNS settings
-**Response:** DNS configuration object
-**Used by:** N/A (not currently implemented)
-
----
-
-## Events
-
-### GET /events
-**Purpose:** Retrieve audit logs and activity records
-**Query Parameters:**
-- `?limit=100` - Limit number of results
-- `?offset=0` - Pagination offset
-**Response:** Array of event objects
-**Used by:** N/A (not currently implemented)
-
----
-
-## Posture Checks
-
-### GET /posture-checks
-**Purpose:** List device compliance checks
-**Response:** Array of posture check objects
-**Used by:** N/A (not currently implemented)
-
-### POST /posture-checks
-**Purpose:** Create a new posture check
-**Used by:** N/A (planned feature)
+- **Tokens:** [`docs/api/resources/tokens.md`](docs/api/resources/tokens.md)
+- **Accounts:** [`docs/api/resources/accounts.md`](docs/api/resources/accounts.md)
+- **DNS:** [`docs/api/resources/dns.md`](docs/api/resources/dns.md)
+- **Routes:** [`docs/api/resources/routes.md`](docs/api/resources/routes.md)
+- **Setup Keys:** [`docs/api/resources/setup-keys.md`](docs/api/resources/setup-keys.md)
+- **Posture Checks:** [`docs/api/resources/posture-checks.md`](docs/api/resources/posture-checks.md)
+- **Events:** [`docs/api/resources/events.md`](docs/api/resources/events.md)
+- **Geo-Locations:** [`docs/api/resources/geo-locations.md`](docs/api/resources/geo-locations.md)
+- **Ingress Ports:** [`docs/api/resources/ingress-ports.md`](docs/api/resources/ingress-ports.md) (Cloud only)
 
 ---
 
@@ -382,163 +238,90 @@ Content-Type: application/json (for POST/PUT requests)
 
 All endpoints may return these error codes:
 
-### 400 Bad Request
-```json
-{
-  "message": "Invalid request parameters",
-  "code": 400
-}
-```
+| Code | Status | Common Cause | Solution |
+|------|--------|--------------|----------|
+| 400 | Bad Request | Invalid parameters | Check request body and required fields |
+| 401 | Unauthorized | Invalid token | Verify token is correct and not expired |
+| 403 | Forbidden | Insufficient permissions | Check user has required permissions |
+| 404 | Not Found | Resource doesn't exist | Verify resource ID is correct |
+| 429 | Too Many Requests | Rate limit exceeded | Implement backoff and retry |
+| 500 | Internal Server Error | Server error | Retry request, contact support if persistent |
 
-### 401 Unauthorized
-```json
-{
-  "message": "Invalid or missing authentication token",
-  "code": 401
-}
-```
-
-### 403 Forbidden
-```json
-{
-  "message": "Insufficient permissions",
-  "code": 403
-}
-```
-
-### 404 Not Found
-```json
-{
-  "message": "Resource not found",
-  "code": 404
-}
-```
-
-### 500 Internal Server Error
-```json
-{
-  "message": "Internal server error",
-  "code": 500
-}
-```
+**Detailed Error Guide:** [`docs/api/guides/errors.md`](docs/api/guides/errors.md)
 
 ---
 
-## Rate Limiting
+## Configuration
 
-The NetBird API implements rate limiting to prevent abuse. If you exceed the rate limit, you'll receive a 429 Too Many Requests response.
-
-**Best Practices:**
-- Implement exponential backoff for retries
-- Cache responses when appropriate
-- Batch operations when possible
-
----
-
-## API Versioning
-
-The current API version is included in the base URL. Breaking changes will be released under a new version path.
-
-**Current Version:** v1 (implicit in `/api` path)
-
----
-
-## Common Patterns
-
-### Adding a Peer to a Group
-
-This is the most common operation in the CLI. The pattern is:
-
-1. **Fetch the group details:**
-   ```
-   GET /groups/{groupId}
-   ```
-
-2. **Modify the peers array:**
-   ```go
-   newPeers := append(group.Peers, newPeerID)
-   ```
-
-3. **Update the group:**
-   ```
-   PUT /groups/{groupId}
-   {
-     "name": "group-name",
-     "peers": ["peer-1", "peer-2", "new-peer"],
-     "resources": [...]
-   }
-   ```
-
-**Implementation Reference:** `peers.go:modifyPeerGroup()`
-
-### Removing a Peer from a Group
-
-Same as above, but filter out the peer ID from the array:
-
-```go
-var newPeers []string
-for _, p := range group.Peers {
-    if p.ID != peerToRemove {
-        newPeers = append(newPeers, p.ID)
-    }
-}
-```
-
-**Implementation Reference:** `peers.go:modifyPeerGroup()`
-
----
-
-## Self-Hosted API URL
-
-For self-hosted NetBird instances, use the `--management-url` flag:
+### Environment Variables
 
 ```bash
-netbird-manage connect --token <token> --management-url https://your-server.com/api
+# Store token securely
+export NETBIRD_TOKEN="nb_pat_your_token_here"
+
+# Use in CLI
+netbird-manage connect --token "$NETBIRD_TOKEN"
 ```
 
-The management URL should point to your NetBird management server's API endpoint.
+### Config File
+
+**Location:** `$HOME/.netbird-manage.json`
+
+**Format:**
+```json
+{
+  "token": "nb_pat_your_token_here",
+  "management_url": "https://api.netbird.io/api"
+}
+```
+
+**Permissions:** `0600` (owner read/write only)
 
 ---
 
-## Authentication Flow
+## For AI Assistants
 
-1. **User generates token** in NetBird dashboard
-2. **User connects:** `netbird-manage connect --token <token>`
-3. **CLI validates token:** Makes test request to `GET /peers`
-4. **CLI saves config:** Stores token in `~/.netbird-manage.json` with `0600` permissions
-5. **Subsequent requests:** Load token from config, add to `Authorization` header
+When working on this codebase:
 
-**Implementation Reference:** `config.go:testAndSaveConfig()`, `client.go:makeRequest()`
+1. **Comprehensive docs:** Start with [`docs/api/README.md`](docs/api/README.md)
+2. **Implementation patterns:** See `CLAUDE.md` for code conventions
+3. **API endpoint details:** Reference specific files in `docs/api/resources/`
+4. **Examples:** All guides include working code examples
+
+### CLI → API Mapping
+
+```go
+// peers.go
+client.listPeers()       → GET /peers
+client.getPeerByID(id)   → GET /peers/{id}
+client.removePeerByID(id)→ DELETE /peers/{id}
+
+// groups.go
+client.listGroups()         → GET /groups
+client.getGroupByID(id)     → GET /groups/{id}
+client.getGroupByName(name) → GET /groups + filter
+client.updateGroup(id, req) → PUT /groups/{id}
+
+// networks.go
+client.listNetworks()    → GET /networks
+
+// policies.go
+client.listPolicies()    → GET /policies
+```
 
 ---
 
-## Future API Endpoints (Planned)
+## External Resources
 
-The following endpoints exist in the NetBird API but are not yet implemented in this CLI:
-
-- [ ] Full CRUD for Groups (create, delete)
-- [ ] Full CRUD for Networks (create, update, delete)
-- [ ] Full CRUD for Policies (create, update, delete)
-- [ ] User Management (invite, remove, update roles)
-- [ ] Setup Keys (create, list, delete)
-- [ ] Routes (create, update, delete)
-- [ ] DNS Management (nameservers, settings)
-- [ ] Events/Audit Logs (list, filter)
-- [ ] Posture Checks (create, update, delete)
-
-See `README.md` for the full roadmap.
-
----
-
-## Additional Resources
-
-- **Official API Documentation:** https://docs.netbird.io/api
+- **Official API Docs:** https://docs.netbird.io/api
+- **OpenAPI Spec:** https://api.netbird.io/api/openapi.json
 - **NetBird GitHub:** https://github.com/netbirdio/netbird
-- **NetBird Website:** https://netbird.io/
-- **OpenAPI Spec:** Available at your management server `/api/openapi.json`
+- **Source Docs:** https://github.com/netbirdio/docs/tree/main/src/pages/ipa
 
 ---
 
 **Last Updated:** 2025-11-15
-**API Version:** v1
-**CLI Version:** Corresponds to codebase at commit 5033e93
+**API Version:** v1 (Beta)
+**CLI Version:** netbird-manage v0.1
+
+For detailed documentation, explore the [`docs/api/`](docs/api/) directory.
