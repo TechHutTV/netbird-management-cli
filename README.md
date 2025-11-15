@@ -81,10 +81,57 @@ netbird-manage peer --accessible-peers d3mjakrl0ubs738ajj00
 ### Group
 
 Manage peer groups. Running netbird-manage group by itself will display the help menu.
+
+#### Query Operations
 ```
-netbird-manage group             View the help page
-  group [flags]                  Management of groups
-    --list                       List all groups in your network
+netbird-manage group --list                    List all groups in your network
+  --filter-name <pattern>                      Filter by name (supports wildcards: prod-*)
+
+netbird-manage group --inspect <group-id>      View detailed information for a specific group
+```
+
+#### Modification Operations
+```
+netbird-manage group --create <group-name>     Create a new group
+  --peers <id1,id2,...>                        (Optional) Add peers on creation
+
+netbird-manage group --delete <group-id>       Delete a group
+
+netbird-manage group --rename <group-id>       Rename a group
+  --new-name <new-name>                        New name for the group
+
+netbird-manage group --add-peers <group-id>    Add multiple peers to a group
+  --peers <id1,id2,...>                        Comma-separated peer IDs
+
+netbird-manage group --remove-peers <group-id> Remove multiple peers from a group
+  --peers <id1,id2,...>                        Comma-separated peer IDs
+```
+
+**Examples:**
+```bash
+# Create a new group
+netbird-manage group --create "Production-Servers"
+
+# Create a group with initial peers
+netbird-manage group --create "Dev-Team" --peers "peer-id-1,peer-id-2,peer-id-3"
+
+# List all groups containing "prod" in the name
+netbird-manage group --list --filter-name "prod*"
+
+# Inspect a specific group
+netbird-manage group --inspect d2l17grl0ubs73bh4vpg
+
+# Rename a group
+netbird-manage group --rename d2l17grl0ubs73bh4vpg --new-name "Production"
+
+# Add multiple peers to a group at once
+netbird-manage group --add-peers d2l17grl0ubs73bh4vpg --peers "peer1,peer2,peer3"
+
+# Remove peers from a group
+netbird-manage group --remove-peers d2l17grl0ubs73bh4vpg --peers "peer1,peer2"
+
+# Delete a group
+netbird-manage group --delete d2l17grl0ubs73bh4vpg
 ```
 
 ### Network

@@ -61,8 +61,25 @@ func printPeerUsage() {
 func printGroupUsage() {
 	fmt.Println("Usage: netbird-manage group <flag> [arguments]")
 	fmt.Println("\nManage network groups.")
-	fmt.Println("\nFlags:")
-	fmt.Println("  --list                       List all groups")
+	fmt.Println("\nQuery Flags:")
+	fmt.Println("  --list                           List all groups")
+	fmt.Println("    --filter-name <pattern>        Filter by name (supports wildcards: prod-*)")
+	fmt.Println("  --inspect <group-id>             Inspect a specific group")
+	fmt.Println()
+	fmt.Println("Modification Flags:")
+	fmt.Println("  --create <group-name>            Create a new group")
+	fmt.Println("    --peers <id1,id2,...>          (Optional) Add peers on creation")
+	fmt.Println()
+	fmt.Println("  --delete <group-id>              Delete a group")
+	fmt.Println()
+	fmt.Println("  --rename <group-id>              Rename a group")
+	fmt.Println("    --new-name <new-name>          New name for the group (required)")
+	fmt.Println()
+	fmt.Println("  --add-peers <group-id>           Add peers to a group (bulk)")
+	fmt.Println("    --peers <id1,id2,...>          Comma-separated peer IDs (required)")
+	fmt.Println()
+	fmt.Println("  --remove-peers <group-id>        Remove peers from a group (bulk)")
+	fmt.Println("    --peers <id1,id2,...>          Comma-separated peer IDs (required)")
 }
 
 // printNetworkUsage provides specific help for the 'network' command
@@ -151,4 +168,23 @@ func matchesPattern(str, pattern string) bool {
 	}
 
 	return true
+}
+
+// splitCommaList splits a comma-separated string into a slice of trimmed strings
+func splitCommaList(input string) []string {
+	if input == "" {
+		return []string{}
+	}
+
+	parts := strings.Split(input, ",")
+	result := make([]string, 0, len(parts))
+
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+
+	return result
 }
