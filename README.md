@@ -292,26 +292,148 @@ netbird-manage network --remove-router \
 
 ### Policy
 
-Manage access control policies. Running netbird-manage policy by itself will display the help menu.
+Manage access control policies and firewall rules. Running `netbird-manage policy` by itself will display the help menu.
+
+#### Query Operations
+```bash
+# List all policies
+netbird-manage policy --list
+
+# List only enabled policies
+netbird-manage policy --list --enabled
+
+# List only disabled policies
+netbird-manage policy --list --disabled
+
+# Filter policies by name
+netbird-manage policy --list --name "dev"
+
+# Inspect a specific policy (shows detailed rule information)
+netbird-manage policy --inspect <policy-id>
 ```
-netbird-manage policy            View the help page
-  policy [flags]                 Management of policies
-    --list                       List all access control policies and their rules
+
+#### Policy Management
+```bash
+# Create a new policy
+netbird-manage policy --create "dev-access" --description "Developer access policy"
+
+# Create a disabled policy
+netbird-manage policy --create "staging-policy" --description "Staging access" --active false
+
+# Enable a policy
+netbird-manage policy --enable <policy-id>
+
+# Disable a policy
+netbird-manage policy --disable <policy-id>
+
+# Delete a policy
+netbird-manage policy --delete <policy-id>
 ```
+
+#### Rule Management
+
+Add, edit, and remove rules within policies to control network traffic.
+
+##### Add Rules
+```bash
+# Add a rule allowing TCP traffic on specific ports
+netbird-manage policy --add-rule "web-access" \
+  --policy-id <policy-id> \
+  --action accept \
+  --protocol tcp \
+  --sources "developers,qa-team" \
+  --destinations "web-servers" \
+  --ports "80,443" \
+  --bidirectional
+
+# Add a rule with port range
+netbird-manage policy --add-rule "app-ports" \
+  --policy-id <policy-id> \
+  --protocol tcp \
+  --sources "app-servers" \
+  --destinations "database" \
+  --port-range "6000-6100"
+
+# Add a rule blocking all ICMP traffic
+netbird-manage policy --add-rule "block-ping" \
+  --policy-id <policy-id> \
+  --action drop \
+  --protocol icmp \
+  --sources "external-network" \
+  --destinations "internal-servers"
+
+# Add a rule with description
+netbird-manage policy --add-rule "ssh-access" \
+  --policy-id <policy-id> \
+  --protocol tcp \
+  --sources "admins" \
+  --destinations "all-servers" \
+  --ports "22" \
+  --rule-description "Allow SSH access for administrators"
+```
+
+##### Edit Rules
+```bash
+# Update ports on an existing rule
+netbird-manage policy --edit-rule "web-access" \
+  --policy-id <policy-id> \
+  --ports "80,443,8443"
+
+# Change rule action from accept to drop
+netbird-manage policy --edit-rule "web-access" \
+  --policy-id <policy-id> \
+  --action drop
+
+# Update source and destination groups
+netbird-manage policy --edit-rule "web-access" \
+  --policy-id <policy-id> \
+  --sources "developers" \
+  --destinations "web-servers,api-servers"
+
+# Rename a rule
+netbird-manage policy --edit-rule "old-rule-name" \
+  --policy-id <policy-id> \
+  --rule-name "new-rule-name"
+```
+
+##### Remove Rules
+```bash
+# Remove a rule by name
+netbird-manage policy --remove-rule "web-access" --policy-id <policy-id>
+
+# Remove a rule by ID
+netbird-manage policy --remove-rule <rule-id> --policy-id <policy-id>
+```
+
+**Rule Configuration Options:**
+- **`--action`**: `accept` or `drop` (default: accept)
+- **`--protocol`**: `tcp`, `udp`, `icmp`, or `all` (default: all)
+- **`--sources`**: Comma-separated group names or IDs
+- **`--destinations`**: Comma-separated group names or IDs
+- **`--ports`**: Comma-separated port list (e.g., `80,443,8080`)
+- **`--port-range`**: Port range (e.g., `6000-6100`)
+- **`--bidirectional`**: Apply rule in both directions (flag)
+- **`--rule-description`**: Rule description text
+- **`--rule-enabled`**: Enable/disable the rule (default: true)
+
+**Note:**
+- Group names are automatically resolved to IDs, so you can use friendly names
+- Rules can be identified by either name or ID for editing/removal
+- Bidirectional rules apply the same action in both source→destination and destination→source directions
 
 ## 🚀 Future Plans
 
 This tool is in active development. The goal is to build a comprehensive and easy-to-use CLI for all NetBird management tasks.
 
-* **Full API Coverage:** Implement the entire NetBird API, including:  
-  * Full CRUD (Create, Read, Update, Delete) for **Groups**.  
-  * Full CRUD for **Networks** and **Network Resources**.  
-  * Full CRUD for **Policies** and **Rules**.  
-  * Full **User Management** (invite, remove, update roles).  
-  * Management for **Setup Keys**, **Routes**, and **DNS**.  
-* **YAML-based Policy Management:**  
-  * Add netbird-manage policy export \> my-policies.yml to save all policies to a file.  
-  * Add netbird-manage policy apply \-f my-policies.yml to apply policy changes from a YAML file, enabling GitOps workflows.  
-* **Interactive CLI Features:**  
-  * Implement interactive prompts for complex operations (e.g., netbird-manage peer \--remove \<id\> asking for confirmation).  
-  * Use interactive selectors (like [bubbletea](https://github.com/charmbracelet/bubbletea)) for picking peers or groups from a list.
+* **Full API Coverage:** Implement the entire NetBird API, including:
+  * ✅ Full CRUD (Create, Read, Update, Delete) for **Groups** - **COMPLETE**
+  * ✅ Full CRUD for **Networks** and **Network Resources** - **COMPLETE**
+  * ✅ Full CRUD for **Policies** and **Rules** - **COMPLETE**
+  * Full **User Management** (invite, remove, update roles)
+  * Management for **Setup Keys**, **Routes**, and **DNS**
+* **YAML-based Policy Management:**
+  * Add `netbird-manage policy export > my-policies.yml` to save all policies to a file
+  * Add `netbird-manage policy apply -f my-policies.yml` to apply policy changes from a YAML file, enabling GitOps workflows
+* **Interactive CLI Features:**
+  * Implement interactive prompts for complex operations (e.g., `netbird-manage peer --remove <id>` asking for confirmation)
+  * Use interactive selectors (like [bubbletea](https://github.com/charmbracelet/bubbletea)) for picking peers or groups from a list
