@@ -73,8 +73,13 @@ func handleSetupKeysCommand(client *Client, args []string) error {
 		if err != nil {
 			return fmt.Errorf("invalid expiration duration: %v", err)
 		}
-		autoGroups := splitCommaList(*autoGroupsFlag)
-		return client.createSetupKey(*createFlag, *keyTypeFlag, expiresInSec, autoGroups, *usageLimitFlag, *ephemeralFlag, *allowExtraDNSLabelsFlag)
+		// Resolve group names/IDs to IDs
+		groupIdentifiers := splitCommaList(*autoGroupsFlag)
+		autoGroupIDs, err := client.resolveMultipleGroupIdentifiers(groupIdentifiers)
+		if err != nil {
+			return fmt.Errorf("failed to resolve auto-groups: %v", err)
+		}
+		return client.createSetupKey(*createFlag, *keyTypeFlag, expiresInSec, autoGroupIDs, *usageLimitFlag, *ephemeralFlag, *allowExtraDNSLabelsFlag)
 	}
 
 	if *quickFlag != "" {
@@ -94,8 +99,13 @@ func handleSetupKeysCommand(client *Client, args []string) error {
 		if *groupsFlag == "" {
 			return fmt.Errorf("flag --update-groups requires --groups")
 		}
-		newGroups := splitCommaList(*groupsFlag)
-		return client.updateSetupKeyGroups(*updateGroupsFlag, newGroups)
+		// Resolve group names/IDs to IDs
+		groupIdentifiers := splitCommaList(*groupsFlag)
+		newGroupIDs, err := client.resolveMultipleGroupIdentifiers(groupIdentifiers)
+		if err != nil {
+			return fmt.Errorf("failed to resolve groups: %v", err)
+		}
+		return client.updateSetupKeyGroups(*updateGroupsFlag, newGroupIDs)
 	}
 
 	if *deleteFlag != "" {

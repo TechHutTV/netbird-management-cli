@@ -302,29 +302,35 @@ func (c *Client) inspectPeer(peerID string) error {
 
 // modifyPeerGroup adds or removes a peer from a group.
 // This is an "edit group" operation under the hood.
-func (c *Client) modifyPeerGroup(peerID, groupID, action string) error {
-	// If no group ID is provided, list available groups
-	if groupID == "" {
-		fmt.Println("Error: No group ID specified.")
+func (c *Client) modifyPeerGroup(peerID, groupIdentifier, action string) error {
+	// If no group identifier is provided, list available groups
+	if groupIdentifier == "" {
+		fmt.Println("Error: No group identifier specified.")
 		fmt.Println("Listing available groups:")
 		if err := c.listGroups(""); err != nil {
 			fmt.Fprintf(os.Stderr, "Could not list groups: %v\n", err)
 		}
-		return fmt.Errorf("missing <group-id> argument for --add-group or --remove-group")
+		return fmt.Errorf("missing <group-id> or <group-name> argument for --add-group or --remove-group")
 	}
 
-	// 1. Get the Group's full details by ID
+	// 1. Resolve group identifier (could be ID or name) to ID
+	groupID, err := c.resolveGroupIdentifier(groupIdentifier)
+	if err != nil {
+		return err
+	}
+
+	// 2. Get the Group's full details by ID
 	group, err := c.getGroupByID(groupID)
 	if err != nil {
 		return err
 	}
 
-	// 2. Check if peer exists (and is valid)
+	// 3. Check if peer exists (and is valid)
 	if _, err := c.getPeerByID(peerID); err != nil {
 		return fmt.Errorf("failed to verify peer: %v", err)
 	}
 
-	// 3. Prepare the new list of peer IDs
+	// 4. Prepare the new list of peer IDs
 	var newPeerIDs []string
 	peerFound := false
 	for _, p := range group.Peers {
@@ -350,20 +356,20 @@ func (c *Client) modifyPeerGroup(peerID, groupID, action string) error {
 		return nil
 	}
 
-	// 4. Prepare the list of resources (must be included in the PUT request)
+	// 5. Prepare the list of resources (must be included in the PUT request)
 	var resources []GroupResourcePutRequest
 	for _, r := range group.Resources {
 		resources = append(resources, GroupResourcePutRequest{ID: r.ID, Type: r.Type})
 	}
 
-	// 5. Create the PUT request body
+	// 6. Create the PUT request body
 	reqBody := GroupPutRequest{
 		Name:      group.Name,
 		Peers:     newPeerIDs,
 		Resources: resources,
 	}
 
-	// 6. Send the PUT request to update the group
+	// 7. Send the PUT request to update the group
 	if action == "add" {
 		fmt.Printf("Adding peer %s to group %s (%s)...\n", peerID, group.Name, group.ID)
 	} else {
