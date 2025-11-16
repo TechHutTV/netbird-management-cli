@@ -911,29 +911,36 @@ This section tracks the implementation status of CLI features and planned enhanc
   - **Implementation File:** `tokens.go`
 
 **Project Status:**
-- **API Coverage:** 7/14 resource types fully implemented (50%)
+- **API Coverage:** 10/14 resource types fully implemented (71%)
 - **Zero External Dependencies** - Pure Go stdlib implementation maintained
 - **Phase 1 Complete:** All high-priority user and access management features implemented
+- **Phase 2 Complete:** Network services including routing, DNS, and posture checks
+
+**Network Services (Phase 2 - COMPLETED):**
+- ✅ **Routes** - Network routing configuration (5 API endpoints)
+  - Define custom network routes, manage priorities, configure routing peers
+  - Support for single peer or peer groups as routers
+  - Metric-based priority control (1-9999, lower = higher priority)
+  - Masquerading/NAT support for outbound traffic
+  - **Implementation File:** `routes.go`
+
+- ✅ **DNS** - DNS nameserver groups (6 API endpoints)
+  - Create DNS nameserver groups, configure settings, manage domains
+  - Domain-specific matching with wildcard support
+  - Primary DNS group designation
+  - Search domains configuration
+  - Account-level DNS settings management
+  - **Implementation File:** `dns.go`
+
+**Security & Compliance (Phase 2 - COMPLETED):**
+- ✅ **Posture Checks** - Device compliance validation (5 API endpoints)
+  - Define compliance requirements (OS version, geolocation, network ranges, processes, NetBird version)
+  - Enforce zero-trust security policies on peer groups
+  - 5 check types: nb-version, os-version, geo-location, network-range, process
+  - Platform-specific configuration for cross-platform support
+  - **Implementation File:** `posture-checks.go`
 
 #### 📋 Planned Features
-
-**Network Services:**
-- ❌ **Routes** - Network routing configuration (5 API endpoints available)
-  - Define custom network routes, manage priorities, configure routing peers
-  - **Implementation File:** `routes.go` (to be created)
-  - **API Docs:** `docs/api/resources/routes.md`
-
-- ❌ **DNS** - DNS nameserver groups (6 API endpoints available)
-  - Create DNS nameserver groups, configure settings, manage domains
-  - **Implementation File:** `dns.go` (to be created)
-  - **API Docs:** `docs/api/resources/dns.md`
-
-**Security & Compliance:**
-- ❌ **Posture Checks** - Device compliance validation (5 API endpoints available)
-  - Define compliance requirements (OS version, geolocation, etc.)
-  - Enforce zero-trust security policies on peer groups
-  - **Implementation File:** `posture-checks.go` (to be created)
-  - **API Docs:** `docs/api/resources/posture-checks.md`
 
 **Monitoring & Analytics:**
 - ❌ **Events** - Audit logs and activity monitoring (2 API endpoints available)
@@ -1028,10 +1035,10 @@ This section tracks the implementation status of CLI features and planned enhanc
 2. ✅ Users management (critical for team management)
 3. ✅ Tokens management (security and access control)
 
-**Phase 2: Network Services (High Priority - NEXT)**
-4. Routes management
-5. DNS configuration
-6. Posture Checks (security enhancement)
+**✅ Phase 2: Network Services (COMPLETED)**
+4. ✅ Routes management (network routing with metrics and masquerading)
+5. ✅ DNS configuration (nameserver groups with domain matching)
+6. ✅ Posture Checks (5 check types for zero-trust security)
 
 **Phase 3: Observability (Medium Priority)**
 7. Events/Audit logs

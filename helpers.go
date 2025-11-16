@@ -43,6 +43,12 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("  token ...                     Manage personal access tokens (run 'netbird-manage token' for options)")
 	fmt.Println()
+	fmt.Println("  route ...                     Manage network routes (run 'netbird-manage route' for options)")
+	fmt.Println()
+	fmt.Println("  dns ...                       Manage DNS nameserver groups (run 'netbird-manage dns' for options)")
+	fmt.Println()
+	fmt.Println("  posture-check ...             Manage device posture checks (run 'netbird-manage posture-check' for options)")
+	fmt.Println()
 	fmt.Println("  help                          Show this help message")
 }
 
