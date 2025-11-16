@@ -29,3 +29,10 @@ go.work
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# Test results and sensitive data
+TEST_RESULTS.md
+test-output.txt
+test-results/
+*.log
+.netbird-manage.json
