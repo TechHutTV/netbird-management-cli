@@ -59,6 +59,12 @@ func main() {
 		case "posture-check", "posture":
 			printPostureCheckUsage()
 			os.Exit(0)
+		case "event", "events":
+			printEventUsage()
+			os.Exit(0)
+		case "geo", "geo-location", "location":
+			printGeoLocationUsage()
+			os.Exit(0)
 		case "help", "--help":
 			printUsage()
 			os.Exit(0)
@@ -125,6 +131,16 @@ func main() {
 		}
 	case "posture-check", "posture":
 		if err := handlePostureChecksCommand(client, args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "event", "events":
+		if err := handleEventsCommand(client, args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "geo", "geo-location", "location":
+		if err := handleGeoLocationsCommand(client, args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

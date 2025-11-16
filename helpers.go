@@ -49,6 +49,10 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("  posture-check ...             Manage device posture checks (run 'netbird-manage posture-check' for options)")
 	fmt.Println()
+	fmt.Println("  event ...                     View audit logs and network traffic events (run 'netbird-manage event' for options)")
+	fmt.Println()
+	fmt.Println("  geo ...                       Retrieve geographic location data (run 'netbird-manage geo' for options)")
+	fmt.Println()
 	fmt.Println("  help                          Show this help message")
 }
 

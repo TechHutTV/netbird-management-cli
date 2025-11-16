@@ -911,10 +911,11 @@ This section tracks the implementation status of CLI features and planned enhanc
   - **Implementation File:** `tokens.go`
 
 **Project Status:**
-- **API Coverage:** 10/14 resource types fully implemented (71%)
+- **API Coverage:** 12/14 resource types fully implemented (86%)
 - **Zero External Dependencies** - Pure Go stdlib implementation maintained
 - **Phase 1 Complete:** All high-priority user and access management features implemented
 - **Phase 2 Complete:** Network services including routing, DNS, and posture checks
+- **Phase 3 Complete:** Monitoring and analytics with audit logs, traffic events, and geo-location data
 
 **Network Services (Phase 2 - COMPLETED):**
 - ✅ **Routes** - Network routing configuration (5 API endpoints)
@@ -942,16 +943,18 @@ This section tracks the implementation status of CLI features and planned enhanc
 
 #### 📋 Planned Features
 
-**Monitoring & Analytics:**
-- ❌ **Events** - Audit logs and activity monitoring (2 API endpoints available)
-  - Query audit logs, monitor network traffic, track policy changes
-  - **Implementation File:** `events.go` (to be created)
-  - **API Docs:** `docs/api/resources/events.md`
+**Monitoring & Analytics (Phase 3 - COMPLETED):**
+- ✅ **Events** - Audit logs and activity monitoring (2 API endpoints)
+  - List audit events with filtering (user ID, target ID, activity code, date range, search)
+  - List network traffic events with pagination (Cloud-only experimental feature)
+  - Table and JSON output formats
+  - **Implementation File:** `events.go`
 
-- ❌ **Geo-Locations** - Location data for access control (2 API endpoints available)
-  - Manage country/city location databases for use in posture checks and policies
-  - **Implementation File:** `geo-locations.go` (to be created)
-  - **API Docs:** `docs/api/resources/geo-locations.md`
+- ✅ **Geo-Locations** - Location data for access control (2 API endpoints)
+  - List all country codes (ISO 3166-1 alpha-2 format)
+  - List cities by country code with geoname IDs
+  - Table and JSON output formats
+  - **Implementation File:** `geo-locations.go`
 
 **Account Management:**
 - ❌ **Accounts** - Account settings and configuration (3 API endpoints available)
@@ -1040,23 +1043,27 @@ This section tracks the implementation status of CLI features and planned enhanc
 5. ✅ DNS configuration (nameserver groups with domain matching)
 6. ✅ Posture Checks (5 check types for zero-trust security)
 
-**Phase 3: Observability (Medium Priority)**
-7. Events/Audit logs
-8. Peer update operations
-9. JSON output mode
+**✅ Phase 3: Monitoring & Analytics (COMPLETED)**
+7. ✅ Events (audit logs and network traffic monitoring)
+8. ✅ Geo-Locations (country/city data for posture checks)
+9. ✅ JSON output mode (implemented for events and geo-locations)
 
-**Phase 4: Developer Experience (Lower Priority)**
-10. YAML export/import
-11. Interactive prompts
-12. Shell completion
-13. TUI mode
+**Phase 4: Account & Advanced Peer Features (Medium Priority)**
+10. Peer update operations
+11. Accessible peers query
+12. Accounts management
+13. Ingress Ports (Cloud-only)
 
-**Phase 5: Advanced Features (Nice to Have)**
-14. Batch operations
-15. Colorized output
-16. Accessible peers query
-17. Geo-locations management
-18. Accounts management
+**Phase 5: Developer Experience (Lower Priority)**
+14. YAML export/import
+15. Interactive prompts
+16. Shell completion
+17. TUI mode
+
+**Phase 6: Quality of Life (Nice to Have)**
+18. Batch operations
+19. Colorized output
+20. Verbose/Debug mode
 
 ### Implementation Notes
 
@@ -1068,9 +1075,9 @@ This section tracks the implementation status of CLI features and planned enhanc
   - Full build: includes YAML, TUI, colors, etc.
 
 **API Coverage Status:**
-- ✅ **100% Coverage:** Policies, Networks, Groups
+- ✅ **100% Coverage:** Policies, Networks, Groups, Setup Keys, Users, Tokens, Routes, DNS, Posture Checks, Events, Geo-Locations
 - ✅ **80% Coverage:** Peers (missing update, accessible-peers)
-- ❌ **0% Coverage:** Setup Keys, Users, Tokens, Routes, DNS, Posture Checks, Events, Geo-Locations, Accounts, Ingress Ports
+- ❌ **0% Coverage:** Accounts, Ingress Ports
 
 **Code Architecture:**
 - Each resource type gets its own file (`{resource}.go`)
