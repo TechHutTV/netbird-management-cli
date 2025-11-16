@@ -253,3 +253,60 @@ type SetupKeyUpdateRequest struct {
 	Revoked    bool     `json:"revoked"`
 	AutoGroups []string `json:"auto_groups"`
 }
+
+// User represents a NetBird user account
+type User struct {
+	ID            string          `json:"id"`
+	Email         string          `json:"email"`
+	Name          string          `json:"name"`
+	Role          string          `json:"role"`
+	Status        string          `json:"status"`
+	LastLogin     string          `json:"last_login"`
+	AutoGroups    []string        `json:"auto_groups"`
+	IsServiceUser bool            `json:"is_service_user"`
+	IsBlocked     bool            `json:"is_blocked"`
+	Permissions   UserPermissions `json:"permissions"`
+}
+
+// UserPermissions represents user permission settings
+type UserPermissions struct {
+	DashboardView string `json:"dashboard_view"`
+}
+
+// UserCreateRequest represents the request body for creating/inviting a user
+type UserCreateRequest struct {
+	Email         string   `json:"email,omitempty"`
+	Name          string   `json:"name,omitempty"`
+	Role          string   `json:"role"`
+	AutoGroups    []string `json:"auto_groups"`
+	IsServiceUser bool     `json:"is_service_user"`
+}
+
+// UserUpdateRequest represents the request body for updating a user
+type UserUpdateRequest struct {
+	Role       string   `json:"role"`
+	AutoGroups []string `json:"auto_groups"`
+	IsBlocked  bool     `json:"is_blocked"`
+}
+
+// PersonalAccessToken represents a personal access token
+type PersonalAccessToken struct {
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	ExpirationDate string `json:"expiration_date"`
+	CreatedBy      string `json:"created_by"`
+	CreatedAt      string `json:"created_at"`
+	LastUsed       string `json:"last_used"`
+}
+
+// TokenCreateRequest represents the request body for creating a token
+type TokenCreateRequest struct {
+	Name      string `json:"name"`
+	ExpiresIn int    `json:"expires_in"` // Days (1-365)
+}
+
+// TokenCreateResponse represents the response when creating a token
+type TokenCreateResponse struct {
+	PlainToken          string              `json:"plain_token"`
+	PersonalAccessToken PersonalAccessToken `json:"personal_access_token"`
+}

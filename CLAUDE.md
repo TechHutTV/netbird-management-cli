@@ -887,37 +887,33 @@ This section tracks the implementation status of CLI features and planned enhanc
 - ✅ **Groups** - Full CRUD operations including creation, deletion, renaming, and bulk peer management
 - ✅ **Networks** - Full CRUD operations including resource and router management
 - ✅ **Policies** - Full CRUD operations with advanced rule management including protocol/port configuration, bidirectional traffic, and group name resolution
-
-**Project Status:**
-- **API Coverage:** 4/14 resource types fully implemented
-- **Zero External Dependencies** - Pure Go stdlib implementation maintained
-
-#### 🚧 In Progress / High Priority
-
-**Core Resource Management:**
-- ❌ **Setup Keys** - Device registration and onboarding keys (5 API endpoints available)
-  - Create setup keys for device onboarding
-  - List all setup keys with filtering
-  - Get key details and usage statistics
-  - Update key properties (expiration, usage limits, auto-groups)
-  - Revoke setup keys
-  - **Use Case:** Streamline new device enrollment
-  - **Implementation File:** `setup-keys.go` (to be created)
-  - **API Docs:** `docs/api/resources/setup-keys.md`
+- ✅ **Setup Keys** - Full CRUD operations for device registration and onboarding keys
+  - Create, list, inspect, update, and delete setup keys
+  - Support for one-off and reusable keys
+  - Ephemeral peer support and auto-group assignment
+  - Quick-create functionality for rapid key generation
+  - **Implementation File:** `setup-keys.go`
 
 **User & Access Management:**
-- ❌ **Users** - User account management (6 API endpoints available)
+- ✅ **Users** - Full user account management (6 API endpoints)
   - Invite users, manage roles and permissions
   - List, update, and remove users
   - Resend invitations and get current user info
-  - **Implementation File:** `users.go` (to be created)
-  - **API Docs:** `docs/api/resources/users.md`
+  - Service user support for automation
+  - Block/unblock user access
+  - **Implementation File:** `users.go`
 
-- ❌ **Tokens** - Personal access token management (4 API endpoints available)
+- ✅ **Tokens** - Personal access token management (4 API endpoints)
   - Create, list, revoke, and inspect API tokens
   - Essential for secure API access management
-  - **Implementation File:** `tokens.go` (to be created)
-  - **API Docs:** `docs/api/resources/tokens.md`
+  - Automatic current user detection
+  - Configurable expiration (1-365 days)
+  - **Implementation File:** `tokens.go`
+
+**Project Status:**
+- **API Coverage:** 7/14 resource types fully implemented (50%)
+- **Zero External Dependencies** - Pure Go stdlib implementation maintained
+- **Phase 1 Complete:** All high-priority user and access management features implemented
 
 #### 📋 Planned Features
 
@@ -1027,12 +1023,12 @@ This section tracks the implementation status of CLI features and planned enhanc
 
 #### 📊 Implementation Priority
 
-**Phase 1: Core Coverage (High Priority)**
-1. Setup Keys (device onboarding - critical for operations)
-2. Users management (critical for team management)
-3. Tokens management (security and access control)
+**✅ Phase 1: Core Coverage (COMPLETED)**
+1. ✅ Setup Keys (device onboarding - critical for operations)
+2. ✅ Users management (critical for team management)
+3. ✅ Tokens management (security and access control)
 
-**Phase 2: Network Services (Medium Priority)**
+**Phase 2: Network Services (High Priority - NEXT)**
 4. Routes management
 5. DNS configuration
 6. Posture Checks (security enhancement)

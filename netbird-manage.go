@@ -44,6 +44,12 @@ func main() {
 		case "setup-key":
 			printSetupKeyUsage()
 			os.Exit(0)
+		case "user":
+			printUserUsage()
+			os.Exit(0)
+		case "token":
+			printTokenUsage()
+			os.Exit(0)
 		case "help", "--help":
 			printUsage()
 			os.Exit(0)
@@ -85,6 +91,16 @@ func main() {
 		}
 	case "setup-key":
 		if err := handleSetupKeysCommand(client, args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "user":
+		if err := handleUsersCommand(client, args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "token":
+		if err := handleTokensCommand(client, args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
