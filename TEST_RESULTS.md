@@ -3,7 +3,6 @@
 **Test Date:** 2025-11-16
 **Binary Version:** Built from commit 3355ed9
 **Test Environment:** NetBird Cloud API (api.netbird.io)
-**API Token:** nbp_q1VQVWVUfxobbJnHEcvkowd9PKleiG44I3Gy
 
 ## Executive Summary
 
