@@ -77,6 +77,10 @@ func handleTokensCommand(client *Client, args []string) error {
 func (c *Client) getCurrentUserID() (string, error) {
 	resp, err := c.makeRequest("GET", "/users/current", nil)
 	if err != nil {
+		// Check if it's a 403 error (service token)
+		if resp != nil && resp.StatusCode == 403 {
+			return "", fmt.Errorf("unable to get current user: service user tokens cannot access /users/current. Please provide --user-id flag with your user ID. Use 'user --list' to find your user ID")
+		}
 		return "", err
 	}
 	defer resp.Body.Close()
