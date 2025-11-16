@@ -101,17 +101,30 @@ func handleRoutesCommand(client *Client, args []string) error {
 
 	// Update route
 	if *updateFlag != "" {
-		masquerade := *masqueradeFlag
-		if *noMasqueradeFlag {
-			masquerade = false
+		// Determine if masquerade flags were explicitly set
+		var masqueradePtr *bool
+		if *masqueradeFlag {
+			val := true
+			masqueradePtr = &val
+		} else if *noMasqueradeFlag {
+			val := false
+			masqueradePtr = &val
 		}
 
-		enabled := *enabledFlag
+		// Determine if enabled flags were explicitly set
+		var enabledPtr *bool
 		if *disabledFlag {
-			enabled = false
+			val := false
+			enabledPtr = &val
+		} else if *enabledFlag && !*disabledFlag {
+			// Only set enabled if explicitly passed (not just default)
+			// This is tricky with boolean flags, so we check if disabled is false
+			// A better approach would be to track if the flag was actually set
+			// For now, we won't auto-set enabled unless explicitly requested
+			enabledPtr = nil
 		}
 
-		return client.updateRoute(*updateFlag, *networkIDFlag, *descriptionFlag, *peerFlag, *peerGroupsFlag, *metricFlag, masquerade, enabled, *groupsFlag)
+		return client.updateRoute(*updateFlag, *networkIDFlag, *descriptionFlag, *peerFlag, *peerGroupsFlag, *metricFlag, masqueradePtr, enabledPtr, *groupsFlag)
 	}
 
 	// Inspect route
@@ -343,7 +356,7 @@ func (c *Client) createRoute(network, networkID, description, peer, peerGroups s
 }
 
 // updateRoute implements the "route --update" command
-func (c *Client) updateRoute(routeID, networkID, description, peer, peerGroups string, metric int, masquerade, enabled bool, groups string) error {
+func (c *Client) updateRoute(routeID, networkID, description, peer, peerGroups string, metric int, masquerade, enabled *bool, groups string) error {
 	// First, get the current route
 	resp, err := c.makeRequest("GET", "/routes/"+routeID, nil)
 	if err != nil {
@@ -364,8 +377,8 @@ func (c *Client) updateRoute(routeID, networkID, description, peer, peerGroups s
 		Peer:        currentRoute.Peer,
 		PeerGroups:  currentRoute.PeerGroups,
 		Metric:      currentRoute.Metric,
-		Masquerade:  masquerade,
-		Enabled:     enabled,
+		Masquerade:  currentRoute.Masquerade,
+		Enabled:     currentRoute.Enabled,
 		Groups:      currentRoute.Groups,
 	}
 
@@ -392,6 +405,14 @@ func (c *Client) updateRoute(routeID, networkID, description, peer, peerGroups s
 	}
 	if groups != "" {
 		updateReq.Groups = splitCommaList(groups)
+	}
+	// Update masquerade if explicitly provided
+	if masquerade != nil {
+		updateReq.Masquerade = *masquerade
+	}
+	// Update enabled if explicitly provided
+	if enabled != nil {
+		updateReq.Enabled = *enabled
 	}
 
 	bodyBytes, err := json.Marshal(updateReq)

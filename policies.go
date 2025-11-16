@@ -418,6 +418,7 @@ func convertRuleToWrite(rule *PolicyRule) *PolicyRuleForWrite {
 	}
 
 	return &PolicyRuleForWrite{
+		ID:                  rule.ID, // Include ID if present (for updates)
 		Name:                rule.Name,
 		Description:         rule.Description,
 		Enabled:             rule.Enabled,
@@ -853,6 +854,7 @@ func cleanRulesForUpdate(rules []PolicyRule) []PolicyRuleForWrite {
 
 		// Convert to write format
 		cleaned[i] = PolicyRuleForWrite{
+			ID:                  rule.ID, // Include ID for existing rules
 			Name:                rule.Name,
 			Description:         rule.Description,
 			Enabled:             rule.Enabled,
