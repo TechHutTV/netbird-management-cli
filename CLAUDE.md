@@ -911,11 +911,12 @@ This section tracks the implementation status of CLI features and planned enhanc
   - **Implementation File:** `tokens.go`
 
 **Project Status:**
-- **API Coverage:** 12/14 resource types fully implemented (86%)
+- **API Coverage:** 14/14 resource types fully implemented (100%) 🎉
 - **Zero External Dependencies** - Pure Go stdlib implementation maintained
 - **Phase 1 Complete:** All high-priority user and access management features implemented
 - **Phase 2 Complete:** Network services including routing, DNS, and posture checks
 - **Phase 3 Complete:** Monitoring and analytics with audit logs, traffic events, and geo-location data
+- **Phase 4 Complete:** Account management and ingress ports (Cloud-only) with peer updates
 
 **Network Services (Phase 2 - COMPLETED):**
 - ✅ **Routes** - Network routing configuration (5 API endpoints)
@@ -1048,11 +1049,11 @@ This section tracks the implementation status of CLI features and planned enhanc
 8. ✅ Geo-Locations (country/city data for posture checks)
 9. ✅ JSON output mode (implemented for events and geo-locations)
 
-**Phase 4: Account & Advanced Peer Features (Medium Priority)**
-10. Peer update operations
-11. Accessible peers query
-12. Accounts management
-13. Ingress Ports (Cloud-only)
+**✅ Phase 4: Account & Advanced Peer Features (COMPLETED)**
+10. ✅ Peer update operations (SSH, login expiration, IP address)
+11. ✅ Accessible peers query
+12. ✅ Accounts management (full CRUD operations)
+13. ✅ Ingress Ports (Cloud-only - port forwarding and ingress peers)
 
 **Phase 5: Developer Experience (Lower Priority)**
 14. YAML export/import
@@ -1075,9 +1076,10 @@ This section tracks the implementation status of CLI features and planned enhanc
   - Full build: includes YAML, TUI, colors, etc.
 
 **API Coverage Status:**
-- ✅ **100% Coverage:** Policies, Networks, Groups, Setup Keys, Users, Tokens, Routes, DNS, Posture Checks, Events, Geo-Locations
-- ✅ **80% Coverage:** Peers (missing update, accessible-peers)
-- ❌ **0% Coverage:** Accounts, Ingress Ports
+- ✅ **100% Coverage:** All 14 NetBird API resource types fully implemented
+  - Peers, Groups, Networks, Policies, Setup Keys, Users, Tokens
+  - Routes, DNS, Posture Checks, Events, Geo-Locations
+  - Accounts, Ingress Ports (Cloud-only)
 
 **Code Architecture:**
 - Each resource type gets its own file (`{resource}.go`)

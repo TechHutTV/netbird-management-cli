@@ -151,19 +151,45 @@ Authorization: Bearer <YOUR_TOKEN>
 | `posture-check --update <id>` | `PUT /posture-checks/{id}` | `posture-checks.go` |
 | `posture-check --delete <id>` | `DELETE /posture-checks/{id}` | `posture-checks.go` |
 
-### 📋 Not Yet Implemented
+#### Events
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `event --audit` | `GET /events` | `events.go` |
+| `event --traffic` | `GET /events/traffic` | `events.go` |
 
-**Monitoring & Analytics:**
-- Events (audit logs and activity monitoring)
-- Geo-Locations (location data for access control)
+#### Geo-Locations
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `geo --countries` | `GET /locations/countries` | `geo-locations.go` |
+| `geo --cities --country <code>` | `GET /locations/countries/{code}/cities` | `geo-locations.go` |
 
-**Account Management:**
-- Accounts (account settings and configuration)
+#### Accounts
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `account --list` | `GET /accounts` | `accounts.go` |
+| `account --inspect <id>` | `GET /accounts/{id}` | `accounts.go` |
+| `account --update <id>` | `PUT /accounts/{id}` | `accounts.go` |
+| `account --delete <id>` | `DELETE /accounts/{id}` | `accounts.go` |
 
-**Cloud-Only Features:**
-- Ingress Ports (port forwarding - NetBird Cloud only)
+#### Ingress Ports (Cloud-only)
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `ingress-port --list --peer <id>` | `GET /peers/{id}/ingress/ports` | `ingress-ports.go` |
+| `ingress-port --inspect <id> --peer <peerId>` | `GET /peers/{peerId}/ingress/ports/{id}` | `ingress-ports.go` |
+| `ingress-port --create --peer <id>` | `POST /peers/{id}/ingress/ports` | `ingress-ports.go` |
+| `ingress-port --update <id> --peer <peerId>` | `PUT /peers/{peerId}/ingress/ports/{id}` | `ingress-ports.go` |
+| `ingress-port --delete <id> --peer <peerId>` | `DELETE /peers/{peerId}/ingress/ports/{id}` | `ingress-ports.go` |
+| `ingress-peer --list` | `GET /ingress/peers` | `ingress-ports.go` |
+| `ingress-peer --inspect <id>` | `GET /ingress/peers/{id}` | `ingress-ports.go` |
+| `ingress-peer --create` | `POST /ingress/peers` | `ingress-ports.go` |
+| `ingress-peer --update <id>` | `PUT /ingress/peers/{id}` | `ingress-ports.go` |
+| `ingress-peer --delete <id>` | `DELETE /ingress/peers/{id}` | `ingress-ports.go` |
 
-**See README.md** for complete feature roadmap and implementation details.
+### ✅ Full API Coverage
+
+**All 14 NetBird API resource types are now fully implemented!** 🎉
+
+For complete feature documentation and examples, see [README.md](README.md).
 
 ---
 

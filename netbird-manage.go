@@ -65,6 +65,15 @@ func main() {
 		case "geo", "geo-location", "location":
 			printGeoLocationUsage()
 			os.Exit(0)
+		case "account", "accounts":
+			printAccountUsage()
+			os.Exit(0)
+		case "ingress-port", "ingress":
+			printIngressPortUsage()
+			os.Exit(0)
+		case "ingress-peer":
+			printIngressPeerUsage()
+			os.Exit(0)
 		case "help", "--help":
 			printUsage()
 			os.Exit(0)
@@ -141,6 +150,21 @@ func main() {
 		}
 	case "geo", "geo-location", "location":
 		if err := handleGeoLocationsCommand(client, args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "account", "accounts":
+		if err := handleAccountsCommand(client, args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "ingress-port", "ingress":
+		if err := handleIngressPortsCommand(client, args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "ingress-peer":
+		if err := handleIngressPeersCommand(client, args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

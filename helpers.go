@@ -53,6 +53,12 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("  geo ...                       Retrieve geographic location data (run 'netbird-manage geo' for options)")
 	fmt.Println()
+	fmt.Println("  account ...                   Manage account settings (run 'netbird-manage account' for options)")
+	fmt.Println()
+	fmt.Println("  ingress-port ...              Manage port forwarding - Cloud-only (run 'netbird-manage ingress-port' for options)")
+	fmt.Println()
+	fmt.Println("  ingress-peer ...              Manage ingress peers - Cloud-only (run 'netbird-manage ingress-peer' for options)")
+	fmt.Println()
 	fmt.Println("  help                          Show this help message")
 }
 

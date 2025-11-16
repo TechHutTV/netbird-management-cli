@@ -64,7 +64,7 @@ func (c *Client) listCountryCodes(outputFormat string) error {
 	}
 	defer resp.Body.Close()
 
-	var countries []string
+	var countries []CountryCode
 	if err := json.NewDecoder(resp.Body).Decode(&countries); err != nil {
 		return fmt.Errorf("failed to decode response: %v", err)
 	}
@@ -83,8 +83,8 @@ func (c *Client) listCountryCodes(outputFormat string) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "COUNTRY CODE")
 	fmt.Fprintln(w, "------------")
-	for _, code := range countries {
-		fmt.Fprintf(w, "%s\n", code)
+	for _, country := range countries {
+		fmt.Fprintf(w, "%s\n", country.Code)
 	}
 	w.Flush()
 

@@ -1068,6 +1068,142 @@ netbird-manage geo --cities --country US --output json > us-cities.json
 - City data includes geoname IDs for precise location matching
 - Use geo-location data when creating posture checks with `--type geo-location`
 
+### Account
+
+Manage account settings and configuration. Running `netbird-manage account` by itself will display the help menu.
+
+#### Query Operations
+```bash
+# List all accounts (returns current user's account)
+netbird-manage account --list
+
+# Inspect account details
+netbird-manage account --inspect <account-id>
+```
+
+#### Update Operations
+```bash
+# Update peer login expiration
+netbird-manage account --update <account-id> --peer-login-expiration 48h
+
+# Update peer inactivity expiration
+netbird-manage account --update <account-id> --peer-inactivity-expiration 30d
+
+# Update DNS domain
+netbird-manage account --update <account-id> --dns-domain nb.local
+
+# Update network range
+netbird-manage account --update <account-id> --network-range 100.64.0.0/10
+
+# Enable JWT groups
+netbird-manage account --update <account-id> --jwt-groups-enabled true
+
+# Update multiple settings at once
+netbird-manage account --update <account-id> \
+  --peer-login-expiration 24h \
+  --dns-domain company.local \
+  --jwt-groups-enabled true
+```
+
+#### Delete Operations
+```bash
+# Delete account (requires confirmation, deletes ALL resources)
+netbird-manage account --delete <account-id> --confirm
+```
+
+**Examples:**
+```bash
+# View current account settings
+netbird-manage account --list
+
+# Set peer login expiration to 2 days
+netbird-manage account --update d10vfhbl0ubs73e6p8ig --peer-login-expiration 48h
+
+# Configure JWT group claims
+netbird-manage account --update d10vfhbl0ubs73e6p8ig \
+  --jwt-groups-enabled true \
+  --jwt-groups-claim groups \
+  --jwt-allow-groups "engineering,ops,security"
+```
+
+**Note:**
+- Duration format: `24h` (hours), `7d` (days), `30d` (days)
+- Some settings like `peer-approval-enabled` and `traffic-logging` are Cloud-only
+- Deleting an account is permanent and removes ALL associated resources
+
+### Ingress Port
+
+Manage port forwarding and ingress peers. **Cloud-only feature** - only available on NetBird Cloud. Running `netbird-manage ingress-port` by itself will display the help menu.
+
+#### Port Allocation Operations
+```bash
+# List port allocations for a peer
+netbird-manage ingress-port --list --peer <peer-id>
+
+# Inspect a port allocation
+netbird-manage ingress-port --inspect <allocation-id> --peer <peer-id>
+
+# Create a port allocation
+netbird-manage ingress-port --create --peer <peer-id> \
+  --target-port 8080 \
+  --protocol tcp \
+  --description "Web Server"
+
+# Update a port allocation
+netbird-manage ingress-port --update <allocation-id> --peer <peer-id> \
+  --target-port 8443
+
+# Delete a port allocation
+netbird-manage ingress-port --delete <allocation-id> --peer <peer-id>
+```
+
+#### Ingress Peer Operations
+```bash
+# List all ingress peers
+netbird-manage ingress-peer --list
+
+# Inspect an ingress peer
+netbird-manage ingress-peer --inspect <ingress-peer-id>
+
+# Create an ingress peer
+netbird-manage ingress-peer --create \
+  --name "US West" \
+  --location us-west-1
+
+# Update an ingress peer
+netbird-manage ingress-peer --update <ingress-peer-id> \
+  --enabled false
+
+# Delete an ingress peer
+netbird-manage ingress-peer --delete <ingress-peer-id>
+```
+
+**Examples:**
+```bash
+# Forward port 8080 on a peer to a public port
+netbird-manage ingress-port --create --peer d41uqobl0ubs73bkuhqg \
+  --target-port 8080 \
+  --protocol tcp \
+  --description "Production Web Server"
+
+# List all port allocations for a specific peer
+netbird-manage ingress-port --list --peer d41uqobl0ubs73bkuhqg
+
+# Create a new ingress peer for EU region
+netbird-manage ingress-peer --create \
+  --name "EU Central" \
+  --location eu-central-1
+
+# Disable an ingress peer
+netbird-manage ingress-peer --update ing-001 --enabled false
+```
+
+**Note:**
+- Ingress ports are **Cloud-only** - not available on self-hosted instances
+- Public ports are automatically assigned by NetBird Cloud
+- Protocol options: `tcp` (default) or `udp`
+- Target ports must be between 1-65535
+
 ## 🚀 Roadmap
 
 This tool is in active development. The goal is to build a comprehensive and easy-to-use CLI for all NetBird management tasks.
@@ -1093,15 +1229,17 @@ This tool is in active development. The goal is to build a comprehensive and eas
 - ✅ **Geo-Locations** - Country/city location data for posture checks and policies
 - ✅ **JSON Output** - Machine-readable output for events and geo-location commands
 
-**API Coverage:** 12/14 NetBird API resource types fully implemented (86%)
+**Account Management (Phase 4 - COMPLETED):**
+- ✅ **Accounts** - Account settings and configuration management
+- ✅ **Ingress Ports** - Port forwarding and ingress peer management (Cloud only)
+- ✅ **Peer Update** - Modify peer properties (SSH, login expiration, IP address)
+- ✅ **Accessible Peers** - Query peer connectivity and reachability
+
+**API Coverage:** 14/14 NetBird API resource types fully implemented (100%) 🎉
 
 ### 📋 Planned Features
 
-**Account Management (Phase 4):**
-- ❌ **Accounts** - Account settings and configuration
-- ❌ **Ingress Ports** - Port forwarding and ingress peers (Cloud only)
-- ❌ **Peer Update** - Modify peer properties (SSH, login expiration)
-- ❌ **Accessible Peers** - Query peer connectivity
+**No remaining API endpoints** - All NetBird API resources are now implemented!
 
 ### 🎯 Enhancement Features
 
