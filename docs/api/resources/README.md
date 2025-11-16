@@ -32,20 +32,22 @@ This directory contains detailed documentation for all NetBird API endpoints, or
 
 | Resource | Endpoints | CLI Support |
 |----------|-----------|-------------|
-| Peers | 5 endpoints | ✓ Partial (list, get, delete) |
-| Groups | 5 endpoints | ✓ Partial (list, get, update) |
-| Networks | 12 endpoints | ✓ Minimal (list only) |
-| Policies | 5 endpoints | ✓ Minimal (list only) |
-| Users | 6 endpoints | ✗ Not implemented |
-| Tokens | 4 endpoints | ✗ Not implemented |
-| Accounts | 3 endpoints | ✗ Not implemented |
-| DNS | 6 endpoints | ✗ Not implemented |
-| Routes | 5 endpoints | ✗ Not implemented |
-| Setup Keys | 5 endpoints | ✗ Not implemented |
-| Posture Checks | 5 endpoints | ✗ Not implemented |
-| Events | 2 endpoints | ✗ Not implemented |
-| Geo-Locations | 2 endpoints | ✗ Not implemented |
-| Ingress Ports | 10 endpoints | ✗ Not implemented |
+| Peers | 5 endpoints | ✅ **Full** (list, get, update, delete, accessible-peers) |
+| Groups | 5 endpoints | ✅ **Full** (list, get, create, update, delete) |
+| Networks | 12 endpoints | ✅ **Full** (CRUD + resources + routers) |
+| Policies | 5 endpoints | ✅ **Full** (CRUD + rule management) |
+| Setup Keys | 5 endpoints | ✅ **Full** (list, get, create, update, delete, revoke) |
+| Users | 6 endpoints | ✅ **Full** (list, me, invite, update, remove, resend) |
+| Tokens | 4 endpoints | ✅ **Full** (list, get, create, revoke) |
+| Routes | 5 endpoints | ✅ **Full** (list, get, create, update, delete) |
+| DNS | 6 endpoints | ✅ **Full** (CRUD + settings) |
+| Posture Checks | 5 endpoints | ✅ **Full** (list, get, create, update, delete) |
+| Accounts | 3 endpoints | ❌ Not implemented |
+| Events | 2 endpoints | ❌ Not implemented |
+| Geo-Locations | 2 endpoints | ❌ Not implemented |
+| Ingress Ports | 10 endpoints | ❌ Not implemented |
+
+**Total Coverage: 10/14 resource types (71%) - 58 endpoints fully implemented**
 
 ## Authentication
 

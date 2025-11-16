@@ -16,33 +16,35 @@ Complete reference documentation for the NetBird Management API, organized for A
 
 ## Quick Navigation
 
-### Implemented in CLI
+### ✅ Fully Implemented in CLI
 
-These resources have partial or full implementation in the netbird-manage CLI:
+These resources have complete implementation in the netbird-manage CLI:
 
-| Resource | Documentation | CLI Commands | Endpoints Used |
-|----------|---------------|--------------|----------------|
-| **Peers** | [peers.md](resources/peers.md) | `peer --list`, `--inspect`, `--remove`, `--edit` | GET /peers, GET /peers/{id}, DELETE /peers/{id} |
-| **Groups** | [groups.md](resources/groups.md) | `group` (list), peer `--add-group`, `--remove-group` | GET /groups, GET /groups/{id}, PUT /groups/{id} |
-| **Networks** | [networks.md](resources/networks.md) | `networks` (list) | GET /networks |
-| **Policies** | [policies.md](resources/policies.md) | `policy` (list) | GET /policies |
+| Resource | Documentation | CLI Commands | Coverage |
+|----------|---------------|--------------|----------|
+| **Peers** | [peers.md](resources/peers.md) | `peer --list`, `--inspect`, `--update`, `--remove`, `--accessible-peers`, `--edit` | 5/5 endpoints |
+| **Groups** | [groups.md](resources/groups.md) | `group --list`, `--inspect`, `--create`, `--delete`, `--rename`, `--add-peers`, `--remove-peers` | 5/5 endpoints |
+| **Networks** | [networks.md](resources/networks.md) | `network` (full CRUD + resources + routers) | 12/12 endpoints |
+| **Policies** | [policies.md](resources/policies.md) | `policy` (full CRUD + rule management) | 5/5 endpoints |
+| **Setup Keys** | [setup-keys.md](resources/setup-keys.md) | `setup-key --list`, `--inspect`, `--create`, `--quick`, `--delete`, `--revoke`, `--enable`, `--update-groups` | 5/5 endpoints |
+| **Users** | [users.md](resources/users.md) | `user --list`, `--me`, `--invite`, `--update`, `--remove`, `--resend-invite` | 6/6 endpoints |
+| **Tokens** | [tokens.md](resources/tokens.md) | `token --list`, `--inspect`, `--create`, `--revoke` | 4/4 endpoints |
+| **Routes** | [routes.md](resources/routes.md) | `route --list`, `--inspect`, `--create`, `--update`, `--delete`, `--enable`, `--disable` | 5/5 endpoints |
+| **DNS** | [dns.md](resources/dns.md) | `dns --list`, `--inspect`, `--create`, `--update`, `--delete`, `--enable`, `--disable`, `--get-settings`, `--update-settings` | 6/6 endpoints |
+| **Posture Checks** | [posture-checks.md](resources/posture-checks.md) | `posture-check --list`, `--inspect`, `--create`, `--update`, `--delete` (5 check types) | 5/5 endpoints |
 
-### Not Yet Implemented
+**Total API Coverage: 10/14 resource types (71%)** - 58 total endpoints implemented
+
+### ❌ Not Yet Implemented
 
 These resources are documented but not yet implemented in the CLI (planned for future releases):
 
 | Resource | Documentation | Planned Features |
 |----------|---------------|------------------|
-| **Users** | [users.md](resources/users.md) | User management, invitations, role assignment |
-| **Tokens** | [tokens.md](resources/tokens.md) | Token creation, management, revocation |
-| **Accounts** | [accounts.md](resources/accounts.md) | Account settings, configuration |
-| **DNS** | [dns.md](resources/dns.md) | Nameserver groups, DNS settings |
-| **Routes** | [routes.md](resources/routes.md) | Network routing management |
-| **Setup Keys** | [setup-keys.md](resources/setup-keys.md) | Device onboarding key management |
-| **Posture Checks** | [posture-checks.md](resources/posture-checks.md) | Compliance validation rules |
-| **Events** | [events.md](resources/events.md) | Audit logs, traffic monitoring |
-| **Geo-Locations** | [geo-locations.md](resources/geo-locations.md) | Location data for policies |
-| **Ingress Ports** | [ingress-ports.md](resources/ingress-ports.md) | Port forwarding (Cloud only) |
+| **Accounts** | [accounts.md](resources/accounts.md) | Account settings, configuration (3 endpoints) |
+| **Events** | [events.md](resources/events.md) | Audit logs, traffic monitoring (2 endpoints) |
+| **Geo-Locations** | [geo-locations.md](resources/geo-locations.md) | Location data for policies (2 endpoints) |
+| **Ingress Ports** | [ingress-ports.md](resources/ingress-ports.md) | Port forwarding - NetBird Cloud only (10 endpoints) |
 
 ## API Base URLs
 
@@ -141,14 +143,37 @@ See individual resource documentation for endpoint-specific patterns.
 ### Quick Reference: API → CLI Mapping
 
 ```
-GET /peers                    → client.listPeers()           → peers.go:79
-GET /peers/{id}              → client.getPeerByID()         → peers.go:122
-DELETE /peers/{id}           → client.removePeerByID()      → peers.go:144
-GET /groups                  → client.listGroups()          → groups.go:49
-GET /groups/{id}             → client.getGroupByID()        → groups.go:80
-PUT /groups/{id}             → client.updateGroup()         → groups.go:102
-GET /networks                → client.listNetworks()        → networks.go:15
-GET /policies                → client.listPolicies()        → policies.go:15
+# Peers (5/5 endpoints)
+GET /peers                        → client.listPeers()           → peers.go
+GET /peers/{id}                   → client.getPeerByID()         → peers.go
+PUT /peers/{id}                   → client.updatePeer()          → peers.go
+DELETE /peers/{id}                → client.removePeerByID()      → peers.go
+GET /peers/{id}/accessible-peers  → client.getAccessiblePeers()  → peers.go
+
+# Groups (5/5 endpoints)
+GET /groups                   → client.listGroups()          → groups.go
+POST /groups                  → client.createGroup()         → groups.go
+GET /groups/{id}              → client.getGroupByID()        → groups.go
+PUT /groups/{id}              → client.updateGroup()         → groups.go
+DELETE /groups/{id}           → client.deleteGroup()         → groups.go
+
+# Networks (12/12 endpoints - full CRUD + resources + routers)
+GET /networks                 → client.listNetworks()        → networks.go
+POST /networks                → client.createNetwork()       → networks.go
+GET /networks/{id}            → client.getNetwork()          → networks.go
+PUT /networks/{id}            → client.updateNetwork()       → networks.go
+DELETE /networks/{id}         → client.deleteNetwork()       → networks.go
+# ... plus 7 resource/router endpoints
+
+# Policies (5/5 endpoints + rule management)
+GET /policies                 → client.listPolicies()        → policies.go
+POST /policies                → client.createPolicy()        → policies.go
+GET /policies/{id}            → client.getPolicy()           → policies.go
+PUT /policies/{id}            → client.updatePolicy()        → policies.go
+DELETE /policies/{id}         → client.deletePolicy()        → policies.go
+
+# Plus: Setup Keys, Users, Tokens, Routes, DNS, Posture Checks
+# See individual resource docs for details
 ```
 
 ## External Resources

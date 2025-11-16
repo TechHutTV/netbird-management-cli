@@ -15,7 +15,7 @@ go build
 ## Current Commands & Functionality
 
 ### Connect
-Before you can use the tool, you must authenticate. This tool stores your API token in a configuration file at `$HOME/.netbird-manage.conf`. Generate a Personal Access Token (PAT) or a Service User token from your NetBird dashboard. Then, run the connect command: 
+Before you can use the tool, you must authenticate. This tool stores your API token in a configuration file at `$HOME/.netbird-manage.json`. Generate a Personal Access Token (PAT) or a Service User token from your NetBird dashboard. Then, run the connect command: 
 ```
 netbird-manage connect --token <token>
 ```
@@ -993,7 +993,6 @@ This tool is in active development. The goal is to build a comprehensive and eas
 
 **Monitoring & Analytics (Phase 3):**
 - ❌ **Events** - Audit logs and activity monitoring
-- ❌ **Peer Update** - Modify peer properties (SSH, login expiration, IP assignment)
 - ❌ **JSON Output** - Machine-readable output for scripting (`--output json`)
 - ❌ **Accounts** - Account settings and configuration
 - ❌ **Geo-Locations** - Location data for access control
