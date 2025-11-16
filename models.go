@@ -525,7 +525,8 @@ type TrafficEventResponse struct {
 
 // CountryCode represents a country code
 type CountryCode struct {
-	Code string `json:"code"` // ISO 3166-1 alpha-2
+	Code string `json:"country_code"` // ISO 3166-1 alpha-2
+	Name string `json:"country_name"` // Country name
 }
 
 // City represents a city location

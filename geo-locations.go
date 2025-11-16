@@ -81,10 +81,10 @@ func (c *Client) listCountryCodes(outputFormat string) error {
 
 	// Table output
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "COUNTRY CODE")
-	fmt.Fprintln(w, "------------")
+	fmt.Fprintln(w, "CODE\tCOUNTRY NAME")
+	fmt.Fprintln(w, "----\t------------")
 	for _, country := range countries {
-		fmt.Fprintf(w, "%s\n", country.Code)
+		fmt.Fprintf(w, "%s\t%s\n", country.Code, country.Name)
 	}
 	w.Flush()
 

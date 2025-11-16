@@ -50,7 +50,7 @@ func handleUsersCommand(client *Client, args []string) error {
 		return client.getCurrentUser()
 	}
 
-	if *listFlag {
+	if *listFlag || *serviceUserFilter || *regularUserFilter {
 		filterType := ""
 		if *serviceUserFilter {
 			filterType = "service"
