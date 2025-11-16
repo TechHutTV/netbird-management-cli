@@ -34,7 +34,7 @@ func handlePoliciesCommand(client *Client, args []string) error {
 
 	// Create/edit flags
 	descriptionFlag := policyCmd.String("description", "", "Policy description")
-	enabledFlag := policyCmd.Bool("active", true, "Enable the policy (default: true)")
+	enabledFlagStr := policyCmd.String("active", "", "Enable the policy: true or false (default: true)")
 
 	// Rule management flags
 	addRuleFlag := policyCmd.String("add-rule", "", "Add a rule to a policy (requires --policy-id)")
@@ -69,10 +69,20 @@ func handlePoliciesCommand(client *Client, args []string) error {
 
 	// Create policy
 	if *createFlag != "" {
+		// Parse enabled flag (default to true if not provided)
+		enabled := true
+		if *enabledFlagStr != "" {
+			parsedEnabled, err := strconv.ParseBool(*enabledFlagStr)
+			if err != nil {
+				return fmt.Errorf("invalid value for --active flag: must be 'true' or 'false'")
+			}
+			enabled = parsedEnabled
+		}
+
 		// Check if rule parameters are provided
 		if *sourcesFlag != "" && *destinationsFlag != "" {
 			// Create policy with initial rule
-			return client.createPolicyWithRule(*createFlag, *descriptionFlag, *enabledFlag, &RuleConfig{
+			return client.createPolicyWithRule(*createFlag, *descriptionFlag, enabled, &RuleConfig{
 				Name:          *ruleNameFlag,
 				Description:   *ruleDescFlag,
 				Action:        *actionFlag,
@@ -534,7 +544,11 @@ func (c *Client) addRuleToPolicy(policyID, ruleName string, config *RuleConfig) 
 	}
 	defer resp2.Body.Close()
 
+	// NOTE: NetBird API currently appears to have a limitation where policies can only have one rule
+	// The API assigns the policy ID to all rules, causing deduplication when multiple rules are sent
+	// This appears to be an API limitation rather than a CLI issue
 	fmt.Printf("Rule '%s' added to policy '%s' successfully\n", ruleName, policy.Name)
+	fmt.Fprintf(os.Stderr, "⚠️  Warning: NetBird API currently supports only one rule per policy. The rule may replace the existing rule.\n")
 	return nil
 }
 
