@@ -310,3 +310,146 @@ type TokenCreateResponse struct {
 	PlainToken          string              `json:"plain_token"`
 	PersonalAccessToken PersonalAccessToken `json:"personal_access_token"`
 }
+
+// Route represents a network route
+type Route struct {
+	ID          string   `json:"id"`
+	NetworkID   string   `json:"network_id"`
+	Network     string   `json:"network"`      // CIDR notation (e.g., "10.0.0.0/16")
+	NetworkType string   `json:"network_type"` // "IPv4" or "IPv6"
+	Peer        string   `json:"peer,omitempty"`
+	PeerGroups  []string `json:"peer_groups,omitempty"`
+	Metric      int      `json:"metric"`
+	Masquerade  bool     `json:"masquerade"`
+	Enabled     bool     `json:"enabled"`
+	Groups      []string `json:"groups"`
+	Description string   `json:"description,omitempty"`
+}
+
+// RouteRequest represents the request body for creating/updating a route
+type RouteRequest struct {
+	Description string   `json:"description,omitempty"`
+	NetworkID   string   `json:"network_id"`
+	Network     string   `json:"network"` // CIDR
+	Peer        string   `json:"peer,omitempty"`
+	PeerGroups  []string `json:"peer_groups,omitempty"`
+	Metric      int      `json:"metric"`
+	Masquerade  bool     `json:"masquerade"`
+	Enabled     bool     `json:"enabled"`
+	Groups      []string `json:"groups"`
+}
+
+// DNSNameserverGroup represents a DNS nameserver group
+type DNSNameserverGroup struct {
+	ID                   string        `json:"id"`
+	Name                 string        `json:"name"`
+	Description          string        `json:"description,omitempty"`
+	Nameservers          []Nameserver  `json:"nameservers"`
+	Groups               []string      `json:"groups"`
+	Domains              []string      `json:"domains,omitempty"`
+	SearchDomainsEnabled bool          `json:"search_domains_enabled"`
+	Primary              bool          `json:"primary"`
+	Enabled              bool          `json:"enabled"`
+}
+
+// Nameserver represents a DNS nameserver
+type Nameserver struct {
+	IP     string `json:"ip"`
+	NSType string `json:"ns_type"` // "udp" or "tcp"
+	Port   int    `json:"port"`
+}
+
+// DNSNameserverGroupRequest represents the request body for creating/updating a DNS nameserver group
+type DNSNameserverGroupRequest struct {
+	Name                 string       `json:"name"`
+	Description          string       `json:"description,omitempty"`
+	Nameservers          []Nameserver `json:"nameservers"`
+	Groups               []string     `json:"groups"`
+	Domains              []string     `json:"domains,omitempty"`
+	SearchDomainsEnabled bool         `json:"search_domains_enabled"`
+	Primary              bool         `json:"primary"`
+	Enabled              bool         `json:"enabled"`
+}
+
+// DNSSettings represents DNS settings for the account
+type DNSSettings struct {
+	DisabledManagementGroups []string `json:"disabled_management_groups"`
+}
+
+// PostureCheck represents a device posture check
+type PostureCheck struct {
+	ID          string                 `json:"id"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description,omitempty"`
+	Checks      PostureCheckDefinition `json:"checks"`
+}
+
+// PostureCheckDefinition contains the actual check definitions
+type PostureCheckDefinition struct {
+	NBVersionCheck         *NBVersionCheck         `json:"nb_version_check,omitempty"`
+	OSVersionCheck         *OSVersionCheck         `json:"os_version_check,omitempty"`
+	GeoLocationCheck       *GeoLocationCheck       `json:"geo_location_check,omitempty"`
+	PeerNetworkRangeCheck  *PeerNetworkRangeCheck  `json:"peer_network_range_check,omitempty"`
+	ProcessCheck           *ProcessCheck           `json:"process_check,omitempty"`
+}
+
+// NBVersionCheck checks NetBird version
+type NBVersionCheck struct {
+	MinVersion string `json:"min_version"`
+}
+
+// OSVersionCheck checks operating system version
+type OSVersionCheck struct {
+	Android *MinVersionConfig       `json:"android,omitempty"`
+	Darwin  *MinVersionConfig       `json:"darwin,omitempty"`
+	IOS     *MinVersionConfig       `json:"ios,omitempty"`
+	Linux   *MinKernelVersionConfig `json:"linux,omitempty"`
+	Windows *MinKernelVersionConfig `json:"windows,omitempty"`
+}
+
+// MinVersionConfig represents minimum version configuration
+type MinVersionConfig struct {
+	MinVersion string `json:"min_version"`
+}
+
+// MinKernelVersionConfig represents minimum kernel version configuration
+type MinKernelVersionConfig struct {
+	MinKernelVersion string `json:"min_kernel_version"`
+}
+
+// GeoLocationCheck checks geographic location
+type GeoLocationCheck struct {
+	Locations []Location `json:"locations"`
+	Action    string     `json:"action"` // "allow" or "deny"
+}
+
+// Location represents a geographic location
+type Location struct {
+	CountryCode string `json:"country_code"` // ISO 3166-1 alpha-2
+	CityName    string `json:"city_name,omitempty"`
+}
+
+// PeerNetworkRangeCheck checks peer network ranges
+type PeerNetworkRangeCheck struct {
+	Ranges []string `json:"ranges"` // CIDR ranges
+	Action string   `json:"action"` // "allow" or "deny"
+}
+
+// ProcessCheck checks for running processes
+type ProcessCheck struct {
+	Processes []Process `json:"processes"`
+}
+
+// Process represents a process to check for
+type Process struct {
+	LinuxPath   string `json:"linux_path,omitempty"`
+	MacPath     string `json:"mac_path,omitempty"`
+	WindowsPath string `json:"windows_path,omitempty"`
+}
+
+// PostureCheckRequest represents the request body for creating/updating a posture check
+type PostureCheckRequest struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description,omitempty"`
+	Checks      PostureCheckDefinition `json:"checks"`
+}

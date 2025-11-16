@@ -50,6 +50,15 @@ func main() {
 		case "token":
 			printTokenUsage()
 			os.Exit(0)
+		case "route":
+			printRouteUsage()
+			os.Exit(0)
+		case "dns":
+			printDNSUsage()
+			os.Exit(0)
+		case "posture-check", "posture":
+			printPostureCheckUsage()
+			os.Exit(0)
 		case "help", "--help":
 			printUsage()
 			os.Exit(0)
@@ -101,6 +110,21 @@ func main() {
 		}
 	case "token":
 		if err := handleTokensCommand(client, args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "route":
+		if err := handleRoutesCommand(client, args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "dns":
+		if err := handleDNSCommand(client, args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "posture-check", "posture":
+		if err := handlePostureChecksCommand(client, args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

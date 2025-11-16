@@ -665,6 +665,295 @@ netbird-manage policy --remove-rule <rule-id> --policy-id <policy-id>
 - Rules can be identified by either name or ID for editing/removal
 - Bidirectional rules apply the same action in both source→destination and destination→source directions
 
+### Route
+
+Manage network routes and routing configuration. Routes define how traffic flows through your NetBird network. Running `netbird-manage route` by itself will display the help menu.
+
+#### Query Operations
+```bash
+# List all routes
+netbird-manage route --list
+
+# Filter routes by network CIDR pattern
+netbird-manage route --list --filter-network "10.0"
+
+# Filter by routing peer
+netbird-manage route --list --filter-peer <peer-id>
+
+# Show only enabled routes
+netbird-manage route --list --enabled-only
+
+# Show only disabled routes
+netbird-manage route --list --disabled-only
+
+# Inspect a specific route
+netbird-manage route --inspect <route-id>
+```
+
+#### Modification Operations
+```bash
+# Create a route for 10.0.0.0/16 network
+netbird-manage route --create "10.0.0.0/16" \
+  --network-id <network-id> \
+  --peer <peer-id> \
+  --groups <group-id> \
+  --metric 100 \
+  --masquerade
+
+# Create a route using peer groups instead of single peer
+netbird-manage route --create "192.168.0.0/16" \
+  --network-id <network-id> \
+  --peer-groups "router-group-1,router-group-2" \
+  --groups <group-id> \
+  --metric 50
+
+# Create a disabled route with description
+netbird-manage route --create "172.16.0.0/12" \
+  --network-id <network-id> \
+  --peer <peer-id> \
+  --groups <group-id> \
+  --description "Private network route" \
+  --disabled
+
+# Update route metric (priority)
+netbird-manage route --update <route-id> --metric 50
+
+# Enable/disable a route
+netbird-manage route --enable <route-id>
+netbird-manage route --disable <route-id>
+
+# Delete a route
+netbird-manage route --delete <route-id>
+```
+
+**Route Configuration Options:**
+- **`--network-id`**: Target network ID (required)
+- **`--peer`**: Single routing peer ID (use OR `--peer-groups`)
+- **`--peer-groups`**: Peer group IDs for high-availability routing (use OR `--peer`)
+- **`--metric`**: Route priority (1-9999, lower = higher priority, default: 100)
+- **`--masquerade`**: Enable masquerading/NAT (flag)
+- **`--no-masquerade`**: Disable masquerading (default)
+- **`--groups`**: Access group IDs (required, comma-separated)
+- **`--description`**: Route description text
+
+**Note:**
+- Network must be in valid CIDR notation (e.g., `10.0.0.0/16`)
+- Lower metric values have higher priority (metric 10 > metric 100)
+- Masquerading enables NAT for outbound traffic
+- Routes can use either a single peer or peer groups for redundancy
+
+### DNS
+
+Manage DNS nameserver groups and settings. DNS groups control domain resolution for specific peer groups. Running `netbird-manage dns` by itself will display the help menu.
+
+#### Query Operations
+```bash
+# List all DNS nameserver groups
+netbird-manage dns --list
+
+# Filter by name pattern
+netbird-manage dns --list --filter-name "corp-*"
+
+# Show only primary DNS groups
+netbird-manage dns --list --primary-only
+
+# Show only enabled groups
+netbird-manage dns --list --enabled-only
+
+# Inspect a specific DNS group
+netbird-manage dns --inspect <group-id>
+
+# Get DNS settings for the account
+netbird-manage dns --get-settings
+```
+
+#### Modification Operations
+```bash
+# Create a DNS group with Google and Cloudflare DNS
+netbird-manage dns --create "corp-dns" \
+  --nameservers "8.8.8.8:53,1.1.1.1:53" \
+  --groups <group-id>
+
+# Create a DNS group with domain matching
+netbird-manage dns --create "internal-dns" \
+  --nameservers "10.0.0.53:53" \
+  --groups <group-id> \
+  --domains "example.com,internal.local" \
+  --search-domains \
+  --primary
+
+# Create DNS group with description
+netbird-manage dns --create "public-dns" \
+  --nameservers "1.1.1.1:53,8.8.8.8:53" \
+  --groups <group-id> \
+  --description "Public DNS resolvers for external access"
+
+# Update nameservers for a group
+netbird-manage dns --update <group-id> \
+  --nameservers "9.9.9.9:53,149.112.112.112:53"
+
+# Set a group as primary
+netbird-manage dns --update <group-id> --primary
+
+# Enable/disable a DNS group
+netbird-manage dns --enable <group-id>
+netbird-manage dns --disable <group-id>
+
+# Update DNS settings (disable management for specific groups)
+netbird-manage dns --update-settings \
+  --disabled-groups <group-id-1>,<group-id-2>
+
+# Delete a DNS group
+netbird-manage dns --delete <group-id>
+```
+
+**DNS Configuration Options:**
+- **`--nameservers`**: DNS servers in `IP:port` format (default port: 53)
+- **`--groups`**: Target peer group IDs (required, comma-separated)
+- **`--domains`**: Match specific domains (optional, comma-separated)
+- **`--search-domains`**: Enable search domains (flag)
+- **`--primary`**: Set as primary DNS group (flag)
+- **`--description`**: DNS group description
+
+**Note:**
+- Nameserver format: `8.8.8.8:53` or just `8.8.8.8` (defaults to port 53)
+- Primary DNS group is used when no domain-specific match is found
+- Search domains append the domain to short hostnames
+- Only one primary DNS group should be active at a time
+
+### Posture Check
+
+Manage device posture checks for zero-trust security. Posture checks validate device compliance before granting network access. Running `netbird-manage posture-check` by itself will display the help menu.
+
+#### Query Operations
+```bash
+# List all posture checks
+netbird-manage posture-check --list
+
+# Filter by name pattern
+netbird-manage posture-check --list --filter-name "version-*"
+
+# Filter by check type
+netbird-manage posture-check --list --filter-type "nb-version"
+
+# Inspect a specific posture check
+netbird-manage posture-check --inspect <check-id>
+```
+
+#### Check Types & Creation
+
+##### NetBird Version Check
+Ensure peers run a minimum NetBird version.
+```bash
+netbird-manage posture-check --create "min-nb-version" \
+  --type nb-version \
+  --min-version "0.28.0" \
+  --description "Require NetBird 0.28.0 or newer"
+```
+
+##### OS Version Check
+Validate minimum OS or kernel versions.
+```bash
+# Require macOS 13.0 or newer
+netbird-manage posture-check --create "macos-13+" \
+  --type os-version \
+  --os darwin \
+  --min-os-version "13.0"
+
+# Require Linux kernel 5.10 or newer
+netbird-manage posture-check --create "linux-kernel-5.10+" \
+  --type os-version \
+  --os linux \
+  --min-kernel "5.10"
+
+# Require Android 12 or newer
+netbird-manage posture-check --create "android-12+" \
+  --type os-version \
+  --os android \
+  --min-os-version "12"
+
+# Supported OS types: android, darwin, ios, linux, windows
+```
+
+##### Geo-Location Check
+Restrict or allow access based on geographic location.
+```bash
+# Allow access only from US
+netbird-manage posture-check --create "us-only" \
+  --type geo-location \
+  --locations "US" \
+  --action allow
+
+# Allow specific cities
+netbird-manage posture-check --create "office-locations" \
+  --type geo-location \
+  --locations "US:NewYork,GB:London,DE:Berlin" \
+  --action allow
+
+# Deny access from specific countries
+netbird-manage posture-check --create "geo-block" \
+  --type geo-location \
+  --locations "RU,CN,KP" \
+  --action deny
+```
+
+##### Network Range Check
+Require peers to be on specific networks.
+```bash
+# Allow only corporate network ranges
+netbird-manage posture-check --create "corporate-net" \
+  --type network-range \
+  --ranges "192.168.0.0/16,10.0.0.0/8" \
+  --action allow
+
+# Deny access from public networks
+netbird-manage posture-check --create "block-public" \
+  --type network-range \
+  --ranges "0.0.0.0/0" \
+  --action deny
+```
+
+##### Process Check
+Verify required security software is running.
+```bash
+# Check for antivirus on multiple platforms
+netbird-manage posture-check --create "av-required" \
+  --type process \
+  --linux-path "/usr/bin/clamav" \
+  --mac-path "/Applications/Antivirus.app" \
+  --windows-path "C:\\Program Files\\Antivirus\\av.exe"
+
+# Check for VPN client
+netbird-manage posture-check --create "vpn-client" \
+  --type process \
+  --windows-path "C:\\Program Files\\VPN\\client.exe"
+```
+
+#### Modification Operations
+```bash
+# Update a posture check
+netbird-manage posture-check --update <check-id> \
+  --type nb-version \
+  --min-version "0.29.0" \
+  --description "Updated minimum version"
+
+# Delete a posture check
+netbird-manage posture-check --delete <check-id>
+```
+
+**Posture Check Types:**
+- **`nb-version`**: NetBird version check
+- **`os-version`**: Operating system version check
+- **`geo-location`**: Geographic location check
+- **`network-range`**: Peer network range check
+- **`process`**: Running process check
+
+**Note:**
+- Posture checks are evaluated before granting network access
+- Multiple checks can be combined for defense-in-depth security
+- Location checks use ISO 3166-1 alpha-2 country codes (e.g., US, GB, DE)
+- Process checks support platform-specific paths for cross-platform security
+
 ## 🚀 Roadmap
 
 This tool is in active development. The goal is to build a comprehensive and easy-to-use CLI for all NetBird management tasks.
@@ -680,19 +969,22 @@ This tool is in active development. The goal is to build a comprehensive and eas
 - ✅ **Users** - Full user management including invites, roles, and permissions
 - ✅ **Tokens** - Personal access token management for secure API access
 
-**API Coverage:** 7/14 NetBird API resource types fully implemented (50%)
+**Network Services (Phase 2 - COMPLETED):**
+- ✅ **Routes** - Network routing configuration with metrics and masquerading
+- ✅ **DNS** - DNS nameserver groups with domain matching and settings
+- ✅ **Posture Checks** - Device compliance validation with 5 check types
+
+**API Coverage:** 10/14 NetBird API resource types fully implemented (71%)
 
 ### 📋 Planned Features
-
-**Network Services (Phase 2):**
-- ❌ **Routes** - Network routing configuration and priorities
-- ❌ **DNS** - DNS nameserver groups and domain management
-- ❌ **Posture Checks** - Device compliance validation and zero-trust policies
 
 **Monitoring & Analytics (Phase 3):**
 - ❌ **Events** - Audit logs and activity monitoring
 - ❌ **Peer Update** - Modify peer properties (SSH, login expiration, IP assignment)
 - ❌ **JSON Output** - Machine-readable output for scripting (`--output json`)
+- ❌ **Accounts** - Account settings and configuration
+- ❌ **Geo-Locations** - Location data for access control
+- ❌ **Ingress Ports** - Port forwarding and ingress peers (Cloud only)
 
 ### 🎯 Enhancement Features
 
