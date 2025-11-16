@@ -33,10 +33,10 @@ func handleNetworkCommand(client *Client, args []string) error {
 
 	// Resource management flags
 	listResourcesFlag := networkCmd.String("list-resources", "", "List all resources in a network")
-	inspectResourceFlag := networkCmd.String("inspect-resource", "", "Inspect a resource (requires --network-id and --resource-id)")
+	inspectResourceFlag := networkCmd.Bool("inspect-resource", false, "Inspect a resource (requires --network-id and --resource-id)")
 	addResourceFlag := networkCmd.String("add-resource", "", "Add a resource to a network by ID")
-	updateResourceFlag := networkCmd.String("update-resource", "", "Update a resource (requires --network-id and --resource-id)")
-	removeResourceFlag := networkCmd.String("remove-resource", "", "Remove a resource (requires --network-id and --resource-id)")
+	updateResourceFlag := networkCmd.Bool("update-resource", false, "Update a resource (requires --network-id and --resource-id)")
+	removeResourceFlag := networkCmd.Bool("remove-resource", false, "Remove a resource (requires --network-id and --resource-id)")
 
 	// Resource-specific flags
 	networkID := networkCmd.String("network-id", "", "Network ID (for resource/router operations)")
@@ -50,10 +50,10 @@ func handleNetworkCommand(client *Client, args []string) error {
 	// Router management flags
 	listRoutersFlag := networkCmd.String("list-routers", "", "List all routers in a network")
 	listAllRoutersFlag := networkCmd.Bool("list-all-routers", false, "List all routers across all networks")
-	inspectRouterFlag := networkCmd.String("inspect-router", "", "Inspect a router (requires --network-id and --router-id)")
+	inspectRouterFlag := networkCmd.Bool("inspect-router", false, "Inspect a router (requires --network-id and --router-id)")
 	addRouterFlag := networkCmd.String("add-router", "", "Add a router to a network by ID")
-	updateRouterFlag := networkCmd.String("update-router", "", "Update a router (requires --network-id and --router-id)")
-	removeRouterFlag := networkCmd.String("remove-router", "", "Remove a router (requires --network-id and --router-id)")
+	updateRouterFlag := networkCmd.Bool("update-router", false, "Update a router (requires --network-id and --router-id)")
+	removeRouterFlag := networkCmd.Bool("remove-router", false, "Remove a router (requires --network-id and --router-id)")
 
 	// Router-specific flags
 	routerID := networkCmd.String("router-id", "", "Router ID")
@@ -99,7 +99,7 @@ func handleNetworkCommand(client *Client, args []string) error {
 	if *listResourcesFlag != "" {
 		return client.listNetworkResources(*listResourcesFlag)
 	}
-	if *inspectResourceFlag != "" {
+	if *inspectResourceFlag {
 		if *networkID == "" || *resourceID == "" {
 			fmt.Fprintln(os.Stderr, "Error: --network-id and --resource-id are required")
 			return nil
@@ -114,7 +114,7 @@ func handleNetworkCommand(client *Client, args []string) error {
 		enabledVal := *enabled && !*disabled
 		return client.addNetworkResource(*addResourceFlag, *resourceName, *address, *description, *groups, enabledVal)
 	}
-	if *updateResourceFlag != "" {
+	if *updateResourceFlag {
 		if *networkID == "" || *resourceID == "" {
 			fmt.Fprintln(os.Stderr, "Error: --network-id and --resource-id are required")
 			return nil
@@ -122,7 +122,7 @@ func handleNetworkCommand(client *Client, args []string) error {
 		enabledVal := *enabled && !*disabled
 		return client.updateNetworkResource(*networkID, *resourceID, *resourceName, *address, *description, *groups, enabledVal)
 	}
-	if *removeResourceFlag != "" {
+	if *removeResourceFlag {
 		if *networkID == "" || *resourceID == "" {
 			fmt.Fprintln(os.Stderr, "Error: --network-id and --resource-id are required")
 			return nil
@@ -137,7 +137,7 @@ func handleNetworkCommand(client *Client, args []string) error {
 	if *listRoutersFlag != "" {
 		return client.listNetworkRouters(*listRoutersFlag)
 	}
-	if *inspectRouterFlag != "" {
+	if *inspectRouterFlag {
 		if *networkID == "" || *routerID == "" {
 			fmt.Fprintln(os.Stderr, "Error: --network-id and --router-id are required")
 			return nil
@@ -160,7 +160,7 @@ func handleNetworkCommand(client *Client, args []string) error {
 		enabledVal := *enabled && !*disabled
 		return client.addNetworkRouter(*addRouterFlag, *peer, *peerGroups, *metric, masqueradeVal, enabledVal)
 	}
-	if *updateRouterFlag != "" {
+	if *updateRouterFlag {
 		if *networkID == "" || *routerID == "" {
 			fmt.Fprintln(os.Stderr, "Error: --network-id and --router-id are required")
 			return nil
@@ -176,7 +176,7 @@ func handleNetworkCommand(client *Client, args []string) error {
 		enabledVal := *enabled && !*disabled
 		return client.updateNetworkRouter(*networkID, *routerID, *peer, *peerGroups, *metric, masqueradeVal, enabledVal)
 	}
-	if *removeRouterFlag != "" {
+	if *removeRouterFlag {
 		if *networkID == "" || *routerID == "" {
 			fmt.Fprintln(os.Stderr, "Error: --network-id and --router-id are required")
 			return nil
