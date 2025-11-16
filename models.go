@@ -186,11 +186,11 @@ type PolicyResource struct {
 
 // PolicyCreateRequest represents the request body for creating a policy
 type PolicyCreateRequest struct {
-	Name                string       `json:"name"`
-	Description         string       `json:"description,omitempty"`
-	Enabled             bool         `json:"enabled"`
-	Rules               []PolicyRule `json:"rules,omitempty"`
-	SourcePostureChecks []string     `json:"source_posture_checks,omitempty"`
+	Name                string               `json:"name"`
+	Description         string               `json:"description,omitempty"`
+	Enabled             bool                 `json:"enabled"`
+	Rules               []PolicyRuleForWrite `json:"rules,omitempty"`
+	SourcePostureChecks []string             `json:"source_posture_checks,omitempty"`
 }
 
 // PolicyUpdateRequest represents the request body for updating a policy
