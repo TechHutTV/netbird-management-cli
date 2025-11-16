@@ -533,3 +533,93 @@ type City struct {
 	GeonameID int    `json:"geoname_id"`
 	CityName  string `json:"city_name"`
 }
+
+// Account represents a NetBird account
+type Account struct {
+	ID         string             `json:"id"`
+	Settings   AccountSettings    `json:"settings"`
+	Domain     string             `json:"domain"`
+	CreatedBy  string             `json:"created_by"`
+	CreatedAt  string             `json:"created_at"`
+	Onboarding *AccountOnboarding `json:"onboarding,omitempty"`
+}
+
+// AccountSettings contains account-wide configuration
+type AccountSettings struct {
+	PeerLoginExpiration      int      `json:"peer_login_expiration"`       // Seconds
+	PeerInactivityExpiration int      `json:"peer_inactivity_expiration"`  // Seconds
+	DNSDomain                string   `json:"dns_domain"`
+	NetworkRange             string   `json:"network_range"`
+	JWTGroupsEnabled         bool     `json:"jwt_groups_enabled"`
+	JWTGroupsClaim           string   `json:"jwt_groups_claim"`
+	JWTAllowGroups           []string `json:"jwt_allow_groups"`
+	GroupsPropagationEnabled bool     `json:"groups_propagation_enabled"`
+	RegularUsersViewBlocked  bool     `json:"regular_users_view_blocked"`
+	PeerApprovalEnabled      bool     `json:"peer_approval_enabled,omitempty"`  // Cloud-only
+	TrafficLogging           bool     `json:"traffic_logging,omitempty"`        // Cloud-only
+}
+
+// AccountOnboarding tracks signup and onboarding progress
+type AccountOnboarding struct {
+	SignupFormCompleted bool `json:"signup_form_completed"`
+	FlowCompleted       bool `json:"flow_completed"`
+}
+
+// AccountUpdateRequest for PUT /accounts/{id}
+type AccountUpdateRequest struct {
+	Settings   AccountSettings    `json:"settings"`
+	Onboarding *AccountOnboarding `json:"onboarding,omitempty"`
+}
+
+// IngressPortAllocation represents a port forwarding rule
+type IngressPortAllocation struct {
+	ID          string `json:"id"`
+	AllocationID string `json:"allocation_id,omitempty"`
+	PeerID      string `json:"peer_id"`
+	TargetPort  int    `json:"target_port"`
+	PublicPort  int    `json:"public_port,omitempty"` // Assigned by NetBird Cloud
+	Protocol    string `json:"protocol"`              // "tcp" or "udp"
+	Description string `json:"description,omitempty"`
+	CreatedAt   string `json:"created_at,omitempty"`
+	UpdatedAt   string `json:"updated_at,omitempty"`
+	IngressPeer string `json:"ingress_peer,omitempty"` // Ingress peer ID
+}
+
+// IngressPeer represents a global ingress endpoint
+type IngressPeer struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Location  string `json:"location,omitempty"`
+	Hostname  string `json:"hostname,omitempty"` // Public hostname
+	Enabled   bool   `json:"enabled"`
+	CreatedAt string `json:"created_at,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
+}
+
+// IngressPortCreateRequest for POST /peers/{id}/ingress/ports
+type IngressPortCreateRequest struct {
+	TargetPort  int    `json:"target_port"`
+	Protocol    string `json:"protocol,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+// IngressPortUpdateRequest for PUT /peers/{id}/ingress/ports/{id}
+type IngressPortUpdateRequest struct {
+	TargetPort  int    `json:"target_port"`
+	Protocol    string `json:"protocol,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+// IngressPeerCreateRequest for POST /ingress/peers
+type IngressPeerCreateRequest struct {
+	Name     string `json:"name"`
+	Location string `json:"location,omitempty"`
+	Enabled  bool   `json:"enabled,omitempty"`
+}
+
+// IngressPeerUpdateRequest for PUT /ingress/peers/{id}
+type IngressPeerUpdateRequest struct {
+	Name     string `json:"name,omitempty"`
+	Location string `json:"location,omitempty"`
+	Enabled  *bool  `json:"enabled,omitempty"`
+}
