@@ -39,6 +39,10 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("  setup-key ...                 Manage device registration keys (run 'netbird-manage setup-key' for options)")
 	fmt.Println()
+	fmt.Println("  user ...                      Manage users and invitations (run 'netbird-manage user' for options)")
+	fmt.Println()
+	fmt.Println("  token ...                     Manage personal access tokens (run 'netbird-manage token' for options)")
+	fmt.Println()
 	fmt.Println("  help                          Show this help message")
 }
 

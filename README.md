@@ -179,6 +179,149 @@ netbird-manage setup-key --inspect 12345
 - Revoked keys cannot be used to register new devices but existing devices remain active
 - One-off keys are automatically revoked after first use
 
+### User
+
+Manage users and user invitations. Running `netbird-manage user` by itself will display the help menu.
+
+#### Query Operations
+```bash
+# List all users
+netbird-manage user --list
+
+# List only service users
+netbird-manage user --list --service-users
+
+# List only regular users
+netbird-manage user --list --regular-users
+
+# Inspect a specific user
+netbird-manage user --inspect <user-id>
+
+# Get current authenticated user information
+netbird-manage user --me
+```
+
+#### Invite/Create Operations
+```bash
+# Invite a new regular user
+netbird-manage user --invite --email "user@example.com"
+
+# Invite a user with specific role
+netbird-manage user --invite \
+  --email "admin@example.com" \
+  --name "John Admin" \
+  --role admin
+
+# Invite a user with auto-groups
+netbird-manage user --invite \
+  --email "developer@example.com" \
+  --role user \
+  --auto-groups "group-id-1,group-id-2"
+
+# Create a service user
+netbird-manage user --invite \
+  --email "ci-bot@example.com" \
+  --role user \
+  --service-user
+```
+
+#### Update Operations
+```bash
+# Update user role
+netbird-manage user --update <user-id> --role admin
+
+# Update user auto-groups
+netbird-manage user --update <user-id> --auto-groups "group-1,group-2"
+
+# Block a user
+netbird-manage user --update <user-id> --blocked
+
+# Unblock a user
+netbird-manage user --update <user-id> --unblocked
+
+# Update role and block user
+netbird-manage user --update <user-id> --role user --blocked
+```
+
+#### Delete Operations
+```bash
+# Remove a user
+netbird-manage user --remove <user-id>
+
+# Resend invitation to a user
+netbird-manage user --resend-invite <user-id>
+```
+
+**User Role Options:**
+- **`admin`**: Full administrative access
+- **`user`**: Standard user access
+- **`owner`**: Account owner (highest privileges)
+
+**Note:**
+- Service users are designed for API access and automation
+- Blocked users cannot access the system but their configuration is preserved
+- Auto-groups automatically assign new peers to specified groups
+
+### Token
+
+Manage personal access tokens for API authentication. Running `netbird-manage token` by itself will display the help menu.
+
+#### Query Operations
+```bash
+# List all personal access tokens
+netbird-manage token --list
+
+# Inspect a specific token
+netbird-manage token --inspect <token-id>
+```
+
+#### Create Operations
+```bash
+# Create a token with default 90-day expiration
+netbird-manage token --create --name "My CLI Token"
+
+# Create a token with custom expiration
+netbird-manage token --create \
+  --name "CI/CD Token" \
+  --expires-in 365
+
+# Create a short-lived token
+netbird-manage token --create \
+  --name "Testing Token" \
+  --expires-in 7
+```
+
+#### Delete Operations
+```bash
+# Revoke/delete a token
+netbird-manage token --revoke <token-id>
+```
+
+**Token Options:**
+- **`--expires-in`**: Expiration in days (1-365, default: 90)
+- **`--user-id`**: User ID for token operations (defaults to current user)
+
+**Important:**
+- ⚠️ **Token values are only shown once during creation** - save them immediately!
+- Tokens are used for API authentication via `Authorization: Token <token>` header
+- Revoked tokens cannot be recovered - you must create new ones
+- Use tokens for CI/CD pipelines, automation, and programmatic access
+
+**Examples:**
+```bash
+# Create a token for automation
+netbird-manage token --create --name "Terraform Token" --expires-in 365
+
+# List all tokens to check expiration dates
+netbird-manage token --list
+
+# Revoke a compromised token
+netbird-manage token --revoke tok-abc123xyz
+
+# Check token details
+netbird-manage token --inspect tok-abc123xyz
+```
+
 ### Group
 
 Manage peer groups. Running netbird-manage group by itself will display the help menu.
@@ -534,14 +677,10 @@ This tool is in active development. The goal is to build a comprehensive and eas
 - ✅ **Networks** - Full CRUD operations including resource and router management
 - ✅ **Policies** - Full CRUD operations with advanced rule management
 - ✅ **Setup Keys** - Full CRUD operations for device registration and onboarding
+- ✅ **Users** - Full user management including invites, roles, and permissions
+- ✅ **Tokens** - Personal access token management for secure API access
 
-**API Coverage:** 5/14 NetBird API resource types fully implemented (36%)
-
-### 🚧 High Priority (Phase 1)
-
-**Core Operations:**
-- ❌ **Users** - Invite users, manage roles and permissions
-- ❌ **Tokens** - Manage personal access tokens for secure API access
+**API Coverage:** 7/14 NetBird API resource types fully implemented (50%)
 
 ### 📋 Planned Features
 
