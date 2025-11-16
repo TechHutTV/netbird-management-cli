@@ -48,8 +48,8 @@ netbird-manage peer --accessible-peers <peer-id>  List peers accessible from the
 netbird-manage peer --remove <peer-id>         Remove a peer from your network
 
 netbird-manage peer --edit <peer-id>           Edit peer group membership
-  --add-group <group-id>                       Add peer to a specified group
-  --remove-group <group-id>                    Remove peer from a specified group
+  --add-group <group-name|id>                  Add peer to a specified group (supports names and IDs)
+  --remove-group <group-name|id>               Remove peer from a specified group (supports names and IDs)
 
 netbird-manage peer --update <peer-id>         Update peer settings
   --rename <new-name>                          Change peer name
@@ -64,6 +64,15 @@ netbird-manage peer --update <peer-id>         Update peer settings
 ```bash
 # List all peers with "ubuntu" in the name
 netbird-manage peer --list --filter-name "ubuntu*"
+
+# Add a peer to a group using group name (more user-friendly)
+netbird-manage peer --edit d3mjakrl0ubs738ajj00 --add-group "Admin"
+
+# Add a peer to a group using group ID (also supported)
+netbird-manage peer --edit d3mjakrl0ubs738ajj00 --add-group "d110qnrl0ubs73e6pdvg"
+
+# Remove a peer from a group using group name
+netbird-manage peer --edit d3mjakrl0ubs738ajj00 --remove-group "Admin"
 
 # Rename a peer
 netbird-manage peer --update d3mjakrl0ubs738ajj00 --rename "UbuntuServer"
@@ -430,6 +439,13 @@ netbird-manage policy --disable <policy-id>
 # Delete a policy
 netbird-manage policy --delete <policy-id>
 ```
+
+**Note on Policy Creation:**
+The NetBird API requires at least one rule when creating a policy. If you need to create a policy via CLI, you have two options:
+1. Create the policy through the NetBird UI first, then manage it via CLI
+2. Use the API directly with an initial rule included
+
+After creating a policy (via UI or API), you can fully manage its rules using the CLI commands below.
 
 #### Rule Management
 
