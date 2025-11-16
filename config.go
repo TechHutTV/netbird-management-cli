@@ -33,7 +33,7 @@ func testAndSaveConfig(token, managementURL string) error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
 
 	fmt.Println("Connection successful. Saving configuration...")
 	configPath, err := getConfigPath()

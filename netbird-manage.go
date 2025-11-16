@@ -148,7 +148,7 @@ func handleConnectStatus() error {
 		fmt.Printf("Token Status:   Validation Failed (%v)\n", err)
 		return nil
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
 	fmt.Printf("Token Status:   Valid\n")
 	return nil
 }
