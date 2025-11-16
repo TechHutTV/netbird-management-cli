@@ -36,8 +36,10 @@ type PeerUpdateRequest struct {
 
 // PolicyGroup represents the simplified group object found inside other resources (like Peer)
 type PolicyGroup struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	PeersCount     int    `json:"peers_count,omitempty"`
+	ResourcesCount int    `json:"resources_count,omitempty"`
 }
 
 // GroupDetail represents the full group object (from groups.mdx)
@@ -193,11 +195,27 @@ type PolicyCreateRequest struct {
 
 // PolicyUpdateRequest represents the request body for updating a policy
 type PolicyUpdateRequest struct {
-	Name                string       `json:"name"`
-	Description         string       `json:"description"`
-	Enabled             bool         `json:"enabled"`
-	Rules               []PolicyRule `json:"rules"`
-	SourcePostureChecks []string     `json:"source_posture_checks,omitempty"`
+	Name                string               `json:"name"`
+	Description         string               `json:"description,omitempty"`
+	Enabled             bool                 `json:"enabled"`
+	Rules               []PolicyRuleForWrite `json:"rules"`
+	SourcePostureChecks []string             `json:"source_posture_checks,omitempty"`
+}
+
+// PolicyRuleForWrite represents a policy rule for create/update operations (uses string IDs instead of objects)
+type PolicyRuleForWrite struct {
+	Name                string          `json:"name"`
+	Description         string          `json:"description,omitempty"`
+	Enabled             bool            `json:"enabled"`
+	Action              string          `json:"action"`
+	Bidirectional       bool            `json:"bidirectional"`
+	Protocol            string          `json:"protocol"`
+	Ports               []string        `json:"ports,omitempty"`
+	PortRanges          []PortRange     `json:"port_ranges,omitempty"`
+	Sources             []string        `json:"sources,omitempty"`             // String IDs for updates
+	Destinations        []string        `json:"destinations,omitempty"`        // String IDs for updates
+	SourceResource      *PolicyResource `json:"sourceResource,omitempty"`
+	DestinationResource *PolicyResource `json:"destinationResource,omitempty"`
 }
 
 // SetupKey represents a setup key for peer registration

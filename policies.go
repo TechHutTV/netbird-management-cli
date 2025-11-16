@@ -377,7 +377,7 @@ func (c *Client) togglePolicy(policyID string, enable bool) error {
 		Name:                policy.Name,
 		Description:         policy.Description,
 		Enabled:             policy.Enabled,
-		Rules:               policy.Rules,
+		Rules:               cleanRulesForUpdate(policy.Rules),
 		SourcePostureChecks: policy.SourcePostureChecks,
 	}
 
@@ -428,7 +428,7 @@ func (c *Client) addRuleToPolicy(policyID, ruleName string, config *RuleConfig) 
 		Name:                policy.Name,
 		Description:         policy.Description,
 		Enabled:             policy.Enabled,
-		Rules:               policy.Rules,
+		Rules:               cleanRulesForUpdate(policy.Rules),
 		SourcePostureChecks: policy.SourcePostureChecks,
 	}
 
@@ -521,7 +521,7 @@ func (c *Client) editRule(policyID, ruleIdentifier string, config *RuleConfig) e
 		Name:                policy.Name,
 		Description:         policy.Description,
 		Enabled:             policy.Enabled,
-		Rules:               policy.Rules,
+		Rules:               cleanRulesForUpdate(policy.Rules),
 		SourcePostureChecks: policy.SourcePostureChecks,
 	}
 
@@ -577,7 +577,7 @@ func (c *Client) removeRuleFromPolicy(policyID, ruleIdentifier string) error {
 		Name:                policy.Name,
 		Description:         policy.Description,
 		Enabled:             policy.Enabled,
-		Rules:               policy.Rules,
+		Rules:               cleanRulesForUpdate(policy.Rules),
 		SourcePostureChecks: policy.SourcePostureChecks,
 	}
 
@@ -745,6 +745,39 @@ func getGroupNames(groups []PolicyGroup) string {
 		names = append(names, g.Name)
 	}
 	return strings.Join(names, ", ")
+}
+
+// cleanRulesForUpdate converts PolicyRule objects to PolicyRuleForWrite for API updates
+func cleanRulesForUpdate(rules []PolicyRule) []PolicyRuleForWrite {
+	cleaned := make([]PolicyRuleForWrite, len(rules))
+	for i, rule := range rules {
+		// Extract just the group IDs from sources and destinations
+		sourceIDs := make([]string, len(rule.Sources))
+		for j, src := range rule.Sources {
+			sourceIDs[j] = src.ID
+		}
+		destIDs := make([]string, len(rule.Destinations))
+		for j, dest := range rule.Destinations {
+			destIDs[j] = dest.ID
+		}
+
+		// Convert to write format
+		cleaned[i] = PolicyRuleForWrite{
+			Name:                rule.Name,
+			Description:         rule.Description,
+			Enabled:             rule.Enabled,
+			Action:              rule.Action,
+			Bidirectional:       rule.Bidirectional,
+			Protocol:            rule.Protocol,
+			Ports:               rule.Ports,
+			PortRanges:          rule.PortRanges,
+			Sources:             sourceIDs,
+			Destinations:        destIDs,
+			SourceResource:      rule.SourceResource,
+			DestinationResource: rule.DestinationResource,
+		}
+	}
+	return cleaned
 }
 
 // printPolicyUsage prints usage information for the policy command
