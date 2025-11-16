@@ -348,7 +348,7 @@ func (c *Client) listSetupKeys(filterName, filterType string, validOnly bool) er
 			groupsStr = fmt.Sprintf("%d groups", groupCount)
 		}
 
-		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%d/%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d/%s\t%s\t%s\n",
 			key.ID,
 			key.Name,
 			key.Type,
@@ -381,7 +381,7 @@ func (c *Client) inspectSetupKey(keyID string) error {
 	// Display key details
 	fmt.Printf("Setup Key Details\n")
 	fmt.Printf("=================\n\n")
-	fmt.Printf("ID:                    %d\n", key.ID)
+	fmt.Printf("ID:                    %s\n", key.ID)
 	fmt.Printf("Name:                  %s\n", key.Name)
 	fmt.Printf("Type:                  %s\n", key.Type)
 	fmt.Printf("State:                 %s\n", formatState(key.State, key.Valid, key.Revoked))
@@ -490,7 +490,7 @@ func (c *Client) createSetupKey(name, keyType string, expiresIn int, autoGroups 
 
 	// Display success message with key details
 	fmt.Printf("✓ Setup key created successfully!\n\n")
-	fmt.Printf("Key ID:       %d\n", key.ID)
+	fmt.Printf("Key ID:       %s\n", key.ID)
 	fmt.Printf("Name:         %s\n", key.Name)
 	fmt.Printf("Type:         %s\n", key.Type)
 	fmt.Printf("Expires:      %s (%s)\n", formatExpiration(key.Expires), formatDuration(expiresIn))
