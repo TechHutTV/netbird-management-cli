@@ -313,11 +313,14 @@ func (c *Client) inspectPolicy(policyID string) error {
 
 // createPolicy implements the "policy --create" command
 func (c *Client) createPolicy(name, description string, enabled bool) error {
+	// Note: The NetBird API requires at least one rule when creating a policy.
+	// Since we can't create a policy without rules via the API, we inform the user
+	// to use --add-rule after creation, or create the policy through the UI first.
 	reqBody := PolicyCreateRequest{
 		Name:        name,
 		Description: description,
 		Enabled:     enabled,
-		Rules:       []PolicyRule{},
+		Rules:       []PolicyRuleRequest{}, // Empty rules array - will likely fail
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)
@@ -327,7 +330,8 @@ func (c *Client) createPolicy(name, description string, enabled bool) error {
 
 	resp, err := c.makeRequest("POST", "/policies", bytes.NewReader(bodyBytes))
 	if err != nil {
-		return err
+		// If the error is about empty rules, provide helpful guidance
+		return fmt.Errorf("%w\n\nNote: NetBird requires at least one rule when creating a policy.\nWorkaround: Create the policy through the NetBird UI first, then use:\n  netbird-manage policy --add-rule <rule-name> --policy-id <policy-id> ...", err)
 	}
 	defer resp.Body.Close()
 
@@ -340,6 +344,8 @@ func (c *Client) createPolicy(name, description string, enabled bool) error {
 	fmt.Printf("  ID:      %s\n", createdPolicy.ID)
 	fmt.Printf("  Name:    %s\n", createdPolicy.Name)
 	fmt.Printf("  Enabled: %t\n", createdPolicy.Enabled)
+	fmt.Printf("\nNote: Add rules to this policy using:\n")
+	fmt.Printf("  netbird-manage policy --add-rule <rule-name> --policy-id %s ...\n", createdPolicy.ID)
 	return nil
 }
 
@@ -372,12 +378,12 @@ func (c *Client) togglePolicy(policyID string, enable bool) error {
 	// Update the enabled status
 	policy.Enabled = enable
 
-	// Send the update
+	// Send the update - convert rules to request format (group IDs as strings)
 	updateReq := PolicyUpdateRequest{
 		Name:                policy.Name,
 		Description:         policy.Description,
 		Enabled:             policy.Enabled,
-		Rules:               policy.Rules,
+		Rules:               convertPolicyRulesToRequests(policy.Rules),
 		SourcePostureChecks: policy.SourcePostureChecks,
 	}
 
@@ -414,21 +420,22 @@ func (c *Client) addRuleToPolicy(policyID, ruleName string, config *RuleConfig) 
 		return fmt.Errorf("failed to decode policy: %v", err)
 	}
 
-	// Build the new rule
+	// Build the new rule (returns PolicyRuleRequest)
 	newRule, err := c.buildRuleFromConfig(ruleName, config)
 	if err != nil {
 		return err
 	}
 
-	// Add the rule to the policy
-	policy.Rules = append(policy.Rules, *newRule)
+	// Convert existing rules to request format and add the new rule
+	ruleRequests := convertPolicyRulesToRequests(policy.Rules)
+	ruleRequests = append(ruleRequests, *newRule)
 
 	// Send the update
 	updateReq := PolicyUpdateRequest{
 		Name:                policy.Name,
 		Description:         policy.Description,
 		Enabled:             policy.Enabled,
-		Rules:               policy.Rules,
+		Rules:               ruleRequests,
 		SourcePostureChecks: policy.SourcePostureChecks,
 	}
 
@@ -516,12 +523,12 @@ func (c *Client) editRule(policyID, ruleIdentifier string, config *RuleConfig) e
 	existingRule.Bidirectional = config.Bidirectional
 	existingRule.Enabled = config.Enabled
 
-	// Send the update
+	// Send the update - convert rules to request format (group IDs as strings)
 	updateReq := PolicyUpdateRequest{
 		Name:                policy.Name,
 		Description:         policy.Description,
 		Enabled:             policy.Enabled,
-		Rules:               policy.Rules,
+		Rules:               convertPolicyRulesToRequests(policy.Rules),
 		SourcePostureChecks: policy.SourcePostureChecks,
 	}
 
@@ -572,12 +579,12 @@ func (c *Client) removeRuleFromPolicy(policyID, ruleIdentifier string) error {
 	// Remove the rule
 	policy.Rules = append(policy.Rules[:ruleIndex], policy.Rules[ruleIndex+1:]...)
 
-	// Send the update
+	// Send the update - convert rules to request format (group IDs as strings)
 	updateReq := PolicyUpdateRequest{
 		Name:                policy.Name,
 		Description:         policy.Description,
 		Enabled:             policy.Enabled,
-		Rules:               policy.Rules,
+		Rules:               convertPolicyRulesToRequests(policy.Rules),
 		SourcePostureChecks: policy.SourcePostureChecks,
 	}
 
@@ -597,13 +604,13 @@ func (c *Client) removeRuleFromPolicy(policyID, ruleIdentifier string) error {
 }
 
 // buildRuleFromConfig creates a PolicyRule from RuleConfig
-func (c *Client) buildRuleFromConfig(ruleName string, config *RuleConfig) (*PolicyRule, error) {
+func (c *Client) buildRuleFromConfig(ruleName string, config *RuleConfig) (*PolicyRuleRequest, error) {
 	// Validate required fields
 	if config.Action != "accept" && config.Action != "drop" {
 		return nil, fmt.Errorf("invalid action '%s': must be 'accept' or 'drop'", config.Action)
 	}
 
-	// Resolve source and destination groups
+	// Resolve source and destination groups to get their IDs
 	sourceGroups, err := c.resolveGroupIdentifiers(config.Sources)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve source groups: %v", err)
@@ -614,16 +621,27 @@ func (c *Client) buildRuleFromConfig(ruleName string, config *RuleConfig) (*Poli
 		return nil, fmt.Errorf("failed to resolve destination groups: %v", err)
 	}
 
-	// Build the rule
-	rule := &PolicyRule{
+	// Extract group IDs for the request (API expects string IDs, not objects)
+	sourceIDs := make([]string, len(sourceGroups))
+	for i, group := range sourceGroups {
+		sourceIDs[i] = group.ID
+	}
+
+	destIDs := make([]string, len(destGroups))
+	for i, group := range destGroups {
+		destIDs[i] = group.ID
+	}
+
+	// Build the rule request
+	rule := &PolicyRuleRequest{
 		Name:          ruleName,
 		Description:   config.Description,
 		Enabled:       config.Enabled,
 		Action:        config.Action,
 		Bidirectional: config.Bidirectional,
 		Protocol:      config.Protocol,
-		Sources:       sourceGroups,
-		Destinations:  destGroups,
+		Sources:       sourceIDs,
+		Destinations:  destIDs,
 	}
 
 	// Add ports if specified
@@ -745,6 +763,47 @@ func getGroupNames(groups []PolicyGroup) string {
 		names = append(names, g.Name)
 	}
 	return strings.Join(names, ", ")
+}
+
+// convertPolicyRuleToRequest converts a PolicyRule (from GET) to PolicyRuleRequest (for PUT/POST)
+// This extracts group IDs from PolicyGroup objects as the API expects string IDs for updates
+func convertPolicyRuleToRequest(rule PolicyRule) PolicyRuleRequest {
+	// Extract source group IDs
+	sourceIDs := make([]string, len(rule.Sources))
+	for i, group := range rule.Sources {
+		sourceIDs[i] = group.ID
+	}
+
+	// Extract destination group IDs
+	destIDs := make([]string, len(rule.Destinations))
+	for i, group := range rule.Destinations {
+		destIDs[i] = group.ID
+	}
+
+	return PolicyRuleRequest{
+		ID:                  rule.ID,
+		Name:                rule.Name,
+		Description:         rule.Description,
+		Enabled:             rule.Enabled,
+		Action:              rule.Action,
+		Bidirectional:       rule.Bidirectional,
+		Protocol:            rule.Protocol,
+		Ports:               rule.Ports,
+		PortRanges:          rule.PortRanges,
+		Sources:             sourceIDs,
+		Destinations:        destIDs,
+		SourceResource:      rule.SourceResource,
+		DestinationResource: rule.DestinationResource,
+	}
+}
+
+// convertPolicyRulesToRequests converts multiple PolicyRules to PolicyRuleRequests
+func convertPolicyRulesToRequests(rules []PolicyRule) []PolicyRuleRequest {
+	requests := make([]PolicyRuleRequest, len(rules))
+	for i, rule := range rules {
+		requests[i] = convertPolicyRuleToRequest(rule)
+	}
+	return requests
 }
 
 // printPolicyUsage prints usage information for the policy command
