@@ -48,36 +48,122 @@ Authorization: Bearer <YOUR_TOKEN>
 
 ### ✅ Implemented Endpoints
 
-| Resource | CLI Command | API Endpoint | Implementation File |
-|----------|-------------|--------------|---------------------|
-| List Peers | `peer --list` | `GET /peers` | `peers.go:79` |
-| Inspect Peer | `peer --inspect <id>` | `GET /peers/{id}` | `peers.go:122` |
-| Remove Peer | `peer --remove <id>` | `DELETE /peers/{id}` | `peers.go:144` |
-| List Groups | `group --list` | `GET /groups` | `groups.go:49` |
-| Get Group | (internal) | `GET /groups/{id}` | `groups.go:80` |
-| Update Group | `peer --edit --add/remove-group` | `PUT /groups/{id}` | `groups.go:102` |
-| List Networks | `network --list` | `GET /networks` | `networks.go:15` |
-| List Policies | `policy --list` | `GET /policies` | `policies.go:181` |
-| **Create Policy** | `policy --create` | `POST /policies` | `policies.go:315` |
-| **Inspect Policy** | `policy --inspect <id>` | `GET /policies/{id}` | `policies.go:252` |
-| **Update Policy** | `policy --enable/--disable` | `PUT /policies/{id}` | `policies.go:359` |
-| **Delete Policy** | `policy --delete <id>` | `DELETE /policies/{id}` | `policies.go:347` |
-| **Add Rule** | `policy --add-rule` | `PUT /policies/{id}` | `policies.go:404` |
-| **Edit Rule** | `policy --edit-rule` | `PUT /policies/{id}` | `policies.go:451` |
-| **Remove Rule** | `policy --remove-rule` | `PUT /policies/{id}` | `policies.go:544` |
+#### Peers
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `peer --list` | `GET /peers` | `peers.go` |
+| `peer --inspect <id>` | `GET /peers/{id}` | `peers.go` |
+| `peer --update <id>` | `PUT /peers/{id}` | `peers.go` |
+| `peer --remove <id>` | `DELETE /peers/{id}` | `peers.go` |
+| `peer --accessible-peers <id>` | `GET /peers/{id}/accessible-peers` | `peers.go` |
+| `peer --edit --add/remove-group` | `PUT /groups/{id}` | `groups.go` |
 
-### 📋 Planned Endpoints
+#### Groups
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `group --list` | `GET /groups` | `groups.go` |
+| `group --inspect <id>` | `GET /groups/{id}` | `groups.go` |
+| `group --create` | `POST /groups` | `groups.go` |
+| `group --delete <id>` | `DELETE /groups/{id}` | `groups.go` |
+| `group --rename <id>` | `PUT /groups/{id}` | `groups.go` |
+| `group --add-peers/--remove-peers` | `PUT /groups/{id}` | `groups.go` |
 
-See [`docs/api/resources/README.md`](docs/api/resources/README.md) for full catalog of available endpoints.
+#### Networks
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `network --list` | `GET /networks` | `networks.go` |
+| `network --inspect <id>` | `GET /networks/{id}` | `networks.go` |
+| `network --create` | `POST /networks` | `networks.go` |
+| `network --delete <id>` | `DELETE /networks/{id}` | `networks.go` |
+| `network --rename/--update` | `PUT /networks/{id}` | `networks.go` |
+| `network --add/update/remove-resource` | Network resource endpoints | `networks.go` |
+| `network --add/update/remove-router` | Network router endpoints | `networks.go` |
+| `network --list-routers/--list-all-routers` | Router listing endpoints | `networks.go` |
 
-**High Priority:**
-- ✅ Full CRUD for Groups (create, delete) - **COMPLETE**
-- ✅ Full CRUD for Networks (create, update, delete) - **COMPLETE**
-- ✅ Full CRUD for Policies (create, update, delete) - **COMPLETE**
-- User Management (list, create, delete)
-- Setup Keys (create, list, delete)
+#### Policies
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `policy --list` | `GET /policies` | `policies.go` |
+| `policy --inspect <id>` | `GET /policies/{id}` | `policies.go` |
+| `policy --create` | `POST /policies` | `policies.go` |
+| `policy --delete <id>` | `DELETE /policies/{id}` | `policies.go` |
+| `policy --enable/--disable` | `PUT /policies/{id}` | `policies.go` |
+| `policy --add-rule` | `PUT /policies/{id}` | `policies.go` |
+| `policy --edit-rule` | `PUT /policies/{id}` | `policies.go` |
+| `policy --remove-rule` | `PUT /policies/{id}` | `policies.go` |
 
-**See README.md** for complete feature roadmap.
+#### Setup Keys
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `setup-key --list` | `GET /setup-keys` | `setup-keys.go` |
+| `setup-key --inspect <id>` | `GET /setup-keys/{id}` | `setup-keys.go` |
+| `setup-key --create/--quick` | `POST /setup-keys` | `setup-keys.go` |
+| `setup-key --delete <id>` | `DELETE /setup-keys/{id}` | `setup-keys.go` |
+| `setup-key --revoke/--enable` | `PUT /setup-keys/{id}` | `setup-keys.go` |
+| `setup-key --update-groups` | `PUT /setup-keys/{id}` | `setup-keys.go` |
+
+#### Users
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `user --list` | `GET /users` | `users.go` |
+| `user --me` | `GET /users/current` | `users.go` |
+| `user --invite` | `POST /users` | `users.go` |
+| `user --update <id>` | `PUT /users/{id}` | `users.go` |
+| `user --remove <id>` | `DELETE /users/{id}` | `users.go` |
+| `user --resend-invite <id>` | `POST /users/{id}/invite` | `users.go` |
+
+#### Tokens
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `token --list` | `GET /users/{userId}/tokens` | `tokens.go` |
+| `token --inspect <id>` | `GET /users/{userId}/tokens/{id}` | `tokens.go` |
+| `token --create` | `POST /users/{userId}/tokens` | `tokens.go` |
+| `token --revoke <id>` | `DELETE /users/{userId}/tokens/{id}` | `tokens.go` |
+
+#### Routes
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `route --list` | `GET /routes` | `routes.go` |
+| `route --inspect <id>` | `GET /routes/{id}` | `routes.go` |
+| `route --create` | `POST /routes` | `routes.go` |
+| `route --update <id>` | `PUT /routes/{id}` | `routes.go` |
+| `route --delete <id>` | `DELETE /routes/{id}` | `routes.go` |
+| `route --enable/--disable <id>` | `PUT /routes/{id}` | `routes.go` |
+
+#### DNS
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `dns --list` | `GET /dns/nameservers` | `dns.go` |
+| `dns --inspect <id>` | `GET /dns/nameservers/{id}` | `dns.go` |
+| `dns --create` | `POST /dns/nameservers` | `dns.go` |
+| `dns --update <id>` | `PUT /dns/nameservers/{id}` | `dns.go` |
+| `dns --delete <id>` | `DELETE /dns/nameservers/{id}` | `dns.go` |
+| `dns --enable/--disable <id>` | `PUT /dns/nameservers/{id}` | `dns.go` |
+| `dns --get-settings` | `GET /dns/settings` | `dns.go` |
+| `dns --update-settings` | `PUT /dns/settings` | `dns.go` |
+
+#### Posture Checks
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `posture-check --list` | `GET /posture-checks` | `posture-checks.go` |
+| `posture-check --inspect <id>` | `GET /posture-checks/{id}` | `posture-checks.go` |
+| `posture-check --create` | `POST /posture-checks` | `posture-checks.go` |
+| `posture-check --update <id>` | `PUT /posture-checks/{id}` | `posture-checks.go` |
+| `posture-check --delete <id>` | `DELETE /posture-checks/{id}` | `posture-checks.go` |
+
+### 📋 Not Yet Implemented
+
+**Monitoring & Analytics:**
+- Events (audit logs and activity monitoring)
+- Geo-Locations (location data for access control)
+
+**Account Management:**
+- Accounts (account settings and configuration)
+
+**Cloud-Only Features:**
+- Ingress Ports (port forwarding - NetBird Cloud only)
+
+**See README.md** for complete feature roadmap and implementation details.
 
 ---
 
@@ -170,9 +256,9 @@ curl -X DELETE https://api.netbird.io/api/peers/peer-id \
 |--------|----------|---------|-------------|
 | GET | `/peers` | List all peers | ✅ `peer --list` |
 | GET | `/peers/{id}` | Get peer details | ✅ `peer --inspect` |
-| PUT | `/peers/{id}` | Update peer settings | ❌ Not implemented |
+| PUT | `/peers/{id}` | Update peer settings | ✅ `peer --update` |
 | DELETE | `/peers/{id}` | Remove peer | ✅ `peer --remove` |
-| GET | `/peers/{id}/accessible-peers` | List accessible peers | ❌ Not implemented |
+| GET | `/peers/{id}/accessible-peers` | List accessible peers | ✅ `peer --accessible-peers` |
 
 **Docs:** [`docs/api/resources/peers.md`](docs/api/resources/peers.md)
 
@@ -180,11 +266,11 @@ curl -X DELETE https://api.netbird.io/api/peers/peer-id \
 
 | Method | Endpoint | Purpose | CLI Support |
 |--------|----------|---------|-------------|
-| GET | `/groups` | List all groups | ✅ `group` |
-| POST | `/groups` | Create group | ❌ Planned |
-| GET | `/groups/{id}` | Get group details | ✅ Internal |
-| PUT | `/groups/{id}` | Update group | ✅ `peer --edit --add/remove-group` |
-| DELETE | `/groups/{id}` | Delete group | ❌ Planned |
+| GET | `/groups` | List all groups | ✅ `group --list` |
+| POST | `/groups` | Create group | ✅ `group --create` |
+| GET | `/groups/{id}` | Get group details | ✅ `group --inspect` |
+| PUT | `/groups/{id}` | Update group | ✅ `group --rename`, `group --add/remove-peers`, `peer --edit` |
+| DELETE | `/groups/{id}` | Delete group | ✅ `group --delete` |
 
 **Docs:** [`docs/api/resources/groups.md`](docs/api/resources/groups.md)
 
@@ -192,13 +278,13 @@ curl -X DELETE https://api.netbird.io/api/peers/peer-id \
 
 | Method | Endpoint | Purpose | CLI Support |
 |--------|----------|---------|-------------|
-| GET | `/networks` | List all networks | ✅ `networks` |
-| POST | `/networks` | Create network | ❌ Planned |
-| GET | `/networks/{id}` | Get network details | ❌ Planned |
-| PUT | `/networks/{id}` | Update network | ❌ Planned |
-| DELETE | `/networks/{id}` | Delete network | ❌ Planned |
+| GET | `/networks` | List all networks | ✅ `network --list` |
+| POST | `/networks` | Create network | ✅ `network --create` |
+| GET | `/networks/{id}` | Get network details | ✅ `network --inspect` |
+| PUT | `/networks/{id}` | Update network | ✅ `network --rename`, `network --update` |
+| DELETE | `/networks/{id}` | Delete network | ✅ `network --delete` |
 
-Plus 7 additional endpoints for network resources and routers.
+Plus 7 additional endpoints for network resources and routers - **ALL FULLY IMPLEMENTED** via `network --add/update/remove-resource` and `network --add/update/remove-router` commands.
 
 **Docs:** [`docs/api/resources/networks.md`](docs/api/resources/networks.md)
 
@@ -226,26 +312,29 @@ Plus 7 additional endpoints for network resources and routers.
 
 | Method | Endpoint | Purpose | CLI Support |
 |--------|----------|---------|-------------|
-| GET | `/users` | List all users | ❌ Planned |
-| POST | `/users` | Create/invite user | ❌ Planned |
-| PUT | `/users/{id}` | Update user | ❌ Planned |
-| DELETE | `/users/{id}` | Delete user | ❌ Planned |
-| POST | `/users/{id}/invite` | Resend invitation | ❌ Planned |
-| GET | `/users/current` | Get current user | ❌ Planned |
+| GET | `/users` | List all users | ✅ `user --list` |
+| POST | `/users` | Create/invite user | ✅ `user --invite` |
+| PUT | `/users/{id}` | Update user | ✅ `user --update` |
+| DELETE | `/users/{id}` | Delete user | ✅ `user --remove` |
+| POST | `/users/{id}/invite` | Resend invitation | ✅ `user --resend-invite` |
+| GET | `/users/current` | Get current user | ✅ `user --me` |
 
 **Docs:** [`docs/api/resources/users.md`](docs/api/resources/users.md)
 
 ### Other Resources
 
-- **Tokens:** [`docs/api/resources/tokens.md`](docs/api/resources/tokens.md)
-- **Accounts:** [`docs/api/resources/accounts.md`](docs/api/resources/accounts.md)
-- **DNS:** [`docs/api/resources/dns.md`](docs/api/resources/dns.md)
-- **Routes:** [`docs/api/resources/routes.md`](docs/api/resources/routes.md)
-- **Setup Keys:** [`docs/api/resources/setup-keys.md`](docs/api/resources/setup-keys.md)
-- **Posture Checks:** [`docs/api/resources/posture-checks.md`](docs/api/resources/posture-checks.md)
-- **Events:** [`docs/api/resources/events.md`](docs/api/resources/events.md)
-- **Geo-Locations:** [`docs/api/resources/geo-locations.md`](docs/api/resources/geo-locations.md)
-- **Ingress Ports:** [`docs/api/resources/ingress-ports.md`](docs/api/resources/ingress-ports.md) (Cloud only)
+**✅ Fully Implemented:**
+- **Tokens** (4 endpoints) - [`docs/api/resources/tokens.md`](docs/api/resources/tokens.md) - See `token` commands
+- **DNS** (6 endpoints) - [`docs/api/resources/dns.md`](docs/api/resources/dns.md) - See `dns` commands
+- **Routes** (5 endpoints) - [`docs/api/resources/routes.md`](docs/api/resources/routes.md) - See `route` commands
+- **Setup Keys** (5 endpoints) - [`docs/api/resources/setup-keys.md`](docs/api/resources/setup-keys.md) - See `setup-key` commands
+- **Posture Checks** (5 endpoints) - [`docs/api/resources/posture-checks.md`](docs/api/resources/posture-checks.md) - See `posture-check` commands
+
+**❌ Not Yet Implemented:**
+- **Accounts** (3 endpoints) - [`docs/api/resources/accounts.md`](docs/api/resources/accounts.md) - Account settings
+- **Events** (2 endpoints) - [`docs/api/resources/events.md`](docs/api/resources/events.md) - Audit logs and monitoring
+- **Geo-Locations** (2 endpoints) - [`docs/api/resources/geo-locations.md`](docs/api/resources/geo-locations.md) - Location data
+- **Ingress Ports** (10 endpoints) - [`docs/api/resources/ingress-ports.md`](docs/api/resources/ingress-ports.md) - Port forwarding (Cloud only)
 
 ---
 
