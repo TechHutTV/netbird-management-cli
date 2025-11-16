@@ -201,8 +201,14 @@ func (c *Client) updateGroup(id string, reqBody GroupPutRequest) error {
 	return nil
 }
 
-// inspectGroup displays detailed information about a specific group
-func (c *Client) inspectGroup(groupID string) error {
+// inspectGroup displays detailed information about a specific group (accepts ID or name)
+func (c *Client) inspectGroup(groupIdentifier string) error {
+	// Resolve group identifier to ID
+	groupID, err := c.resolveGroupIdentifier(groupIdentifier)
+	if err != nil {
+		return err
+	}
+
 	group, err := c.getGroupByID(groupID)
 	if err != nil {
 		return err
@@ -277,9 +283,15 @@ func (c *Client) createGroup(name string, peerIDs []string) error {
 	return nil
 }
 
-// deleteGroup deletes a group by ID
-func (c *Client) deleteGroup(groupID string) error {
-	// First, get group details to show what's being deleted
+// deleteGroup deletes a group (accepts ID or name)
+func (c *Client) deleteGroup(groupIdentifier string) error {
+	// Resolve group identifier to ID
+	groupID, err := c.resolveGroupIdentifier(groupIdentifier)
+	if err != nil {
+		return err
+	}
+
+	// Get group details to show what's being deleted
 	group, err := c.getGroupByID(groupID)
 	if err != nil {
 		return fmt.Errorf("failed to get group: %v", err)
@@ -316,6 +328,26 @@ func (c *Client) resolveGroupIdentifier(identifier string) (string, error) {
 	}
 
 	return group.ID, nil
+}
+
+// resolveMultipleGroupIdentifiers resolves multiple group names/IDs to IDs
+func (c *Client) resolveMultipleGroupIdentifiers(identifiers []string) ([]string, error) {
+	if len(identifiers) == 0 {
+		return []string{}, nil
+	}
+
+	resolvedIDs := make([]string, 0, len(identifiers))
+	for _, identifier := range identifiers {
+		if identifier == "" {
+			continue
+		}
+		id, err := c.resolveGroupIdentifier(identifier)
+		if err != nil {
+			return nil, err
+		}
+		resolvedIDs = append(resolvedIDs, id)
+	}
+	return resolvedIDs, nil
 }
 
 // renameGroup renames an existing group (accepts group ID or name)
