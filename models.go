@@ -204,6 +204,7 @@ type PolicyUpdateRequest struct {
 
 // PolicyRuleForWrite represents a policy rule for create/update operations (uses string IDs instead of objects)
 type PolicyRuleForWrite struct {
+	ID                  string          `json:"id,omitempty"`  // Include ID for updates, omit for creates
 	Name                string          `json:"name"`
 	Description         string          `json:"description,omitempty"`
 	Enabled             bool            `json:"enabled"`
