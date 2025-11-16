@@ -194,11 +194,9 @@ netbird-manage user --list --service-users
 # List only regular users
 netbird-manage user --list --regular-users
 
-# Inspect a specific user
-netbird-manage user --inspect <user-id>
-
 # Get current authenticated user information
 netbird-manage user --me
+# Note: --me is not available for service user tokens
 ```
 
 #### Invite/Create Operations
@@ -271,8 +269,14 @@ Manage personal access tokens for API authentication. Running `netbird-manage to
 # List all personal access tokens
 netbird-manage token --list
 
+# List tokens when using service user token (requires --user-id)
+netbird-manage token --list --user-id <user-id>
+
 # Inspect a specific token
 netbird-manage token --inspect <token-id>
+
+# Inspect token when using service user token (requires --user-id)
+netbird-manage token --inspect <token-id> --user-id <user-id>
 ```
 
 #### Create Operations
@@ -300,12 +304,15 @@ netbird-manage token --revoke <token-id>
 **Token Options:**
 - **`--expires-in`**: Expiration in days (1-365, default: 90)
 - **`--user-id`**: User ID for token operations (defaults to current user)
+  - **Required for service user tokens** since they cannot access `/users/current` endpoint
+  - Use `netbird-manage user --list` to find your user ID
 
 **Important:**
 - ⚠️ **Token values are only shown once during creation** - save them immediately!
 - Tokens are used for API authentication via `Authorization: Token <token>` header
 - Revoked tokens cannot be recovered - you must create new ones
 - Use tokens for CI/CD pipelines, automation, and programmatic access
+- **Service user tokens**: Must provide `--user-id` flag for all token operations
 
 **Examples:**
 ```bash
@@ -315,11 +322,17 @@ netbird-manage token --create --name "Terraform Token" --expires-in 365
 # List all tokens to check expiration dates
 netbird-manage token --list
 
+# List tokens when using service user token
+netbird-manage token --list --user-id ef3799d6-3891-4769-9690-e6798258d5f6
+
 # Revoke a compromised token
 netbird-manage token --revoke tok-abc123xyz
 
 # Check token details
 netbird-manage token --inspect tok-abc123xyz
+
+# Revoke token when using service user token
+netbird-manage token --revoke tok-abc123xyz --user-id ef3799d6-3891-4769-9690-e6798258d5f6
 ```
 
 ### Group

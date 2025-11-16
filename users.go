@@ -18,7 +18,6 @@ func handleUsersCommand(client *Client, args []string) error {
 
 	// Query flags
 	listFlag := userCmd.Bool("list", false, "List all users")
-	inspectFlag := userCmd.String("inspect", "", "Inspect user by ID")
 	meFlag := userCmd.Bool("me", false, "Get current user information")
 	serviceUserFilter := userCmd.Bool("service-users", false, "List only service users")
 	regularUserFilter := userCmd.Bool("regular-users", false, "List only regular users")
@@ -59,10 +58,6 @@ func handleUsersCommand(client *Client, args []string) error {
 			filterType = "regular"
 		}
 		return client.listUsers(filterType)
-	}
-
-	if *inspectFlag != "" {
-		return client.inspectUser(*inspectFlag)
 	}
 
 	if *inviteFlag {
@@ -173,42 +168,14 @@ func (c *Client) listUsers(filterType string) error {
 	return nil
 }
 
-// inspectUser shows detailed information about a specific user
-func (c *Client) inspectUser(userID string) error {
-	resp, err := c.makeRequest("GET", "/users/"+userID, nil)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	var user User
-	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
-		return fmt.Errorf("failed to decode response: %v", err)
-	}
-
-	fmt.Printf("User ID:          %s\n", user.ID)
-	fmt.Printf("Email:            %s\n", user.Email)
-	fmt.Printf("Name:             %s\n", user.Name)
-	fmt.Printf("Role:             %s\n", user.Role)
-	fmt.Printf("Status:           %s\n", user.Status)
-	fmt.Printf("Service User:     %t\n", user.IsServiceUser)
-	fmt.Printf("Blocked:          %t\n", user.IsBlocked)
-	fmt.Printf("Last Login:       %s\n", user.LastLogin)
-	fmt.Printf("Dashboard View:   %s\n", user.Permissions.DashboardView)
-
-	if len(user.AutoGroups) > 0 {
-		fmt.Printf("Auto Groups:      %s\n", strings.Join(user.AutoGroups, ", "))
-	} else {
-		fmt.Printf("Auto Groups:      None\n")
-	}
-
-	return nil
-}
-
 // getCurrentUser retrieves the current authenticated user's information
 func (c *Client) getCurrentUser() error {
 	resp, err := c.makeRequest("GET", "/users/current", nil)
 	if err != nil {
+		// Check if it's a 403 error (service token)
+		if resp != nil && resp.StatusCode == 403 {
+			return fmt.Errorf("unable to get current user: this endpoint is not available for service user tokens. Use 'user --list' to see all users instead")
+		}
 		return err
 	}
 	defer resp.Body.Close()
@@ -349,8 +316,8 @@ func printUserUsage() {
 	fmt.Println("  --list                           List all users")
 	fmt.Println("    --service-users                List only service users")
 	fmt.Println("    --regular-users                List only regular users")
-	fmt.Println("  --inspect <user-id>              Inspect a specific user")
 	fmt.Println("  --me                             Get current user information")
+	fmt.Println("                                   (Note: Not available for service user tokens)")
 	fmt.Println()
 	fmt.Println("Invite/Create Flags:")
 	fmt.Println("  --invite                         Invite a new user")

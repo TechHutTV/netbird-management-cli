@@ -53,10 +53,10 @@ func (c *Client) makeRequest(method, endpoint string, body io.Reader) (*http.Res
 		}
 		// Try to decode the error response from NetBird
 		if err := json.NewDecoder(resp.Body).Decode(&apiError); err == nil {
-			return nil, fmt.Errorf("api request failed: %d %s (status code: %d) %s", apiError.Code, apiError.Message, resp.StatusCode, resp.Status)
+			return resp, fmt.Errorf("api request failed: %d %s (status code: %d) %s", apiError.Code, apiError.Message, resp.StatusCode, resp.Status)
 		}
 		// Fallback for non-JSON errors
-		return nil, fmt.Errorf("api request failed: %s", resp.Status)
+		return resp, fmt.Errorf("api request failed: %s", resp.Status)
 	}
 
 	return resp, nil
