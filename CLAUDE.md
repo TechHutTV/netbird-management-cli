@@ -761,6 +761,14 @@ go test -cover
 - Default cloud URL uses HTTPS
 - Self-hosted URLs should use HTTPS (not enforced by CLI)
 
+**4. Test Data & Credentials - DO NOT COMMIT**
+- **NEVER** commit test results files (e.g., `TEST_RESULTS.md`, `test-output.txt`, etc.) to the repository
+- **NEVER** commit API tokens or credentials in any files, including test files or documentation
+- Test results should be kept locally or shared through other means (PR descriptions, issues, etc.)
+- If test results need to be documented, redact all sensitive information (tokens, peer IDs, IP addresses, etc.)
+- Add test result files to `.gitignore` if they are generated frequently
+- Always review `git diff` before committing to ensure no sensitive data is included
+
 ### Common Pitfalls
 
 **1. Group Modifications Require Full Object**
@@ -1196,6 +1204,8 @@ When creating a PR:
 - [ ] Commit messages follow guidelines
 - [ ] No debug code or commented-out code
 - [ ] No hardcoded tokens or credentials
+- [ ] No test result files (TEST_RESULTS.md, test-output.txt, etc.)
+- [ ] No testing API keys or sensitive data in any committed files
 
 ---
 
