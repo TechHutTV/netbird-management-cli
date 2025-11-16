@@ -69,7 +69,24 @@ func handlePoliciesCommand(client *Client, args []string) error {
 
 	// Create policy
 	if *createFlag != "" {
-		return client.createPolicy(*createFlag, *descriptionFlag, *enabledFlag)
+		// Check if rule parameters are provided
+		if *sourcesFlag != "" && *destinationsFlag != "" {
+			// Create policy with initial rule
+			return client.createPolicyWithRule(*createFlag, *descriptionFlag, *enabledFlag, &RuleConfig{
+				Name:          *ruleNameFlag,
+				Description:   *ruleDescFlag,
+				Action:        *actionFlag,
+				Protocol:      *protocolFlag,
+				Sources:       *sourcesFlag,
+				Destinations:  *destinationsFlag,
+				Ports:         *portsFlag,
+				PortRange:     *portRangeFlag,
+				Bidirectional: *bidirectionalFlag,
+				Enabled:       *ruleEnabledFlag,
+			})
+		} else {
+			return fmt.Errorf("--sources and --destinations are required when creating a policy (NetBird API requires at least one rule)")
+		}
 	}
 
 	// Delete policy
@@ -311,13 +328,13 @@ func (c *Client) inspectPolicy(policyID string) error {
 	return nil
 }
 
-// createPolicy implements the "policy --create" command
+// createPolicy implements the "policy --create" command (deprecated - use createPolicyWithRule)
 func (c *Client) createPolicy(name, description string, enabled bool) error {
 	reqBody := PolicyCreateRequest{
 		Name:        name,
 		Description: description,
 		Enabled:     enabled,
-		Rules:       []PolicyRule{},
+		Rules:       []PolicyRuleForWrite{},
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)
@@ -341,6 +358,79 @@ func (c *Client) createPolicy(name, description string, enabled bool) error {
 	fmt.Printf("  Name:    %s\n", createdPolicy.Name)
 	fmt.Printf("  Enabled: %t\n", createdPolicy.Enabled)
 	return nil
+}
+
+// createPolicyWithRule creates a policy with an initial rule
+func (c *Client) createPolicyWithRule(name, description string, enabled bool, ruleConfig *RuleConfig) error {
+	// Use the rule name if provided, otherwise use the policy name
+	ruleName := ruleConfig.Name
+	if ruleName == "" {
+		ruleName = name
+	}
+
+	// Build the initial rule
+	initialRule, err := c.buildRuleFromConfig(ruleName, ruleConfig)
+	if err != nil {
+		return err
+	}
+
+	// Create request with the initial rule
+	reqBody := PolicyCreateRequest{
+		Name:        name,
+		Description: description,
+		Enabled:     enabled,
+		Rules:       []PolicyRuleForWrite{*convertRuleToWrite(initialRule)},
+	}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %v", err)
+	}
+
+	resp, err := c.makeRequest("POST", "/policies", bytes.NewReader(bodyBytes))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var createdPolicy Policy
+	if err := json.NewDecoder(resp.Body).Decode(&createdPolicy); err != nil {
+		return fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	fmt.Printf("Policy created successfully:\n")
+	fmt.Printf("  ID:      %s\n", createdPolicy.ID)
+	fmt.Printf("  Name:    %s\n", createdPolicy.Name)
+	fmt.Printf("  Enabled: %t\n", createdPolicy.Enabled)
+	fmt.Printf("  Rules:   %d (initial rule added)\n", len(createdPolicy.Rules))
+	return nil
+}
+
+// convertRuleToWrite converts a PolicyRule to PolicyRuleForWrite
+func convertRuleToWrite(rule *PolicyRule) *PolicyRuleForWrite {
+	sourceIDs := make([]string, len(rule.Sources))
+	for i, src := range rule.Sources {
+		sourceIDs[i] = src.ID
+	}
+	destIDs := make([]string, len(rule.Destinations))
+	for i, dest := range rule.Destinations {
+		destIDs[i] = dest.ID
+	}
+
+	return &PolicyRuleForWrite{
+		Name:                rule.Name,
+		Description:         rule.Description,
+		Enabled:             rule.Enabled,
+		Action:              rule.Action,
+		Bidirectional:       rule.Bidirectional,
+		Protocol:            rule.Protocol,
+		Ports:               rule.Ports,
+		PortRanges:          rule.PortRanges,
+		Sources:             sourceIDs,
+		Destinations:        destIDs,
+		SourceResource:      rule.SourceResource,
+		DestinationResource: rule.DestinationResource,
+	}
 }
 
 // deletePolicy implements the "policy --delete" command

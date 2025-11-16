@@ -301,8 +301,31 @@ func (c *Client) deleteGroup(groupID string) error {
 	return nil
 }
 
-// renameGroup renames an existing group
-func (c *Client) renameGroup(groupID, newName string) error {
+// resolveGroupIdentifier resolves a group name or ID to an ID
+func (c *Client) resolveGroupIdentifier(identifier string) (string, error) {
+	// First, try to get it as an ID
+	group, err := c.getGroupByID(identifier)
+	if err == nil {
+		return group.ID, nil
+	}
+
+	// If that fails, try to find by name
+	group, err = c.getGroupByName(identifier)
+	if err != nil {
+		return "", fmt.Errorf("group '%s' not found (tried as both ID and name)", identifier)
+	}
+
+	return group.ID, nil
+}
+
+// renameGroup renames an existing group (accepts group ID or name)
+func (c *Client) renameGroup(groupIdentifier, newName string) error {
+	// Resolve group identifier to ID
+	groupID, err := c.resolveGroupIdentifier(groupIdentifier)
+	if err != nil {
+		return err
+	}
+
 	// Get current group state
 	group, err := c.getGroupByID(groupID)
 	if err != nil {
@@ -338,8 +361,14 @@ func (c *Client) renameGroup(groupID, newName string) error {
 	return nil
 }
 
-// addPeersToGroup adds multiple peers to a group at once
-func (c *Client) addPeersToGroup(groupID string, peerIDs []string) error {
+// addPeersToGroup adds multiple peers to a group at once (accepts group ID or name)
+func (c *Client) addPeersToGroup(groupIdentifier string, peerIDs []string) error {
+	// Resolve group identifier to ID
+	groupID, err := c.resolveGroupIdentifier(groupIdentifier)
+	if err != nil {
+		return err
+	}
+
 	// Get current group state
 	group, err := c.getGroupByID(groupID)
 	if err != nil {
@@ -392,8 +421,14 @@ func (c *Client) addPeersToGroup(groupID string, peerIDs []string) error {
 	return nil
 }
 
-// removePeersFromGroup removes multiple peers from a group at once
-func (c *Client) removePeersFromGroup(groupID string, peerIDs []string) error {
+// removePeersFromGroup removes multiple peers from a group at once (accepts group ID or name)
+func (c *Client) removePeersFromGroup(groupIdentifier string, peerIDs []string) error {
+	// Resolve group identifier to ID
+	groupID, err := c.resolveGroupIdentifier(groupIdentifier)
+	if err != nil {
+		return err
+	}
+
 	// Get current group state
 	group, err := c.getGroupByID(groupID)
 	if err != nil {
