@@ -202,7 +202,7 @@ type PolicyUpdateRequest struct {
 
 // SetupKey represents a setup key for peer registration
 type SetupKey struct {
-	ID                  int      `json:"id"`
+	ID                  string   `json:"id"`
 	Name                string   `json:"name"`
 	Expires             string   `json:"expires"`
 	Type                string   `json:"type"` // "one-off" or "reusable"

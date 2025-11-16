@@ -167,14 +167,6 @@ func printNetworkUsage() {
 	fmt.Println("    --router-id <id>                  Router ID (required)")
 }
 
-// printPolicyUsage provides specific help for the 'policy' command
-func printPolicyUsage() {
-	fmt.Println("Usage: netbird-manage policy <flag> [arguments]")
-	fmt.Println("\nManage access control policies.")
-	fmt.Println("\nFlags:")
-	fmt.Println("  --list                       List all policies")
-}
-
 func formatOS(osStr string) string {
 	if strings.Contains(osStr, "Darwin") {
 		return "macOS"
