@@ -302,21 +302,26 @@ func (c *Client) inspectPeer(peerID string) error {
 
 // modifyPeerGroup adds or removes a peer from a group.
 // This is an "edit group" operation under the hood.
-func (c *Client) modifyPeerGroup(peerID, groupID, action string) error {
-	// If no group ID is provided, list available groups
-	if groupID == "" {
-		fmt.Println("Error: No group ID specified.")
+func (c *Client) modifyPeerGroup(peerID, groupNameOrID, action string) error {
+	// If no group ID/name is provided, list available groups
+	if groupNameOrID == "" {
+		fmt.Println("Error: No group ID/name specified.")
 		fmt.Println("Listing available groups:")
 		if err := c.listGroups(""); err != nil {
 			fmt.Fprintf(os.Stderr, "Could not list groups: %v\n", err)
 		}
-		return fmt.Errorf("missing <group-id> argument for --add-group or --remove-group")
+		return fmt.Errorf("missing <group-id> or <group-name> argument for --add-group or --remove-group")
 	}
 
-	// 1. Get the Group's full details by ID
-	group, err := c.getGroupByID(groupID)
+	// 1. Get the Group's full details by ID or name
+	// Try as ID first, if that fails, try as name
+	group, err := c.getGroupByID(groupNameOrID)
 	if err != nil {
-		return err
+		// If getGroupByID failed, try as name
+		group, err = c.getGroupByName(groupNameOrID)
+		if err != nil {
+			return err
+		}
 	}
 
 	// 2. Check if peer exists (and is valid)
