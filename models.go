@@ -454,3 +454,82 @@ type PostureCheckRequest struct {
 	Description string                 `json:"description,omitempty"`
 	Checks      PostureCheckDefinition `json:"checks"`
 }
+
+// AuditEvent represents an audit log entry
+type AuditEvent struct {
+	ID             string                 `json:"id"`
+	Timestamp      string                 `json:"timestamp"`
+	Activity       string                 `json:"activity"`
+	ActivityCode   string                 `json:"activity_code"`
+	InitiatorID    string                 `json:"initiator_id"`
+	InitiatorName  string                 `json:"initiator_name"`
+	InitiatorEmail string                 `json:"initiator_email"`
+	TargetID       string                 `json:"target_id"`
+	Meta           map[string]interface{} `json:"meta"`
+}
+
+// TrafficEvent represents a network traffic event
+type TrafficEvent struct {
+	ID              string                 `json:"id"`
+	Timestamp       string                 `json:"timestamp"`
+	UserID          string                 `json:"user_id"`
+	UserEmail       string                 `json:"user_email"`
+	ReporterID      string                 `json:"reporter_id"`
+	ReporterName    string                 `json:"reporter_name"`
+	Protocol        int                    `json:"protocol"`
+	Type            string                 `json:"type"`
+	ConnectionType  string                 `json:"connection_type"`
+	Direction       string                 `json:"direction"`
+	SourceIP        string                 `json:"source_ip"`
+	DestinationIP   string                 `json:"destination_ip"`
+	BytesSent       int64                  `json:"bytes_sent"`
+	BytesReceived   int64                  `json:"bytes_received"`
+	PacketsSent     int64                  `json:"packets_sent"`
+	PacketsReceived int64                  `json:"packets_received"`
+	PolicyID        string                 `json:"policy_id,omitempty"`
+	Meta            map[string]interface{} `json:"meta,omitempty"`
+}
+
+// AuditEventFilters for filtering audit events
+type AuditEventFilters struct {
+	UserID       string
+	TargetID     string
+	ActivityCode string
+	StartDate    string
+	EndDate      string
+	Search       string
+}
+
+// TrafficEventFilters for filtering traffic events
+type TrafficEventFilters struct {
+	Page           int
+	PageSize       int
+	UserID         string
+	ReporterID     string
+	Protocol       int
+	Type           string
+	ConnectionType string
+	Direction      string
+	Search         string
+	StartDate      string
+	EndDate        string
+}
+
+// TrafficEventResponse for paginated traffic events
+type TrafficEventResponse struct {
+	Data       []TrafficEvent `json:"data"`
+	TotalCount int            `json:"total_count"`
+	Page       int            `json:"page"`
+	PageSize   int            `json:"page_size"`
+}
+
+// CountryCode represents a country code
+type CountryCode struct {
+	Code string `json:"code"` // ISO 3166-1 alpha-2
+}
+
+// City represents a city location
+type City struct {
+	GeonameID int    `json:"geoname_id"`
+	CityName  string `json:"city_name"`
+}

@@ -967,6 +967,107 @@ netbird-manage posture-check --delete <check-id>
 - Location checks use ISO 3166-1 alpha-2 country codes (e.g., US, GB, DE)
 - Process checks support platform-specific paths for cross-platform security
 
+### Event
+
+Monitor audit logs and network traffic events. Events provide visibility into network activity and user actions. Running `netbird-manage event` by itself will display the help menu.
+
+#### Audit Events
+```bash
+# List all audit events
+netbird-manage event --audit
+
+# Filter by user ID
+netbird-manage event --audit --user-id <user-id>
+
+# Filter by target resource
+netbird-manage event --audit --target-id <resource-id>
+
+# Filter by activity type
+netbird-manage event --audit --activity-code peer.create
+
+# Filter by date range
+netbird-manage event --audit --start-date "2025-01-01T00:00:00Z" --end-date "2025-01-31T23:59:59Z"
+
+# Search in initiator/target names
+netbird-manage event --audit --search "laptop"
+
+# Export to JSON
+netbird-manage event --audit --output json > audit.json
+```
+
+#### Network Traffic Events (Cloud-only)
+```bash
+# List network traffic events
+netbird-manage event --traffic
+
+# Filter by protocol (6=TCP, 17=UDP, 1=ICMP)
+netbird-manage event --traffic --protocol 6
+
+# Filter by direction
+netbird-manage event --traffic --direction incoming
+
+# Filter by reporting peer
+netbird-manage event --traffic --reporter-id <peer-id>
+
+# Pagination
+netbird-manage event --traffic --page 2 --page-size 50
+
+# Export to JSON
+netbird-manage event --traffic --output json > traffic.json
+```
+
+**Examples:**
+```bash
+# View recent peer creation events
+netbird-manage event --audit --activity-code peer.create
+
+# Monitor TCP traffic from the last 24 hours
+netbird-manage event --traffic --protocol 6 --start-date "2025-01-15T00:00:00Z"
+
+# Search for events related to a specific user
+netbird-manage event --audit --search "admin@example.com"
+```
+
+**Note:**
+- Audit events track all management actions (create, update, delete)
+- Traffic events are an experimental feature available only on NetBird Cloud
+- Events support both table and JSON output formats for integration with other tools
+
+### Geo-Location
+
+Retrieve geographic location data for use in posture checks and access policies. Running `netbird-manage geo` by itself will display the help menu.
+
+#### Query Operations
+```bash
+# List all country codes
+netbird-manage geo --countries
+
+# List cities in a specific country
+netbird-manage geo --cities --country DE
+netbird-manage geo --cities --country US
+
+# Export to JSON
+netbird-manage geo --countries --output json
+netbird-manage geo --cities --country FR --output json
+```
+
+**Examples:**
+```bash
+# Get all available country codes
+netbird-manage geo --countries
+
+# Find cities in Germany for geo-location posture checks
+netbird-manage geo --cities --country DE
+
+# Export US cities to JSON for automation
+netbird-manage geo --cities --country US --output json > us-cities.json
+```
+
+**Note:**
+- Country codes follow ISO 3166-1 alpha-2 standard (e.g., US, GB, DE, FR)
+- City data includes geoname IDs for precise location matching
+- Use geo-location data when creating posture checks with `--type geo-location`
+
 ## 🚀 Roadmap
 
 This tool is in active development. The goal is to build a comprehensive and easy-to-use CLI for all NetBird management tasks.
@@ -987,16 +1088,20 @@ This tool is in active development. The goal is to build a comprehensive and eas
 - ✅ **DNS** - DNS nameserver groups with domain matching and settings
 - ✅ **Posture Checks** - Device compliance validation with 5 check types
 
-**API Coverage:** 10/14 NetBird API resource types fully implemented (71%)
+**Monitoring & Analytics (Phase 3 - COMPLETED):**
+- ✅ **Events** - Audit logs and network traffic monitoring with filtering and pagination
+- ✅ **Geo-Locations** - Country/city location data for posture checks and policies
+- ✅ **JSON Output** - Machine-readable output for events and geo-location commands
+
+**API Coverage:** 12/14 NetBird API resource types fully implemented (86%)
 
 ### 📋 Planned Features
 
-**Monitoring & Analytics (Phase 3):**
-- ❌ **Events** - Audit logs and activity monitoring
-- ❌ **JSON Output** - Machine-readable output for scripting (`--output json`)
+**Account Management (Phase 4):**
 - ❌ **Accounts** - Account settings and configuration
-- ❌ **Geo-Locations** - Location data for access control
 - ❌ **Ingress Ports** - Port forwarding and ingress peers (Cloud only)
+- ❌ **Peer Update** - Modify peer properties (SSH, login expiration)
+- ❌ **Accessible Peers** - Query peer connectivity
 
 ### 🎯 Enhancement Features
 
