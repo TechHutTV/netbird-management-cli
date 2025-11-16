@@ -107,7 +107,7 @@ func handlePeerUpdate(client *Client, peerID, rename, ssh, loginExp, inactivityE
 	}
 
 	// Track if any changes were made
-	changes := make([]string, 0)
+	changes := make([]string, 0, 6) // Pre-allocate for max 6 possible changes
 
 	// Apply rename if provided
 	if rename != "" {

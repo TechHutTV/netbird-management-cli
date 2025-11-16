@@ -7,6 +7,16 @@ import (
 	"strings"
 )
 
+var (
+	// netbirdCGNATRange is the NetBird CGNAT range (100.64.0.0/10)
+	// Parsed once at initialization for performance
+	netbirdCGNATRange *net.IPNet
+)
+
+func init() {
+	_, netbirdCGNATRange, _ = net.ParseCIDR("100.64.0.0/10")
+}
+
 func printUsage() {
 	fmt.Println("NetBird Management CLI")
 	fmt.Println("----------------------")
@@ -188,9 +198,7 @@ func validateNetBirdIP(ipStr string) error {
 		return fmt.Errorf("invalid IP address: %s", ipStr)
 	}
 
-	// NetBird CGNAT range: 100.64.0.0/10
-	_, cgnatRange, _ := net.ParseCIDR("100.64.0.0/10")
-	if !cgnatRange.Contains(ip) {
+	if !netbirdCGNATRange.Contains(ip) {
 		return fmt.Errorf("IP address %s is outside NetBird's allowed range (100.64.0.0/10)", ipStr)
 	}
 

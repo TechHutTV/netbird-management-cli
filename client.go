@@ -46,6 +46,7 @@ func (c *Client) makeRequest(method, endpoint string, body io.Reader) (*http.Res
 
 	// Check for non-success status codes
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		defer resp.Body.Close()
 		var apiError struct {
 			Message string `json:"message"`
 			Code    int    `json:"code"`

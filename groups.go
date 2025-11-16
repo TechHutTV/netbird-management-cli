@@ -347,8 +347,8 @@ func (c *Client) addPeersToGroup(groupID string, peerIDs []string) error {
 	}
 
 	// Build new peer list (existing + new)
-	newPeerIDs := make([]string, 0)
-	existingPeerMap := make(map[string]bool)
+	newPeerIDs := make([]string, 0, len(group.Peers)+len(peerIDs))
+	existingPeerMap := make(map[string]bool, len(group.Peers))
 
 	// Add existing peers
 	for _, peer := range group.Peers {
@@ -401,13 +401,13 @@ func (c *Client) removePeersFromGroup(groupID string, peerIDs []string) error {
 	}
 
 	// Build map of peers to remove for efficient lookup
-	removeMap := make(map[string]bool)
+	removeMap := make(map[string]bool, len(peerIDs))
 	for _, peerID := range peerIDs {
 		removeMap[peerID] = true
 	}
 
 	// Build new peer list (exclude removed peers)
-	newPeerIDs := make([]string, 0)
+	newPeerIDs := make([]string, 0, len(group.Peers))
 	removedCount := 0
 
 	for _, peer := range group.Peers {

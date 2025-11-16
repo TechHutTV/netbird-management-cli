@@ -270,7 +270,10 @@ func (c *Client) inspectNetwork(networkID string) error {
 		if err != nil {
 			return err
 		}
-		json.NewDecoder(resp.Body).Decode(&routers)
+		if err := json.NewDecoder(resp.Body).Decode(&routers); err != nil {
+			resp.Body.Close()
+			return fmt.Errorf("failed to decode routers response: %v", err)
+		}
 		resp.Body.Close()
 	}
 
@@ -281,7 +284,10 @@ func (c *Client) inspectNetwork(networkID string) error {
 		if err != nil {
 			return err
 		}
-		json.NewDecoder(resp.Body).Decode(&resources)
+		if err := json.NewDecoder(resp.Body).Decode(&resources); err != nil {
+			resp.Body.Close()
+			return fmt.Errorf("failed to decode resources response: %v", err)
+		}
 		resp.Body.Close()
 	}
 
@@ -386,7 +392,10 @@ func (c *Client) deleteNetwork(networkID string) error {
 		return err
 	}
 	var network Network
-	json.NewDecoder(resp.Body).Decode(&network)
+	if err := json.NewDecoder(resp.Body).Decode(&network); err != nil {
+		resp.Body.Close()
+		return fmt.Errorf("failed to decode network response: %v", err)
+	}
 	resp.Body.Close()
 
 	fmt.Printf("Deleting network '%s' (ID: %s)...\n", network.Name, networkID)
