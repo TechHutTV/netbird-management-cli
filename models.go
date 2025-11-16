@@ -182,22 +182,40 @@ type PolicyResource struct {
 	Type string `json:"type"`
 }
 
+// PolicyRuleRequest represents a policy rule for PUT/POST requests
+// The API expects group IDs as strings for input, but returns objects for output
+type PolicyRuleRequest struct {
+	ID                  string         `json:"id,omitempty"`
+	Name                string         `json:"name"`
+	Description         string         `json:"description,omitempty"`
+	Enabled             bool           `json:"enabled"`
+	Action              string         `json:"action"` // "accept" or "drop"
+	Bidirectional       bool           `json:"bidirectional"`
+	Protocol            string         `json:"protocol"` // tcp, udp, icmp, all
+	Ports               []string       `json:"ports,omitempty"`
+	PortRanges          []PortRange    `json:"port_ranges,omitempty"`
+	Sources             []string       `json:"sources,omitempty"`             // Group IDs
+	Destinations        []string       `json:"destinations,omitempty"`        // Group IDs
+	SourceResource      *PolicyResource `json:"source_resource,omitempty"`
+	DestinationResource *PolicyResource `json:"destination_resource,omitempty"`
+}
+
 // PolicyCreateRequest represents the request body for creating a policy
 type PolicyCreateRequest struct {
-	Name                string       `json:"name"`
-	Description         string       `json:"description,omitempty"`
-	Enabled             bool         `json:"enabled"`
-	Rules               []PolicyRule `json:"rules,omitempty"`
-	SourcePostureChecks []string     `json:"source_posture_checks,omitempty"`
+	Name                string              `json:"name"`
+	Description         string              `json:"description,omitempty"`
+	Enabled             bool                `json:"enabled"`
+	Rules               []PolicyRuleRequest `json:"rules,omitempty"`
+	SourcePostureChecks []string            `json:"source_posture_checks,omitempty"`
 }
 
 // PolicyUpdateRequest represents the request body for updating a policy
 type PolicyUpdateRequest struct {
-	Name                string       `json:"name"`
-	Description         string       `json:"description"`
-	Enabled             bool         `json:"enabled"`
-	Rules               []PolicyRule `json:"rules"`
-	SourcePostureChecks []string     `json:"source_posture_checks,omitempty"`
+	Name                string              `json:"name"`
+	Description         string              `json:"description"`
+	Enabled             bool                `json:"enabled"`
+	Rules               []PolicyRuleRequest `json:"rules"`
+	SourcePostureChecks []string            `json:"source_posture_checks,omitempty"`
 }
 
 // SetupKey represents a setup key for peer registration
