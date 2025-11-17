@@ -45,8 +45,9 @@ func handleSetupKeysCommand(client *Client, args []string) error {
 	updateGroupsFlag := setupKeyCmd.String("update-groups", "", "Update auto-groups for a setup key by ID")
 	groupsFlag := setupKeyCmd.String("groups", "", "New comma-separated group IDs (requires --update-groups)")
 
-	// Delete flag
+	// Delete flags
 	deleteFlag := setupKeyCmd.String("delete", "", "Delete a setup key by its ID")
+	deleteAllFlag := setupKeyCmd.Bool("delete-all", false, "Delete all setup keys")
 
 	// If no flags provided, show usage
 	if len(args) == 1 {
@@ -112,6 +113,10 @@ func handleSetupKeysCommand(client *Client, args []string) error {
 		return client.deleteSetupKey(*deleteFlag)
 	}
 
+	if *deleteAllFlag {
+		return client.deleteAllSetupKeys()
+	}
+
 	// If no known flag was used
 	fmt.Fprintln(os.Stderr, "Error: Invalid or missing flags for 'setup-key' command.")
 	printSetupKeyUsage()
@@ -148,6 +153,7 @@ func printSetupKeyUsage() {
 	fmt.Println()
 	fmt.Println("Delete Flags:")
 	fmt.Println("  --delete <key-id>                   Delete a setup key")
+	fmt.Println("  --delete-all                        Delete all setup keys (requires confirmation)")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  netbird-manage setup-key --list")
@@ -627,5 +633,78 @@ func (c *Client) deleteSetupKey(keyID string) error {
 	defer resp.Body.Close()
 
 	fmt.Printf("✓ Setup key %s has been deleted.\n", keyID)
+	return nil
+}
+
+// deleteAllSetupKeys deletes all setup keys with confirmation
+func (c *Client) deleteAllSetupKeys() error {
+	// First, get all setup keys
+	resp, err := c.makeRequest("GET", "/setup-keys", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var keys []SetupKey
+	if err := json.NewDecoder(resp.Body).Decode(&keys); err != nil {
+		return fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	if len(keys) == 0 {
+		fmt.Println("No setup keys found to delete.")
+		return nil
+	}
+
+	// Show what will be deleted
+	fmt.Printf("⚠️  WARNING: This will delete %d setup key(s):\n\n", len(keys))
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "ID\tNAME\tTYPE\tSTATE")
+	fmt.Fprintln(w, "--\t----\t----\t-----")
+	for _, key := range keys {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+			key.ID,
+			key.Name,
+			key.Type,
+			formatState(key.State, key.Valid, key.Revoked),
+		)
+	}
+	w.Flush()
+
+	// Prompt for confirmation
+	fmt.Printf("\nThis action cannot be undone. Type 'yes' to confirm deletion: ")
+	var confirmation string
+	fmt.Scanln(&confirmation)
+
+	if confirmation != "yes" {
+		fmt.Println("Deletion cancelled.")
+		return nil
+	}
+
+	// Delete all keys
+	fmt.Printf("\nDeleting %d setup key(s)...\n", len(keys))
+	successCount := 0
+	failCount := 0
+
+	for _, key := range keys {
+		resp, err := c.makeRequest("DELETE", "/setup-keys/"+key.ID, nil)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "✗ Failed to delete %s (%s): %v\n", key.Name, key.ID, err)
+			failCount++
+			continue
+		}
+		resp.Body.Close()
+
+		fmt.Printf("✓ Deleted %s (%s)\n", key.Name, key.ID)
+		successCount++
+	}
+
+	// Summary
+	fmt.Printf("\nDeletion complete: %d successful, %d failed\n", successCount, failCount)
+
+	if failCount > 0 {
+		return fmt.Errorf("failed to delete %d setup key(s)", failCount)
+	}
+
 	return nil
 }
