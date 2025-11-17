@@ -1204,6 +1204,105 @@ netbird-manage ingress-peer --update ing-001 --enabled false
 - Protocol options: `tcp` (default) or `udp`
 - Target ports must be between 1-65535
 
+### Export
+
+Export your NetBird configuration to YAML files for GitOps workflows, backup, and infrastructure-as-code. Running `netbird-manage export` by itself will display the help menu.
+
+#### Export Operations
+```bash
+# Export to single YAML file (default)
+netbird-manage export
+netbird-manage export --full
+
+# Export to single file in specific directory
+netbird-manage export --full ./backups
+
+# Export to split files (one file per resource type)
+netbird-manage export --split
+
+# Export to split files in specific directory
+netbird-manage export --split ~/exports
+```
+
+**Output Formats:**
+
+**Single File** (`netbird-manage-export-YYMMDD.yml`):
+- All resources in one file
+- Clean map-based YAML structure
+- Perfect for backups and small deployments
+- Easy to review entire configuration
+
+**Split Files** (`netbird-manage-export-YYMMDD/`):
+```
+├── config.yml          # Metadata and import order
+├── groups.yml          # Group definitions with peer names
+├── policies.yml        # Access control policies with rules
+├── networks.yml        # Networks with resources and routers
+├── routes.yml          # Custom network routes
+├── dns.yml             # DNS nameserver groups
+├── posture-checks.yml  # Device compliance checks
+└── setup-keys.yml      # Device onboarding keys
+```
+
+**Examples:**
+```bash
+# Quick backup to current directory
+netbird-manage export
+
+# Backup to specific folder
+netbird-manage export --full ~/netbird-backups
+
+# GitOps-friendly split export
+netbird-manage export --split
+
+# Export for version control
+netbird-manage export --split ./git-repo/netbird-config
+```
+
+**YAML Structure Features:**
+- **Human-readable**: Uses resource names as keys instead of UUIDs
+- **Map-based**: Minimal use of list markers (`-`) for clean structure
+- **Name resolution**: Group IDs converted to group names automatically
+- **Dependency-aware**: Split mode includes proper import order
+- **Version controlled**: Ideal for Git workflows and change tracking
+
+**Exported Resources:**
+- ✅ Groups (with peer names)
+- ✅ Policies (with rules and group references)
+- ✅ Networks (with resources and routers)
+- ✅ Routes (with routing configuration)
+- ✅ DNS (nameserver groups and domains)
+- ✅ Posture Checks (all 5 check types)
+- ✅ Setup Keys (with auto-groups)
+
+**Sample YAML Structure:**
+```yaml
+groups:
+  developers:
+    description: "Development team members"
+    peers:
+      - "alice-laptop"
+      - "bob-workstation"
+
+policies:
+  allow-devs-to-prod:
+    description: "SSH access for developers"
+    enabled: true
+    rules:
+      ssh-access:
+        action: "accept"
+        protocol: "tcp"
+        ports: ["22"]
+        sources: ["developers"]
+        destinations: ["production-servers"]
+```
+
+**Note:**
+- Export uses current API configuration from `~/.netbird-manage.json`
+- Timestamp format: YYMMDD (e.g., `251117` for November 17, 2025)
+- Exported YAML is designed for future import functionality
+- Split mode is recommended for large configurations and team collaboration
+
 ## 🚀 Roadmap
 
 This tool is in active development. The goal is to build a comprehensive and easy-to-use CLI for all NetBird management tasks.
@@ -1235,19 +1334,19 @@ This tool is in active development. The goal is to build a comprehensive and eas
 - ✅ **Peer Update** - Modify peer properties (SSH, login expiration, IP address)
 - ✅ **Accessible Peers** - Query peer connectivity and reachability
 
+**GitOps & Infrastructure-as-Code (Phase 5 - IN PROGRESS):**
+- ✅ **YAML Export** - Export all configuration to YAML files (single or split mode)
+- ❌ **YAML Import** - Apply YAML configuration to NetBird (coming soon)
+
 **API Coverage:** 14/14 NetBird API resource types fully implemented (100%) 🎉
 
 ### 📋 Planned Features
 
-**No remaining API endpoints** - All NetBird API resources are now implemented!
-
-### 🎯 Enhancement Features
-
 **GitOps & Automation:**
-- ❌ **YAML Export/Import** - Infrastructure as Code workflows
+- ❌ **YAML Import** - Apply YAML configurations to NetBird
   ```bash
-  netbird-manage policy export > policies.yml
-  netbird-manage policy apply -f policies.yml
+  netbird-manage import -f netbird-config.yml
+  netbird-manage import -f ./config-directory/
   ```
 
 **Interactive CLI:**
