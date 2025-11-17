@@ -980,29 +980,258 @@ func getInt(m map[string]interface{}, key string) int {
 	return 0
 }
 
-// Stub implementations for other resource types (simplified for now)
+// importNetworks imports network resources
+func (ctx *ImportContext) importNetworks(data map[string]interface{}) error {
+	networksData, ok := data["networks"].(map[string]interface{})
+	if !ok {
+		if ctx.Verbose {
+			fmt.Println("🌐 Networks: (no networks found in YAML)")
+		}
+		return nil
+	}
+
+	fmt.Println("🌐 Networks:")
+
+	for networkName, networkDataInterface := range networksData {
+		networkData, ok := networkDataInterface.(map[string]interface{})
+		if !ok {
+			ctx.addError("Network "+networkName, fmt.Errorf("invalid network data"))
+			continue
+		}
+
+		if err := ctx.importNetwork(networkName, networkData); err != nil {
+			ctx.addError("Network "+networkName, err)
+		}
+	}
+
+	fmt.Println()
+	return nil
+}
+
+// importNetwork imports a single network
+func (ctx *ImportContext) importNetwork(name string, data map[string]interface{}) error {
+	// Check if network exists
+	_, exists := ctx.ExistingNetworks[name]
+
+	// Handle conflict
+	if exists {
+		if ctx.SkipExisting {
+			fmt.Printf("  ⚠ SKIP     %s (already exists)\n", name)
+			ctx.Skipped = append(ctx.Skipped, "Network "+name)
+			return nil
+		}
+
+		if !ctx.Update && !ctx.Force {
+			fmt.Printf("  ✗ CONFLICT %s (already exists, use --update or --skip-existing)\n", name)
+			return fmt.Errorf("network already exists")
+		}
+
+		// For now, skip network updates - networks can't be easily updated
+		// TODO: Implement network resource/router updates
+		fmt.Printf("  ⚠ SKIP     %s (updates not yet implemented)\n", name)
+		ctx.Skipped = append(ctx.Skipped, "Network "+name)
+		return nil
+	}
+
+	// Create new network
+	if ctx.Apply {
+		if err := ctx.createNetwork(name, data); err != nil {
+			fmt.Printf("  ✗ FAILED   %s (%v)\n", name, err)
+			return err
+		}
+		fmt.Printf("  ✓ CREATED  %s\n", name)
+		ctx.Created = append(ctx.Created, "Network "+name)
+	} else {
+		fmt.Printf("  ✓ CREATE   %s (would create)\n", name)
+	}
+
+	return nil
+}
+
+// createNetwork creates a new network with resources and routers
+func (ctx *ImportContext) createNetwork(name string, data map[string]interface{}) error {
+	description, _ := data["description"].(string)
+
+	// Step 1: Create the network
+	reqBody := NetworkCreateRequest{
+		Name:        name,
+		Description: description,
+	}
+
+	bodyBytes, _ := json.Marshal(reqBody)
+	resp, err := ctx.Client.makeRequest("POST", "/networks", bytes.NewReader(bodyBytes))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("API error: %s", resp.Status)
+	}
+
+	// Get created network ID
+	var createdNetwork Network
+	if err := json.NewDecoder(resp.Body).Decode(&createdNetwork); err != nil {
+		return fmt.Errorf("failed to decode created network: %v", err)
+	}
+
+	networkID := createdNetwork.ID
+	ctx.NetworkNameToID[name] = networkID
+
+	// Step 2: Add resources if present
+	if resourcesData, ok := data["resources"].(map[string]interface{}); ok {
+		for resourceName, resourceDataInterface := range resourcesData {
+			resourceData, ok := resourceDataInterface.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			if err := ctx.createNetworkResource(networkID, resourceName, resourceData); err != nil {
+				return fmt.Errorf("failed to create resource %s: %v", resourceName, err)
+			}
+		}
+	}
+
+	// Step 3: Add routers if present
+	if routersData, ok := data["routers"].(map[string]interface{}); ok {
+		for _, routerDataInterface := range routersData {
+			routerData, ok := routerDataInterface.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			if err := ctx.createNetworkRouter(networkID, routerData); err != nil {
+				return fmt.Errorf("failed to create router: %v", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// createNetworkResource creates a resource within a network
+func (ctx *ImportContext) createNetworkResource(networkID, name string, data map[string]interface{}) error {
+	address, _ := data["address"].(string)
+	description, _ := data["description"].(string)
+	enabled, _ := data["enabled"].(bool)
+
+	// Resolve group names to IDs
+	var groupIDs []string
+	if groupsData, ok := data["groups"].([]interface{}); ok {
+		for _, groupInterface := range groupsData {
+			if groupName, ok := groupInterface.(string); ok {
+				groupID, exists := ctx.GroupNameToID[groupName]
+				if !exists {
+					return fmt.Errorf("group '%s' not found", groupName)
+				}
+				groupIDs = append(groupIDs, groupID)
+			}
+		}
+	}
+
+	reqBody := NetworkResourceRequest{
+		Name:        name,
+		Address:     address,
+		Description: description,
+		Enabled:     enabled,
+		Groups:      groupIDs,
+	}
+
+	bodyBytes, _ := json.Marshal(reqBody)
+	resp, err := ctx.Client.makeRequest("POST", "/networks/"+networkID+"/resources", bytes.NewReader(bodyBytes))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("API error: %s", resp.Status)
+	}
+
+	return nil
+}
+
+// createNetworkRouter creates a router within a network
+func (ctx *ImportContext) createNetworkRouter(networkID string, data map[string]interface{}) error {
+	peer, _ := data["peer"].(string)
+	metric := getInt(data, "metric")
+	masquerade, _ := data["masquerade"].(bool)
+	enabled, _ := data["enabled"].(bool)
+
+	// Resolve peer groups if present
+	var peerGroups []string
+	if peerGroupsData, ok := data["peer_groups"].([]interface{}); ok {
+		for _, pgInterface := range peerGroupsData {
+			if pgName, ok := pgInterface.(string); ok {
+				pgID, exists := ctx.GroupNameToID[pgName]
+				if !exists {
+					return fmt.Errorf("peer group '%s' not found", pgName)
+				}
+				peerGroups = append(peerGroups, pgID)
+			}
+		}
+	}
+
+	reqBody := NetworkRouterRequest{
+		Peer:       peer,
+		PeerGroups: peerGroups,
+		Metric:     metric,
+		Masquerade: masquerade,
+		Enabled:    enabled,
+	}
+
+	bodyBytes, _ := json.Marshal(reqBody)
+	resp, err := ctx.Client.makeRequest("POST", "/networks/"+networkID+"/routers", bytes.NewReader(bodyBytes))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("API error: %s", resp.Status)
+	}
+
+	return nil
+}
+
+// Stub implementations for other resource types (to be implemented later)
 func (ctx *ImportContext) importPostureChecks(data map[string]interface{}) error {
 	// TODO: Implement posture checks import
+	if ctx.Verbose {
+		if _, ok := data["posture_checks"]; ok {
+			fmt.Println("⚠️  Posture Checks: (import not yet implemented)")
+		}
+	}
 	return nil
 }
 
 func (ctx *ImportContext) importRoutes(data map[string]interface{}) error {
 	// TODO: Implement routes import
+	if ctx.Verbose {
+		if _, ok := data["routes"]; ok {
+			fmt.Println("⚠️  Routes: (import not yet implemented)")
+		}
+	}
 	return nil
 }
 
 func (ctx *ImportContext) importDNS(data map[string]interface{}) error {
 	// TODO: Implement DNS import
-	return nil
-}
-
-func (ctx *ImportContext) importNetworks(data map[string]interface{}) error {
-	// TODO: Implement networks import
+	if ctx.Verbose {
+		if _, ok := data["dns"]; ok {
+			fmt.Println("⚠️  DNS: (import not yet implemented)")
+		}
+	}
 	return nil
 }
 
 func (ctx *ImportContext) importSetupKeys(data map[string]interface{}) error {
 	// TODO: Implement setup keys import
+	if ctx.Verbose {
+		if _, ok := data["setup_keys"]; ok {
+			fmt.Println("⚠️  Setup Keys: (import not yet implemented)")
+		}
+	}
 	return nil
 }
 
