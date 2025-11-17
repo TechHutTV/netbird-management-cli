@@ -74,6 +74,9 @@ func main() {
 		case "ingress-peer":
 			printIngressPeerUsage()
 			os.Exit(0)
+		case "export":
+			printExportUsage()
+			os.Exit(0)
 		case "help", "--help":
 			printUsage()
 			os.Exit(0)
@@ -165,6 +168,11 @@ func main() {
 		}
 	case "ingress-peer":
 		if err := handleIngressPeersCommand(client, args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "export":
+		if err := handleExportCommand(client, args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

@@ -59,6 +59,8 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("  ingress-peer ...              Manage ingress peers - Cloud-only (run 'netbird-manage ingress-peer' for options)")
 	fmt.Println()
+	fmt.Println("  export ...                    Export configuration to YAML (run 'netbird-manage export' for options)")
+	fmt.Println()
 	fmt.Println("  help                          Show this help message")
 }
 
