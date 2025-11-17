@@ -450,6 +450,16 @@ func (ctx *ImportContext) fetchCurrentState() error {
 
 // importResources imports all resources in dependency order
 func (ctx *ImportContext) importResources(data map[string]interface{}) error {
+	// Debug: show what keys are present in YAML
+	if ctx.Verbose {
+		fmt.Print("📄 YAML keys found: ")
+		keys := []string{}
+		for key := range data {
+			keys = append(keys, key)
+		}
+		fmt.Printf("%v\n\n", keys)
+	}
+
 	// Import in dependency order
 	if !ctx.skipResourceType("groups") {
 		if err := ctx.importGroups(data); err != nil {
@@ -529,6 +539,9 @@ func (ctx *ImportContext) skipResourceType(resourceType string) bool {
 func (ctx *ImportContext) importGroups(data map[string]interface{}) error {
 	groupsData, ok := data["groups"].(map[string]interface{})
 	if !ok {
+		if ctx.Verbose {
+			fmt.Println("📦 Groups: (no groups found in YAML)")
+		}
 		return nil // No groups to import
 	}
 
@@ -702,6 +715,9 @@ func (ctx *ImportContext) resolvePeerNames(peersInterface interface{}) ([]string
 func (ctx *ImportContext) importPolicies(data map[string]interface{}) error {
 	policiesData, ok := data["policies"].(map[string]interface{})
 	if !ok {
+		if ctx.Verbose {
+			fmt.Println("🔐 Policies: (no policies found in YAML)")
+		}
 		return nil // No policies to import
 	}
 
