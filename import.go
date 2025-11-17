@@ -981,7 +981,281 @@ func (ctx *ImportContext) importDNS(data map[string]interface{}) error {
 }
 
 func (ctx *ImportContext) importNetworks(data map[string]interface{}) error {
-	// TODO: Implement networks import
+	networksData, ok := data["networks"].(map[string]interface{})
+	if !ok {
+		return nil // No networks to import
+	}
+
+	fmt.Println("🌐 Networks:")
+
+	for networkName, networkDataInterface := range networksData {
+		networkData, ok := networkDataInterface.(map[string]interface{})
+		if !ok {
+			ctx.addError("Network "+networkName, fmt.Errorf("invalid network data"))
+			continue
+		}
+
+		if err := ctx.importNetwork(networkName, networkData); err != nil {
+			ctx.addError("Network "+networkName, err)
+		}
+	}
+
+	fmt.Println()
+	return nil
+}
+
+// importNetwork imports a single network with its resources and routers
+func (ctx *ImportContext) importNetwork(name string, data map[string]interface{}) error {
+	// Check if network exists
+	existing, exists := ctx.ExistingNetworks[name]
+
+	// Handle conflict
+	if exists {
+		if ctx.SkipExisting {
+			fmt.Printf("  ⚠ SKIP     %s (already exists)\n", name)
+			ctx.Skipped = append(ctx.Skipped, "Network "+name)
+			return nil
+		}
+
+		if !ctx.Update && !ctx.Force {
+			fmt.Printf("  ✗ CONFLICT %s (already exists, use --update or --skip-existing)\n", name)
+			return fmt.Errorf("network already exists")
+		}
+
+		// Update existing network
+		if ctx.Apply {
+			if err := ctx.updateNetwork(name, existing.ID, data); err != nil {
+				fmt.Printf("  ✗ FAILED   %s (%v)\n", name, err)
+				return err
+			}
+			fmt.Printf("  ✓ UPDATED  %s\n", name)
+			ctx.Updated = append(ctx.Updated, "Network "+name)
+		} else {
+			fmt.Printf("  ✓ UPDATE   %s (would update)\n", name)
+		}
+		return nil
+	}
+
+	// Create new network
+	if ctx.Apply {
+		if err := ctx.createNetwork(name, data); err != nil {
+			fmt.Printf("  ✗ FAILED   %s (%v)\n", name, err)
+			return err
+		}
+		fmt.Printf("  ✓ CREATED  %s\n", name)
+		ctx.Created = append(ctx.Created, "Network "+name)
+	} else {
+		fmt.Printf("  ✓ CREATE   %s (would create)\n", name)
+	}
+
+	return nil
+}
+
+// createNetwork creates a new network with resources and routers
+func (ctx *ImportContext) createNetwork(name string, data map[string]interface{}) error {
+	description, _ := data["description"].(string)
+
+	// Create the network first
+	reqBody := NetworkCreateRequest{
+		Name:        name,
+		Description: description,
+	}
+
+	bodyBytes, _ := json.Marshal(reqBody)
+	resp, err := ctx.Client.makeRequest("POST", "/networks", bytes.NewReader(bodyBytes))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("API error: %s", resp.Status)
+	}
+
+	var createdNetwork Network
+	if err := json.NewDecoder(resp.Body).Decode(&createdNetwork); err != nil {
+		return fmt.Errorf("failed to decode network: %v", err)
+	}
+
+	// Add to context
+	ctx.NetworkNameToID[name] = createdNetwork.ID
+	ctx.ExistingNetworks[name] = &createdNetwork
+
+	// Now add resources and routers
+	if err := ctx.addNetworkResources(createdNetwork.ID, data); err != nil {
+		return fmt.Errorf("failed to add resources: %v", err)
+	}
+
+	if err := ctx.addNetworkRouters(createdNetwork.ID, data); err != nil {
+		return fmt.Errorf("failed to add routers: %v", err)
+	}
+
+	return nil
+}
+
+// updateNetwork updates an existing network
+func (ctx *ImportContext) updateNetwork(name, networkID string, data map[string]interface{}) error {
+	description, _ := data["description"].(string)
+
+	// Update network metadata
+	reqBody := NetworkUpdateRequest{
+		Name:        name,
+		Description: description,
+	}
+
+	bodyBytes, _ := json.Marshal(reqBody)
+	resp, err := ctx.Client.makeRequest("PUT", "/networks/"+networkID, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("API error: %s", resp.Status)
+	}
+
+	// Update resources and routers
+	if err := ctx.addNetworkResources(networkID, data); err != nil {
+		return fmt.Errorf("failed to add resources: %v", err)
+	}
+
+	if err := ctx.addNetworkRouters(networkID, data); err != nil {
+		return fmt.Errorf("failed to add routers: %v", err)
+	}
+
+	return nil
+}
+
+// addNetworkResources adds resources to a network
+func (ctx *ImportContext) addNetworkResources(networkID string, data map[string]interface{}) error {
+	resourcesData, ok := data["resources"].(map[string]interface{})
+	if !ok || len(resourcesData) == 0 {
+		return nil // No resources to add
+	}
+
+	for resourceName, resourceDataInterface := range resourcesData {
+		resourceData, ok := resourceDataInterface.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		address, _ := resourceData["address"].(string)
+		description, _ := resourceData["description"].(string)
+		enabled := getBool(resourceData, "enabled")
+		resourceType, _ := resourceData["type"].(string)
+
+		// Resolve group names to IDs
+		var groupIDs []string
+		if groupsInterface, ok := resourceData["groups"].([]interface{}); ok {
+			for _, groupInterface := range groupsInterface {
+				if groupName, ok := groupInterface.(string); ok {
+					groupID, exists := ctx.GroupNameToID[groupName]
+					if !exists {
+						return fmt.Errorf("group '%s' not found for resource '%s'", groupName, resourceName)
+					}
+					groupIDs = append(groupIDs, groupID)
+				}
+			}
+		}
+
+		if len(groupIDs) == 0 {
+			return fmt.Errorf("resource '%s' must have at least one group", resourceName)
+		}
+
+		if address == "" {
+			return fmt.Errorf("resource '%s' must have an address", resourceName)
+		}
+
+		// Set type to subnet if not specified
+		if resourceType == "" {
+			resourceType = "subnet"
+		}
+
+		// Create the resource
+		resourceReq := NetworkResourceRequest{
+			Name:        resourceName,
+			Description: description,
+			Address:     address,
+			Enabled:     enabled,
+			Groups:      groupIDs,
+		}
+
+		bodyBytes, _ := json.Marshal(resourceReq)
+		resp, err := ctx.Client.makeRequest("POST", "/networks/"+networkID+"/resources", bytes.NewReader(bodyBytes))
+		if err != nil {
+			return fmt.Errorf("failed to create resource '%s': %v", resourceName, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return fmt.Errorf("failed to create resource '%s': %s", resourceName, resp.Status)
+		}
+	}
+
+	return nil
+}
+
+// addNetworkRouters adds routers to a network
+func (ctx *ImportContext) addNetworkRouters(networkID string, data map[string]interface{}) error {
+	routersData, ok := data["routers"].(map[string]interface{})
+	if !ok || len(routersData) == 0 {
+		return nil // No routers to add
+	}
+
+	for routerName, routerDataInterface := range routersData {
+		routerData, ok := routerDataInterface.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		peer, _ := routerData["peer"].(string)
+		metric := getInt(routerData, "metric")
+		if metric == 0 {
+			metric = 100 // Default metric
+		}
+		masquerade := getBool(routerData, "masquerade")
+		enabled := getBool(routerData, "enabled")
+
+		// Resolve peer groups if present
+		var peerGroups []string
+		if peerGroupsInterface, ok := routerData["peer_groups"].([]interface{}); ok {
+			for _, pgInterface := range peerGroupsInterface {
+				if pgName, ok := pgInterface.(string); ok {
+					pgID, exists := ctx.GroupNameToID[pgName]
+					if !exists {
+						return fmt.Errorf("peer group '%s' not found for router '%s'", pgName, routerName)
+					}
+					peerGroups = append(peerGroups, pgID)
+				}
+			}
+		}
+
+		// Must have either peer or peer_groups
+		if peer == "" && len(peerGroups) == 0 {
+			return fmt.Errorf("router '%s' must have either a peer or peer_groups", routerName)
+		}
+
+		// Create the router
+		routerReq := NetworkRouterRequest{
+			Peer:       peer,
+			PeerGroups: peerGroups,
+			Metric:     metric,
+			Masquerade: masquerade,
+			Enabled:    enabled,
+		}
+
+		bodyBytes, _ := json.Marshal(routerReq)
+		resp, err := ctx.Client.makeRequest("POST", "/networks/"+networkID+"/routers", bytes.NewReader(bodyBytes))
+		if err != nil {
+			return fmt.Errorf("failed to create router '%s': %v", routerName, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return fmt.Errorf("failed to create router '%s': %s", routerName, resp.Status)
+		}
+	}
+
 	return nil
 }
 
