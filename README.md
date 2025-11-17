@@ -1300,8 +1300,145 @@ policies:
 **Note:**
 - Export uses current API configuration from `~/.netbird-manage.json`
 - Timestamp format: YYMMDD (e.g., `251117` for November 17, 2025)
-- Exported YAML is designed for future import functionality
+- Exported YAML is designed for import functionality
 - Split mode is recommended for large configurations and team collaboration
+
+### Import
+
+Import NetBird configuration from YAML files for declarative infrastructure-as-code management. Running `netbird-manage import` by itself will display the help menu.
+
+#### Import Operations
+```bash
+# Dry-run (preview changes without applying) - DEFAULT
+netbird-manage import config.yml
+
+# Apply changes
+netbird-manage import --apply config.yml
+
+# Import from split directory
+netbird-manage import --apply ./netbird-manage-export-251117/
+
+# Selective import (specific resource types)
+netbird-manage import --apply --groups-only config.yml
+netbird-manage import --apply --policies-only config.yml
+```
+
+#### Conflict Resolution
+
+When importing resources that already exist, choose how to handle conflicts:
+
+```bash
+# Default: Fail on conflicts (safe, prevents overwrites)
+netbird-manage import config.yml
+
+# Update existing resources
+netbird-manage import --apply --update config.yml
+
+# Skip existing resources
+netbird-manage import --apply --skip-existing config.yml
+
+# Force create or update (upsert)
+netbird-manage import --apply --force config.yml
+```
+
+#### Conflict Resolution Modes
+
+| Mode | Behavior | Use Case |
+|------|----------|----------|
+| **Default** | Fail on existing resources | Safe mode, requires manual resolution |
+| `--update` | Update existing resources with YAML values | Apply configuration changes |
+| `--skip-existing` | Skip resources that already exist | Import only new resources |
+| `--force` | Create new or update existing (upsert) | Full declarative sync |
+
+#### Examples
+
+```bash
+# Preview what would be imported (dry-run, default)
+netbird-manage import config.yml
+
+# Import new resources, skip existing
+netbird-manage import --apply --skip-existing config.yml
+
+# Update all resources from YAML
+netbird-manage import --apply --update config.yml
+
+# Import only groups
+netbird-manage import --apply --groups-only groups.yml
+
+# Import from split directory
+netbird-manage import --apply ./netbird-export-dir/
+
+# Verbose output
+netbird-manage import --apply --verbose config.yml
+```
+
+**Import Process:**
+1. **Parse YAML** - Validate syntax and structure
+2. **Fetch Current State** - Load existing resources from API
+3. **Resolve References** - Convert names to IDs (e.g., group names → group IDs)
+4. **Detect Conflicts** - Check for existing resources
+5. **Validate** - Verify all references exist and data is valid
+6. **Execute** - Apply changes in dependency order (groups → policies → networks)
+7. **Report** - Show created/updated/skipped/failed resources
+
+**Dependency Order:**
+Resources are imported in the correct order to satisfy dependencies:
+1. Groups (no dependencies)
+2. Posture Checks (no dependencies)
+3. Policies (depends on groups, posture checks)
+4. Routes (depends on groups)
+5. DNS (depends on groups)
+6. Networks (depends on groups, policies)
+7. Setup Keys (depends on groups)
+
+**Smart Name Resolution:**
+- Group names automatically resolved to IDs
+- Peer names resolved to IDs
+- Missing peers cause errors (must be registered first)
+- Missing groups referenced in policies cause errors
+
+**Validation:**
+- ✅ Valid YAML syntax
+- ✅ Required fields present
+- ✅ Valid field values (ports, CIDRs, protocols)
+- ✅ Referenced resources exist
+- ✅ No circular dependencies
+
+**Example Output:**
+```
+▶ Importing NetBird configuration...
+
+📦 Groups:
+  ✓ CREATED  qa-team
+  ⚠ SKIP     developers (already exists)
+  ✓ UPDATED  production-servers
+
+🔐 Policies:
+  ✓ CREATED  allow-qa-access
+  ✗ CONFLICT staging-policy (already exists, use --update)
+
+================================================
+📊 Import Summary
+================================================
+
+✓ Created:  2 resources
+✓ Updated:  1 resource
+⚠ Skipped:  1 resource
+✗ Failed:   1 resource
+
+Errors:
+  1. Policy staging-policy: policy already exists
+
+⚠ Fix errors and re-run with --skip-existing
+```
+
+**Note:**
+- **Dry-run by default** - Always preview before applying
+- Flags must come **before** the filename: `netbird-manage import --apply config.yml`
+- Partial failures are OK - successfully imported resources remain
+- Use `--skip-existing` to re-import after fixing errors
+- Cannot create peers via YAML (use setup keys instead)
+- Policy rules reference groups by name (automatically resolved)
 
 ## 🚀 Roadmap
 
@@ -1334,20 +1471,13 @@ This tool is in active development. The goal is to build a comprehensive and eas
 - ✅ **Peer Update** - Modify peer properties (SSH, login expiration, IP address)
 - ✅ **Accessible Peers** - Query peer connectivity and reachability
 
-**GitOps & Infrastructure-as-Code (Phase 5 - IN PROGRESS):**
+**GitOps & Infrastructure-as-Code (Phase 5 - COMPLETED):**
 - ✅ **YAML Export** - Export all configuration to YAML files (single or split mode)
-- ❌ **YAML Import** - Apply YAML configuration to NetBird (coming soon)
+- ✅ **YAML Import** - Apply YAML configuration to NetBird with conflict resolution
 
 **API Coverage:** 14/14 NetBird API resource types fully implemented (100%) 🎉
 
 ### 📋 Planned Features
-
-**GitOps & Automation:**
-- ❌ **YAML Import** - Apply YAML configurations to NetBird
-  ```bash
-  netbird-manage import -f netbird-config.yml
-  netbird-manage import -f ./config-directory/
-  ```
 
 **Interactive CLI:**
 - ❌ **Confirmation Prompts** - Safety for destructive operations

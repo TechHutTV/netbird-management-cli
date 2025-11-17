@@ -77,6 +77,9 @@ func main() {
 		case "export":
 			printExportUsage()
 			os.Exit(0)
+		case "import":
+			printImportUsage()
+			os.Exit(0)
 		case "help", "--help":
 			printUsage()
 			os.Exit(0)
@@ -173,6 +176,11 @@ func main() {
 		}
 	case "export":
 		if err := handleExportCommand(client, args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "import":
+		if err := handleImportCommand(client, args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

@@ -61,6 +61,8 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("  export ...                    Export configuration to YAML (run 'netbird-manage export' for options)")
 	fmt.Println()
+	fmt.Println("  import ...                    Import configuration from YAML (run 'netbird-manage import' for options)")
+	fmt.Println()
 	fmt.Println("  help                          Show this help message")
 }
 
