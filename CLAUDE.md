@@ -34,15 +34,27 @@ This document provides comprehensive guidance for AI assistants working on the N
 
 ```
 netbird-management-cli/
-├── netbird-manage.go    # Main entry point and command router (125 lines)
-├── client.go            # HTTP API client with authentication (62 lines)
+├── netbird-manage.go    # Main entry point and command router (~270 lines)
+├── client.go            # HTTP API client with authentication and debug logging (~160 lines)
 ├── config.go            # Configuration file management (98 lines)
 ├── models.go            # Data type definitions (88 lines)
-├── helpers.go           # Utility functions and formatters (56 lines)
-├── peers.go             # Peer command handlers (248 lines)
-├── groups.go            # Group command handlers (121 lines)
+├── colors.go            # ANSI color output with TTY detection (~140 lines) **NEW**
+├── helpers.go           # Utility functions and formatters (~425 lines)
+├── peers.go             # Peer command handlers (~365 lines)
+├── groups.go            # Group command handlers (~400 lines)
 ├── networks.go          # Network command handlers (61 lines)
 ├── policies.go          # Policy command handlers (83 lines)
+├── setup-keys.go        # Setup key command handlers (~725 lines)
+├── users.go             # User management handlers
+├── tokens.go            # Token management handlers
+├── routes.go            # Route management handlers
+├── dns.go               # DNS management handlers
+├── posture-checks.go    # Posture check handlers
+├── events.go            # Event/audit log handlers
+├── geo-locations.go     # Geographic location data handlers
+├── accounts.go          # Account management handlers
+├── ingress-ports.go     # Ingress port handlers (Cloud-only)
+├── ingress-peers.go     # Ingress peer handlers (Cloud-only)
 ├── go.mod               # Go module definition
 ├── README.md            # User-facing documentation
 ├── API_REFERENCE.md     # Quick API navigation and reference
@@ -67,13 +79,15 @@ netbird-management-cli/
 
 | File | Purpose | Key Functions |
 |------|---------|---------------|
-| `netbird-manage.go` | Entry point, command routing | `main()`, `printUsage()`, `handleConnectCommand()` |
-| `client.go` | HTTP client, API requests | `NewClient()`, `makeRequest()` |
+| `netbird-manage.go` | Entry point, command routing, global flags | `main()`, `printUsage()`, `handleConnectCommand()`, `debugMode`, `skipConfirmation` |
+| `client.go` | HTTP client, API requests, debug logging | `NewClient()`, `makeRequest()` (with debug mode support) |
 | `config.go` | Config persistence, loading | `loadConfig()`, `testAndSaveConfig()`, `getConfigPath()` |
 | `models.go` | Data structures | `Peer`, `Group`, `Network`, `Policy`, `Config` |
-| `helpers.go` | Formatting, utilities | `formatOS()`, `printConnectStatus()` |
-| `peers.go` | Peer operations | `handlePeersCommand()`, `listPeers()`, `modifyPeerGroup()` |
-| `groups.go` | Group operations | `handleGroupsCommand()`, `listGroups()`, `getGroupByName()`, `deleteUnusedGroups()` |
+| `colors.go` | ANSI color output, TTY detection | `colorize()`, `header()`, `success()`, `failure()`, `statusConnected()`, `isTTY()` |
+| `helpers.go` | Formatting, utilities, confirmations | `formatOS()`, `confirmSingleDeletion()`, `confirmBulkDeletion()`, `splitCommaList()` |
+| `peers.go` | Peer operations | `handlePeersCommand()`, `listPeers()`, `modifyPeerGroup()`, `removePeersBatch()` |
+| `groups.go` | Group operations | `handleGroupsCommand()`, `listGroups()`, `getGroupByName()`, `deleteGroupsBatch()` |
+| `setup-keys.go` | Setup key operations | `handleSetupKeysCommand()`, `listSetupKeys()`, `deleteSetupKeysBatch()` |
 | `networks.go` | Network operations | `handleNetworksCommand()`, `listNetworks()` |
 | `policies.go` | Policy operations | `handlePoliciesCommand()`, `listPolicies()` |
 
@@ -1186,16 +1200,35 @@ This section tracks the implementation status of CLI features and planned enhanc
    - Applied to all 16 delete operations across the codebase
    - Zero external dependencies (uses stdlib `bufio` and `fmt.Scanln`)
 
-**Phase 6: Developer Experience (Lower Priority)**
-17. YAML export/import
-18. Interactive selection prompts
-19. Shell completion
-20. TUI mode
+**✅ Phase 6: Quality of Life Enhancements (COMPLETED)**
+17. ✅ Batch operations - Process multiple resources at once
+   - Implemented `--remove-batch` for peers (peers.go:removePeersBatch)
+   - Implemented `--delete-batch` for groups (groups.go:deleteGroupsBatch)
+   - Implemented `--delete-batch` for setup keys (setup-keys.go:deleteSetupKeysBatch)
+   - Features: Progress indicators, partial failure handling, summary reports
+   - Uses same confirmation system (confirmBulkDeletion)
+   - Zero external dependencies
 
-**Phase 7: Quality of Life (Nice to Have)**
-21. Batch operations
-22. Colorized output
-23. Verbose/Debug mode
+18. ✅ Colorized output - Improve readability with ANSI color coding
+   - Implemented in `colors.go` with automatic TTY detection
+   - Color scheme: Headers (bold cyan), IDs (dim), Status (green/red), Success/Error/Warning indicators
+   - Applied to peer and group list outputs
+   - Pipe-friendly: Auto-disables when output is not a TTY
+   - Zero external dependencies (pure ANSI escape codes)
+
+19. ✅ Debug mode - Verbose HTTP request/response logging
+   - Global `--debug` or `-d` flag (netbird-manage.go)
+   - Client.Debug field enables logging in makeRequest (client.go)
+   - Shows: HTTP method, URL, headers (token redacted), request/response bodies (pretty-printed JSON)
+   - All debug output to stderr (keeps stdout clean for scripting)
+   - Color-coded status codes
+   - Zero external dependencies
+
+**Phase 7: Developer Experience (Lower Priority)**
+20. ❌ YAML export/import
+21. ❌ Interactive selection prompts
+22. ❌ Shell completion
+23. ❌ TUI mode
 
 ### Implementation Notes
 

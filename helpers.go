@@ -27,9 +27,10 @@ func printUsage() {
 	fmt.Println("----------------------")
 	fmt.Println("A simple tool to manage your NetBird network via the API.")
 	fmt.Println("\nUsage:")
-	fmt.Println("  netbird-manage [--yes] <command> [arguments]")
+	fmt.Println("  netbird-manage [--yes] [--debug] <command> [arguments]")
 	fmt.Println("\nGlobal Flags:")
 	fmt.Println("  --yes, -y                     Skip confirmation prompts (for automation)")
+	fmt.Println("  --debug, -d                   Enable verbose debug output (HTTP requests/responses)")
 	fmt.Println("\nAvailable Commands:")
 	fmt.Println("  connect                       Check current connection status")
 	fmt.Println("  connect [flags]               Connect and save your API token")
@@ -86,6 +87,7 @@ func printPeerUsage() {
 	fmt.Println()
 	fmt.Println("Modification Flags:")
 	fmt.Println("  --remove <peer-id>                Remove a peer from your network")
+	fmt.Println("  --remove-batch <id1,id2,...>      Remove multiple peers (comma-separated IDs)")
 	fmt.Println()
 	fmt.Println("  --edit <peer-id>                  Edit peer group membership")
 	fmt.Println("    --add-group <group-id>          Add peer to a group (requires --edit)")
@@ -114,6 +116,7 @@ func printGroupUsage() {
 	fmt.Println("    --peers <id1,id2,...>          (Optional) Add peers on creation")
 	fmt.Println()
 	fmt.Println("  --delete <group-id>              Delete a group")
+	fmt.Println("  --delete-batch <id1,id2,...>     Delete multiple groups (comma-separated IDs)")
 	fmt.Println("  --delete-unused                  Delete all unused groups (no peers, resources, or references)")
 	fmt.Println()
 	fmt.Println("  --rename <group-id>              Rename a group")
@@ -343,22 +346,22 @@ func confirmSingleDeletion(resourceType, resourceName, resourceID string, detail
 		return true
 	}
 
-	fmt.Fprintf(os.Stderr, "\nAbout to remove %s:\n", resourceType)
+	fmt.Fprintf(os.Stderr, "\n"+yellow("About to remove %s:")+"\n", resourceType)
 
 	// Always show name and ID first if available
 	if resourceName != "" {
-		fmt.Fprintf(os.Stderr, "  Name:      %s\n", resourceName)
+		fmt.Fprintf(os.Stderr, "  "+bold("Name:")+"      %s\n", resourceName)
 	}
 	if resourceID != "" {
-		fmt.Fprintf(os.Stderr, "  ID:        %s\n", resourceID)
+		fmt.Fprintf(os.Stderr, "  "+bold("ID:")+"        %s\n", dim(resourceID))
 	}
 
 	// Show additional details in consistent order
 	for key, value := range details {
-		fmt.Fprintf(os.Stderr, "  %-10s %s\n", key+":", value)
+		fmt.Fprintf(os.Stderr, "  "+bold("%-10s")+" %s\n", key+":", value)
 	}
 
-	fmt.Fprintf(os.Stderr, "\n⚠️  This action cannot be undone. Continue? [y/N]: ")
+	fmt.Fprintf(os.Stderr, "\n"+warning("This action cannot be undone. Continue? [y/N]:")+" ")
 
 	return readYesNo()
 }
@@ -371,13 +374,13 @@ func confirmBulkDeletion(resourceType string, items []string, count int) bool {
 		return true
 	}
 
-	fmt.Fprintf(os.Stderr, "\n🔴 This will delete %d %s:\n", count, resourceType)
+	fmt.Fprintf(os.Stderr, "\n"+red("🔴 This will delete %d %s:")+"\n", count, resourceType)
 
 	// Show up to 10 items in the list
 	maxShow := 10
 	for i, item := range items {
 		if i >= maxShow {
-			fmt.Fprintf(os.Stderr, "  ... and %d more\n", count-maxShow)
+			fmt.Fprintf(os.Stderr, "  "+dim("... and %d more")+"\n", count-maxShow)
 			break
 		}
 		fmt.Fprintf(os.Stderr, "  - %s\n", item)
@@ -386,7 +389,7 @@ func confirmBulkDeletion(resourceType string, items []string, count int) bool {
 	// Generate confirmation text
 	confirmText := fmt.Sprintf("delete %d %s", count, resourceType)
 
-	fmt.Fprintf(os.Stderr, "\nType '%s' to confirm: ", confirmText)
+	fmt.Fprintf(os.Stderr, "\n"+yellow("Type '%s' to confirm:")+"\n> ", bold(confirmText))
 
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
@@ -400,7 +403,7 @@ func confirmBulkDeletion(resourceType string, items []string, count int) bool {
 		return true
 	}
 
-	fmt.Fprintln(os.Stderr, "Operation cancelled")
+	fmt.Fprintln(os.Stderr, red("✗ Operation cancelled"))
 	return false
 }
 
@@ -419,6 +422,6 @@ func readYesNo() bool {
 		return true
 	}
 
-	fmt.Fprintln(os.Stderr, "Operation cancelled")
+	fmt.Fprintln(os.Stderr, red("✗ Operation cancelled"))
 	return false
 }

@@ -47,6 +47,7 @@ func handleSetupKeysCommand(client *Client, args []string) error {
 
 	// Delete flags
 	deleteFlag := setupKeyCmd.String("delete", "", "Delete a setup key by its ID")
+	deleteBatchFlag := setupKeyCmd.String("delete-batch", "", "Delete multiple setup keys (comma-separated IDs)")
 	deleteAllFlag := setupKeyCmd.Bool("delete-all", false, "Delete all setup keys")
 
 	// If no flags provided, show usage
@@ -111,6 +112,10 @@ func handleSetupKeysCommand(client *Client, args []string) error {
 
 	if *deleteFlag != "" {
 		return client.deleteSetupKey(*deleteFlag)
+	}
+
+	if *deleteBatchFlag != "" {
+		return client.deleteSetupKeysBatch(*deleteBatchFlag)
 	}
 
 	if *deleteAllFlag {
@@ -647,7 +652,76 @@ func (c *Client) deleteSetupKey(keyID string) error {
 	}
 	defer resp.Body.Close()
 
-	fmt.Printf("✓ Setup key %s has been deleted.\n", key.Name)
+	printSuccess("Setup key %s has been deleted", key.Name)
+	return nil
+}
+
+// deleteSetupKeysBatch deletes multiple setup keys
+func (c *Client) deleteSetupKeysBatch(idList string) error {
+	keyIDs := splitCommaList(idList)
+	if len(keyIDs) == 0 {
+		return fmt.Errorf("no setup key IDs provided")
+	}
+
+	// Fetch key details for confirmation
+	keys := make([]SetupKey, 0, len(keyIDs))
+	itemList := make([]string, 0, len(keyIDs))
+
+	fmt.Println("Fetching setup key details...")
+	for _, id := range keyIDs {
+		resp, err := c.makeRequest("GET", "/setup-keys/"+id, nil)
+		if err != nil {
+			printWarning("Skipping %s: %v", id, err)
+			continue
+		}
+
+		var key SetupKey
+		if err := json.NewDecoder(resp.Body).Decode(&key); err != nil {
+			resp.Body.Close()
+			printWarning("Skipping %s: failed to decode", id)
+			continue
+		}
+		resp.Body.Close()
+
+		keys = append(keys, key)
+		state := formatState(key.State, key.Valid, key.Revoked)
+		itemList = append(itemList, fmt.Sprintf("%s (ID: %s, Type: %s, State: %s)",
+			key.Name, dim(key.ID), key.Type, state))
+	}
+
+	if len(keys) == 0 {
+		return fmt.Errorf("no valid setup keys found to delete")
+	}
+
+	// Confirm bulk deletion
+	if !confirmBulkDeletion("setup keys", itemList, len(keys)) {
+		return nil
+	}
+
+	// Process deletions with progress
+	var succeeded, failed int
+	for i, key := range keys {
+		fmt.Printf("[%d/%d] "+dim("Deleting setup key '%s'...")+" ", i+1, len(keys), key.Name)
+
+		resp, err := c.makeRequest("DELETE", "/setup-keys/"+key.ID, nil)
+		if err != nil {
+			fmt.Println(failure(fmt.Sprintf("Failed: %v", err)))
+			failed++
+			continue
+		}
+		resp.Body.Close()
+		fmt.Println(success("Done"))
+		succeeded++
+	}
+
+	// Print summary
+	fmt.Println()
+	if failed > 0 {
+		printWarning("Completed: %d succeeded, %d failed", succeeded, failed)
+	} else {
+		printSuccess("All %d setup keys deleted successfully", succeeded)
+	}
+
 	return nil
 }
 
