@@ -60,6 +60,115 @@ netbird-manage -y group --delete def456
 
 **Warning:** When using `--yes`, deletions happen immediately without any prompts. Use with caution!
 
+## Quality of Life Features
+
+### Debug Mode
+
+Enable verbose debug output to see all HTTP requests and responses. This is invaluable for troubleshooting API issues or understanding what's happening under the hood:
+
+```bash
+# Enable debug mode with --debug or -d flag
+netbird-manage --debug peer --list
+
+# Debug output shows:
+═══ DEBUG: HTTP REQUEST ═══
+GET https://api.netbird.io/api/peers
+Headers:
+  Authorization: Token [REDACTED]
+  Accept: application/json
+
+═══ DEBUG: HTTP RESPONSE ═══
+Status: 200 OK
+Headers:
+  Content-Type: application/json
+Response Body:
+[
+  {
+    "id": "abc123",
+    "name": "laptop-001",
+    ...
+  }
+]
+═══════════════════════════
+```
+
+**Features:**
+- Shows full HTTP method and URL
+- Displays request headers (token redacted for security)
+- Pretty-prints JSON request/response bodies
+- Color-coded status codes (green for success, red for errors)
+- All debug output goes to stderr (keeps stdout clean for scripting)
+
+### Colorized Output
+
+The CLI automatically detects when output is going to a terminal and applies color coding for improved readability:
+
+**Colors used:**
+- **Headers:** Bold cyan
+- **IDs/UUIDs:** Dimmed (less visual noise)
+- **IP addresses:** Cyan
+- **Status:** Green (online/enabled), Red (offline/disabled)
+- **Success messages:** Green with ✓
+- **Errors:** Red with ✗
+- **Warnings:** Yellow with ⚠️
+- **Names:** Bold for emphasis
+- **Counts:** Cyan when > 0, dimmed when 0
+
+**Pipe-friendly:** Colors are automatically disabled when piping output to files or other commands, so scripts won't break:
+
+```bash
+# Terminal: Colorized output
+netbird-manage peer --list
+
+# File/pipe: Plain text (no colors)
+netbird-manage peer --list > peers.txt
+netbird-manage peer --list | grep ubuntu
+```
+
+### Batch Operations
+
+Process multiple resources at once for efficient bulk operations. All batch operations support the same confirmation prompts as single deletions:
+
+```bash
+# Remove multiple peers at once
+netbird-manage peer --remove-batch abc123,def456,ghi789
+
+# Delete multiple groups
+netbird-manage group --delete-batch dev-team,test-group,old-servers
+
+# Delete multiple setup keys
+netbird-manage setup-key --delete-batch key1,key2,key3
+
+# Combine with --yes for automation
+netbird-manage --yes peer --remove-batch abc123,def456,ghi789
+```
+
+**Batch operation features:**
+- Fetches and displays details for all resources before confirmation
+- Shows progress indicator during processing (e.g., `[2/5] Removing peer...`)
+- Continues processing even if some operations fail
+- Provides summary at the end: `Completed: 4 succeeded, 1 failed`
+- Supports type-to-confirm for safety (type `delete N resources` to proceed)
+
+**Example batch removal:**
+```bash
+$ netbird-manage group --delete-batch old-servers,test-group,unused
+
+Fetching group details...
+🔴 This will delete 3 groups:
+  - old-servers (ID: abc123, Peers: 0, Resources: 0)
+  - test-group (ID: def456, Peers: 2, Resources: 1)
+  - unused (ID: ghi789, Peers: 0, Resources: 0)
+
+Type 'delete 3 groups' to confirm: delete 3 groups
+
+[1/3] Deleting group 'old-servers'... ✓ Done
+[2/3] Deleting group 'test-group'... ✓ Done
+[3/3] Deleting group 'unused'... ✓ Done
+
+✓ All 3 groups deleted successfully
+```
+
 ## Current Commands & Functionality
 
 ### Connect
@@ -94,6 +203,7 @@ netbird-manage peer --accessible-peers <peer-id>  List peers accessible from the
 #### Modification Operations
 ```
 netbird-manage peer --remove <peer-id>         Remove a peer from your network
+netbird-manage peer --remove-batch <id1,id2,...>  Remove multiple peers (comma-separated IDs)
 
 netbird-manage peer --edit <peer-id>           Edit peer group membership
   --add-group <group-id>                       Add peer to a specified group
@@ -189,6 +299,12 @@ netbird-manage setup-key --update-groups <key-id> \
 ```bash
 # Delete a setup key
 netbird-manage setup-key --delete <key-id>
+
+# Delete multiple setup keys at once
+netbird-manage setup-key --delete-batch <key-id-1,key-id-2,key-id-3>
+
+# Delete all setup keys (with confirmation)
+netbird-manage setup-key --delete-all
 ```
 
 **Examples:**
@@ -401,7 +517,7 @@ netbird-manage group --create <group-name>     Create a new group
   --peers <id1,id2,...>                        (Optional) Add peers on creation
 
 netbird-manage group --delete <group-id>       Delete a group
-
+netbird-manage group --delete-batch <id1,id2,...>  Delete multiple groups (comma-separated IDs)
 netbird-manage group --delete-unused           Delete all unused groups (no peers, resources, or references)
 
 netbird-manage group --rename <group-id>       Rename a group

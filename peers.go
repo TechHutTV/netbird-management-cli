@@ -23,6 +23,7 @@ func handlePeersCommand(client *Client, args []string) error {
 	listFlag := peerCmd.Bool("list", false, "List all peers")
 	inspectFlag := peerCmd.String("inspect", "", "Inspect a peer by its ID")
 	removeFlag := peerCmd.String("remove", "", "Remove a peer by its ID")
+	removeBatchFlag := peerCmd.String("remove-batch", "", "Remove multiple peers (comma-separated IDs)")
 	editFlag := peerCmd.String("edit", "", "Edit a peer by its ID (use with --add-group or --remove-group)")
 	addGrpFlag := peerCmd.String("add-group", "", "Group to add to the peer (requires --edit)")
 	rmGrpFlag := peerCmd.String("remove-group", "", "Group to remove from the peer (requires --edit)")
@@ -64,6 +65,10 @@ func handlePeersCommand(client *Client, args []string) error {
 
 	if *removeFlag != "" {
 		return client.removePeerByID(*removeFlag)
+	}
+
+	if *removeBatchFlag != "" {
+		return client.removePeersBatch(*removeBatchFlag)
 	}
 
 	if *accessiblePeersFlag != "" {
@@ -219,17 +224,18 @@ func (c *Client) listPeers(filterName, filterIP string) error {
 
 	// Print a formatted table
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tIP\tCONNECTED\tOS\tVERSION\tHOSTNAME")
-	fmt.Fprintln(w, "--\t----\t--\t---------\t--\t-------\t--------")
+	fmt.Fprintln(w, header("ID\tNAME\tIP\tCONNECTED\tOS\tVERSION\tHOSTNAME"))
+	fmt.Fprintln(w, dim("--\t----\t--\t---------\t--\t-------\t--------"))
 
 	for _, peer := range filteredPeers {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%t\t%s\t%s\t%s\n",
-			peer.ID,
+		connectedStatus := statusConnected(peer.Connected)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			formatID(peer.ID),
 			peer.Name,
-			peer.IP,
-			peer.Connected,
+			cyan(peer.IP),
+			connectedStatus,
 			formatOS(peer.OS),
-			peer.Version,
+			dim(peer.Version),
 			peer.Hostname,
 		)
 	}
@@ -292,7 +298,66 @@ func (c *Client) removePeerByID(peerID string) error {
 	}
 	resp.Body.Close()
 
-	fmt.Printf("✓ Successfully removed peer '%s' (ID: %s)\n", peer.Name, peer.ID)
+	printSuccess("Successfully removed peer '%s' (ID: %s)", peer.Name, peer.ID)
+	return nil
+}
+
+// removePeersBatch implements batch peer removal
+func (c *Client) removePeersBatch(idList string) error {
+	peerIDs := splitCommaList(idList)
+	if len(peerIDs) == 0 {
+		return fmt.Errorf("no peer IDs provided")
+	}
+
+	// Fetch peer details for confirmation
+	peers := make([]*Peer, 0, len(peerIDs))
+	itemList := make([]string, 0, len(peerIDs))
+
+	fmt.Println("Fetching peer details...")
+	for _, id := range peerIDs {
+		peer, err := c.getPeerByID(id)
+		if err != nil {
+			printWarning("Skipping %s: %v", id, err)
+			continue
+		}
+		peers = append(peers, peer)
+		itemList = append(itemList, fmt.Sprintf("%s (ID: %s, IP: %s)", peer.Name, dim(peer.ID), peer.IP))
+	}
+
+	if len(peers) == 0 {
+		return fmt.Errorf("no valid peers found to remove")
+	}
+
+	// Confirm bulk deletion
+	if !confirmBulkDeletion("peers", itemList, len(peers)) {
+		return nil
+	}
+
+	// Process deletions with progress
+	var succeeded, failed int
+	for i, peer := range peers {
+		fmt.Printf("[%d/%d] "+dim("Removing peer '%s'...")+" ", i+1, len(peers), peer.Name)
+
+		endpoint := "/peers/" + peer.ID
+		resp, err := c.makeRequest("DELETE", endpoint, nil)
+		if err != nil {
+			fmt.Println(failure(fmt.Sprintf("Failed: %v", err)))
+			failed++
+			continue
+		}
+		resp.Body.Close()
+		fmt.Println(success("Done"))
+		succeeded++
+	}
+
+	// Print summary
+	fmt.Println()
+	if failed > 0 {
+		printWarning("Completed: %d succeeded, %d failed", succeeded, failed)
+	} else {
+		printSuccess("All %d peers removed successfully", succeeded)
+	}
+
 	return nil
 }
 

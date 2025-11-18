@@ -7,6 +7,11 @@ import (
 	"os"
 )
 
+var (
+	// debugMode is set to true when --debug flag is provided
+	debugMode = false
+)
+
 func main() {
 	// Parse command-line arguments
 	args := os.Args[1:]
@@ -15,11 +20,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Check for global --yes flag (skip confirmations)
+	// Check for global flags (--yes, --debug)
 	filteredArgs := make([]string, 0, len(args))
 	for _, arg := range args {
 		if arg == "--yes" || arg == "-y" {
 			skipConfirmation = true
+		} else if arg == "--debug" || arg == "-d" {
+			debugMode = true
 		} else {
 			filteredArgs = append(filteredArgs, arg)
 		}
@@ -113,6 +120,7 @@ func main() {
 	}
 
 	client := NewClient(config.Token, config.ManagementURL)
+	client.Debug = debugMode
 
 	// Route the command to the correct handler
 	switch command {

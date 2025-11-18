@@ -25,6 +25,7 @@ func handleGroupsCommand(client *Client, args []string) error {
 	// Modification flags
 	createFlag := groupCmd.String("create", "", "Create a new group")
 	deleteFlag := groupCmd.String("delete", "", "Delete a group by its ID")
+	deleteBatchFlag := groupCmd.String("delete-batch", "", "Delete multiple groups (comma-separated IDs)")
 	renameFlag := groupCmd.String("rename", "", "Rename a group (requires --new-name)")
 	newNameFlag := groupCmd.String("new-name", "", "New name for the group (requires --rename)")
 
@@ -68,6 +69,10 @@ func handleGroupsCommand(client *Client, args []string) error {
 
 	if *deleteFlag != "" {
 		return client.deleteGroup(*deleteFlag)
+	}
+
+	if *deleteBatchFlag != "" {
+		return client.deleteGroupsBatch(*deleteBatchFlag)
 	}
 
 	if *renameFlag != "" {
@@ -136,16 +141,30 @@ func (c *Client) listGroups(filterName string) error {
 
 	// Print a formatted table
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tPEERS\tRESOURCES\tISSUED BY")
-	fmt.Fprintln(w, "--\t----\t-----\t---------\t---------")
+	fmt.Fprintln(w, header("ID\tNAME\tPEERS\tRESOURCES\tISSUED BY"))
+	fmt.Fprintln(w, dim("--\t----\t-----\t---------\t---------"))
 
 	for _, g := range filteredGroups {
-		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%s\n",
-			g.ID,
-			g.Name,
-			g.PeersCount,
-			g.ResourcesCount,
-			g.Issued,
+		peerCount := fmt.Sprintf("%d", g.PeersCount)
+		if g.PeersCount > 0 {
+			peerCount = cyan(peerCount)
+		} else {
+			peerCount = dim(peerCount)
+		}
+
+		resourceCount := fmt.Sprintf("%d", g.ResourcesCount)
+		if g.ResourcesCount > 0 {
+			resourceCount = cyan(resourceCount)
+		} else {
+			resourceCount = dim(resourceCount)
+		}
+
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+			formatID(g.ID),
+			bold(g.Name),
+			peerCount,
+			resourceCount,
+			dim(g.Issued),
 		)
 	}
 	w.Flush()
@@ -323,7 +342,74 @@ func (c *Client) deleteGroup(groupIdentifier string) error {
 	}
 	defer resp.Body.Close()
 
-	fmt.Printf("✓ Successfully deleted group '%s'\n", group.Name)
+	printSuccess("Successfully deleted group '%s'", group.Name)
+	return nil
+}
+
+// deleteGroupsBatch implements batch group deletion
+func (c *Client) deleteGroupsBatch(idList string) error {
+	groupIDs := splitCommaList(idList)
+	if len(groupIDs) == 0 {
+		return fmt.Errorf("no group IDs provided")
+	}
+
+	// Resolve group identifiers and fetch details for confirmation
+	groups := make([]*GroupDetail, 0, len(groupIDs))
+	itemList := make([]string, 0, len(groupIDs))
+
+	fmt.Println("Fetching group details...")
+	for _, id := range groupIDs {
+		// Resolve identifier to ID
+		resolvedID, err := c.resolveGroupIdentifier(id)
+		if err != nil {
+			printWarning("Skipping %s: %v", id, err)
+			continue
+		}
+
+		group, err := c.getGroupByID(resolvedID)
+		if err != nil {
+			printWarning("Skipping %s: %v", id, err)
+			continue
+		}
+		groups = append(groups, group)
+		itemList = append(itemList, fmt.Sprintf("%s (ID: %s, Peers: %d, Resources: %d)",
+			group.Name, dim(group.ID), group.PeersCount, group.ResourcesCount))
+	}
+
+	if len(groups) == 0 {
+		return fmt.Errorf("no valid groups found to delete")
+	}
+
+	// Confirm bulk deletion
+	if !confirmBulkDeletion("groups", itemList, len(groups)) {
+		return nil
+	}
+
+	// Process deletions with progress
+	var succeeded, failed int
+	for i, group := range groups {
+		fmt.Printf("[%d/%d] "+dim("Deleting group '%s'...")+" ", i+1, len(groups), group.Name)
+
+		endpoint := "/groups/" + group.ID
+		resp, err := c.makeRequest("DELETE", endpoint, nil)
+		if err != nil {
+			fmt.Println(failure(fmt.Sprintf("Failed: %v", err)))
+			failed++
+			continue
+		}
+		resp.Body.Close()
+		fmt.Println(success("Done"))
+		succeeded++
+	}
+
+	// Print summary
+	fmt.Println()
+	if failed > 0 {
+		printWarning("Completed: %d succeeded, %d failed", succeeded, failed)
+	} else {
+		printSuccess("All %d groups deleted successfully", succeeded)
+	}
+
 	return nil
 }
 
