@@ -73,7 +73,7 @@ netbird-management-cli/
 | `models.go` | Data structures | `Peer`, `Group`, `Network`, `Policy`, `Config` |
 | `helpers.go` | Formatting, utilities | `formatOS()`, `printConnectStatus()` |
 | `peers.go` | Peer operations | `handlePeersCommand()`, `listPeers()`, `modifyPeerGroup()` |
-| `groups.go` | Group operations | `handleGroupsCommand()`, `listGroups()`, `getGroupByName()` |
+| `groups.go` | Group operations | `handleGroupsCommand()`, `listGroups()`, `getGroupByName()`, `deleteUnusedGroups()` |
 | `networks.go` | Network operations | `handleNetworksCommand()`, `listNetworks()` |
 | `policies.go` | Policy operations | `handlePoliciesCommand()`, `listPolicies()` |
 
@@ -621,6 +621,34 @@ fmt.Fprintf(os.Stderr, "DEBUG: Value = %+v\n", variable)
 bodyBytes, _ := io.ReadAll(resp.Body)
 fmt.Fprintf(os.Stderr, "DEBUG: API Response = %s\n", string(bodyBytes))
 ```
+
+### Cleanup Operations
+
+**Example: Delete unused groups**
+
+The `--delete-unused` flag for the group command demonstrates how to safely delete resources that are no longer in use:
+
+```bash
+netbird-manage group --delete-unused
+```
+
+**Implementation approach (groups.go:522):**
+1. **Scan all dependencies**: Fetch all resources that might reference groups (policies, setup keys, routes, DNS groups, users)
+2. **Build reference map**: Create a map of all group IDs that are referenced
+3. **Identify unused groups**: Find groups with no peers, no resources, and no references
+4. **Show confirmation**: Display what will be deleted and require explicit confirmation
+5. **Delete safely**: Delete groups one by one with error handling
+
+**Key checks for "unused" groups:**
+- `PeersCount == 0` (no peers in the group)
+- `ResourcesCount == 0` (no resources in the group)
+- Not referenced in any policy rules (Sources or Destinations)
+- Not referenced in any setup keys (AutoGroups)
+- Not referenced in any routes (Groups)
+- Not referenced in any DNS nameserver groups (Groups)
+- Not referenced in any users (AutoGroups)
+
+This pattern can be applied to other resources that need cleanup based on dependency checking.
 
 ### Refactoring
 

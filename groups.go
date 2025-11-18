@@ -33,6 +33,9 @@ func handleGroupsCommand(client *Client, args []string) error {
 	removePeersFlag := groupCmd.String("remove-peers", "", "Remove peers from a group (requires --peers)")
 	peersFlag := groupCmd.String("peers", "", "Comma-separated list of peer IDs")
 
+	// Delete unused groups flag
+	deleteUnusedFlag := groupCmd.Bool("delete-unused", false, "Delete all unused groups (not referenced anywhere)")
+
 	// If no flags are provided (just 'netbird-manage group'), show usage
 	if len(args) == 1 {
 		printGroupUsage()
@@ -88,6 +91,10 @@ func handleGroupsCommand(client *Client, args []string) error {
 		}
 		peerIDs := splitCommaList(*peersFlag)
 		return client.removePeersFromGroup(*removePeersFlag, peerIDs)
+	}
+
+	if *deleteUnusedFlag {
+		return client.deleteUnusedGroups()
 	}
 
 	// If no known flag was used
@@ -510,4 +517,206 @@ func (c *Client) removePeersFromGroup(groupIdentifier string, peerIDs []string) 
 
 	fmt.Printf("Successfully removed %d peer(s) from group '%s'\n", removedCount, group.Name)
 	return nil
+}
+
+// deleteUnusedGroups deletes all groups that are not referenced anywhere
+func (c *Client) deleteUnusedGroups() error {
+	fmt.Println("Scanning for unused groups...")
+
+	// Get all groups
+	resp, err := c.makeRequest("GET", "/groups", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var groups []GroupDetail
+	if err := json.NewDecoder(resp.Body).Decode(&groups); err != nil {
+		return fmt.Errorf("failed to decode groups: %v", err)
+	}
+
+	if len(groups) == 0 {
+		fmt.Println("No groups found.")
+		return nil
+	}
+
+	// Get all dependencies
+	policies, setupKeys, routes, dnsGroups, users, err := c.getAllGroupDependencies()
+	if err != nil {
+		return fmt.Errorf("failed to get dependencies: %v", err)
+	}
+
+	// Build a set of all referenced group IDs
+	referencedGroups := make(map[string]bool)
+
+	// Check policies
+	for _, policy := range policies {
+		for _, rule := range policy.Rules {
+			for _, src := range rule.Sources {
+				referencedGroups[src.ID] = true
+			}
+			for _, dest := range rule.Destinations {
+				referencedGroups[dest.ID] = true
+			}
+		}
+	}
+
+	// Check setup keys
+	for _, key := range setupKeys {
+		for _, groupID := range key.AutoGroups {
+			referencedGroups[groupID] = true
+		}
+	}
+
+	// Check routes
+	for _, route := range routes {
+		for _, groupID := range route.Groups {
+			referencedGroups[groupID] = true
+		}
+	}
+
+	// Check DNS nameserver groups
+	for _, dnsGroup := range dnsGroups {
+		for _, groupID := range dnsGroup.Groups {
+			referencedGroups[groupID] = true
+		}
+	}
+
+	// Check users
+	for _, user := range users {
+		for _, groupID := range user.AutoGroups {
+			referencedGroups[groupID] = true
+		}
+	}
+
+	// Find unused groups
+	var unusedGroups []GroupDetail
+	for _, group := range groups {
+		// A group is unused if:
+		// 1. It has no peers (PeersCount == 0)
+		// 2. It has no resources (ResourcesCount == 0)
+		// 3. It's not referenced in any policies, setup keys, routes, DNS groups, or users
+		if group.PeersCount == 0 && group.ResourcesCount == 0 && !referencedGroups[group.ID] {
+			unusedGroups = append(unusedGroups, group)
+		}
+	}
+
+	if len(unusedGroups) == 0 {
+		fmt.Println("No unused groups found. All groups are in use.")
+		return nil
+	}
+
+	// Show what will be deleted
+	fmt.Printf("\nFound %d unused group(s):\n\n", len(unusedGroups))
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "ID\tNAME\tPEERS\tRESOURCES")
+	fmt.Fprintln(w, "--\t----\t-----\t---------")
+	for _, group := range unusedGroups {
+		fmt.Fprintf(w, "%s\t%s\t%d\t%d\n", group.ID, group.Name, group.PeersCount, group.ResourcesCount)
+	}
+	w.Flush()
+
+	// Prompt for confirmation
+	fmt.Printf("\nThis will permanently delete %d group(s). Type 'yes' to confirm: ", len(unusedGroups))
+	var confirmation string
+	fmt.Scanln(&confirmation)
+
+	if confirmation != "yes" {
+		fmt.Println("Deletion cancelled.")
+		return nil
+	}
+
+	// Delete all unused groups
+	fmt.Printf("\nDeleting %d group(s)...\n", len(unusedGroups))
+	successCount := 0
+	failCount := 0
+
+	for _, group := range unusedGroups {
+		endpoint := "/groups/" + group.ID
+		resp, err := c.makeRequest("DELETE", endpoint, nil)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "✗ Failed to delete '%s' (%s): %v\n", group.Name, group.ID, err)
+			failCount++
+			continue
+		}
+		resp.Body.Close()
+
+		fmt.Printf("✓ Deleted '%s' (%s)\n", group.Name, group.ID)
+		successCount++
+	}
+
+	// Summary
+	fmt.Printf("\nDeletion complete: %d successful, %d failed\n", successCount, failCount)
+
+	if failCount > 0 {
+		return fmt.Errorf("failed to delete %d group(s)", failCount)
+	}
+
+	return nil
+}
+
+// getAllGroupDependencies fetches all resources that might reference groups
+func (c *Client) getAllGroupDependencies() ([]Policy, []SetupKey, []Route, []DNSNameserverGroup, []User, error) {
+	var policies []Policy
+	var setupKeys []SetupKey
+	var routes []Route
+	var dnsGroups []DNSNameserverGroup
+	var users []User
+
+	// Get policies
+	resp, err := c.makeRequest("GET", "/policies", nil)
+	if err != nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to get policies: %v", err)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&policies); err != nil {
+		resp.Body.Close()
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to decode policies: %v", err)
+	}
+	resp.Body.Close()
+
+	// Get setup keys
+	resp, err = c.makeRequest("GET", "/setup-keys", nil)
+	if err != nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to get setup keys: %v", err)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&setupKeys); err != nil {
+		resp.Body.Close()
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to decode setup keys: %v", err)
+	}
+	resp.Body.Close()
+
+	// Get routes
+	resp, err = c.makeRequest("GET", "/routes", nil)
+	if err != nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to get routes: %v", err)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&routes); err != nil {
+		resp.Body.Close()
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to decode routes: %v", err)
+	}
+	resp.Body.Close()
+
+	// Get DNS nameserver groups
+	resp, err = c.makeRequest("GET", "/dns/nameservers", nil)
+	if err != nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to get DNS groups: %v", err)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&dnsGroups); err != nil {
+		resp.Body.Close()
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to decode DNS groups: %v", err)
+	}
+	resp.Body.Close()
+
+	// Get users
+	resp, err = c.makeRequest("GET", "/users", nil)
+	if err != nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to get users: %v", err)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
+		resp.Body.Close()
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to decode users: %v", err)
+	}
+	resp.Body.Close()
+
+	return policies, setupKeys, routes, dnsGroups, users, nil
 }

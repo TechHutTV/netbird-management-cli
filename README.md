@@ -354,6 +354,8 @@ netbird-manage group --create <group-name>     Create a new group
 
 netbird-manage group --delete <group-id>       Delete a group
 
+netbird-manage group --delete-unused           Delete all unused groups (no peers, resources, or references)
+
 netbird-manage group --rename <group-id>       Rename a group
   --new-name <new-name>                        New name for the group
 
@@ -389,6 +391,9 @@ netbird-manage group --remove-peers d2l17grl0ubs73bh4vpg --peers "peer1,peer2"
 
 # Delete a group
 netbird-manage group --delete d2l17grl0ubs73bh4vpg
+
+# Delete all unused groups (scans for groups with no peers, resources, or references)
+netbird-manage group --delete-unused
 ```
 
 ### Network

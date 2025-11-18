@@ -107,6 +107,7 @@ func printGroupUsage() {
 	fmt.Println("    --peers <id1,id2,...>          (Optional) Add peers on creation")
 	fmt.Println()
 	fmt.Println("  --delete <group-id>              Delete a group")
+	fmt.Println("  --delete-unused                  Delete all unused groups (no peers, resources, or references)")
 	fmt.Println()
 	fmt.Println("  --rename <group-id>              Rename a group")
 	fmt.Println("    --new-name <new-name>          New name for the group (required)")
