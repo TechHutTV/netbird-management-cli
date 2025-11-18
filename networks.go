@@ -398,9 +398,19 @@ func (c *Client) deleteNetwork(networkID string) error {
 	}
 	resp.Body.Close()
 
-	fmt.Printf("Deleting network '%s' (ID: %s)...\n", network.Name, networkID)
-	if len(network.Routers) > 0 || len(network.Resources) > 0 {
-		fmt.Printf("Warning: This network has %d router(s) and %d resource(s)\n", len(network.Routers), len(network.Resources))
+	// Build details map
+	details := map[string]string{
+		"Routers":   fmt.Sprintf("%d", len(network.Routers)),
+		"Resources": fmt.Sprintf("%d", len(network.Resources)),
+		"Policies":  fmt.Sprintf("%d", len(network.Policies)),
+	}
+	if network.Description != "" {
+		details["Description"] = network.Description
+	}
+
+	// Ask for confirmation
+	if !confirmSingleDeletion("network", network.Name, networkID, details) {
+		return nil // User cancelled
 	}
 
 	resp, err = c.makeRequest("DELETE", "/networks/"+networkID, nil)
@@ -669,7 +679,34 @@ func (c *Client) updateNetworkResource(networkID, resourceID, name, address, des
 
 // removeNetworkResource removes a resource from a network
 func (c *Client) removeNetworkResource(networkID, resourceID string) error {
-	resp, err := c.makeRequest("DELETE", "/networks/"+networkID+"/resources/"+resourceID, nil)
+	// Fetch resource details first
+	resp, err := c.makeRequest("GET", "/networks/"+networkID+"/resources/"+resourceID, nil)
+	if err != nil {
+		return err
+	}
+	var resource NetworkResource
+	if err := json.NewDecoder(resp.Body).Decode(&resource); err != nil {
+		resp.Body.Close()
+		return fmt.Errorf("failed to decode resource: %v", err)
+	}
+	resp.Body.Close()
+
+	// Build details map
+	details := map[string]string{
+		"Address": resource.Address,
+		"Type":    resource.Type,
+		"Enabled": fmt.Sprintf("%v", resource.Enabled),
+	}
+	if resource.Description != "" {
+		details["Description"] = resource.Description
+	}
+
+	// Ask for confirmation
+	if !confirmSingleDeletion("network resource", resource.Name, resourceID, details) {
+		return nil // User cancelled
+	}
+
+	resp, err = c.makeRequest("DELETE", "/networks/"+networkID+"/resources/"+resourceID, nil)
 	if err != nil {
 		return err
 	}
@@ -884,7 +921,36 @@ func (c *Client) updateNetworkRouter(networkID, routerID, peer, peerGroupsStr st
 
 // removeNetworkRouter removes a router from a network
 func (c *Client) removeNetworkRouter(networkID, routerID string) error {
-	resp, err := c.makeRequest("DELETE", "/networks/"+networkID+"/routers/"+routerID, nil)
+	// Fetch router details first
+	resp, err := c.makeRequest("GET", "/networks/"+networkID+"/routers/"+routerID, nil)
+	if err != nil {
+		return err
+	}
+	var router NetworkRouter
+	if err := json.NewDecoder(resp.Body).Decode(&router); err != nil {
+		resp.Body.Close()
+		return fmt.Errorf("failed to decode router: %v", err)
+	}
+	resp.Body.Close()
+
+	// Build details map
+	details := map[string]string{
+		"Metric":     fmt.Sprintf("%d", router.Metric),
+		"Masquerade": fmt.Sprintf("%v", router.Masquerade),
+		"Enabled":    fmt.Sprintf("%v", router.Enabled),
+	}
+	if router.Peer != "" {
+		details["Peer"] = router.Peer
+	} else if len(router.PeerGroups) > 0 {
+		details["Peer Groups"] = strings.Join(router.PeerGroups, ", ")
+	}
+
+	// Ask for confirmation
+	if !confirmSingleDeletion("network router", "", routerID, details) {
+		return nil // User cancelled
+	}
+
+	resp, err = c.makeRequest("DELETE", "/networks/"+networkID+"/routers/"+routerID, nil)
 	if err != nil {
 		return err
 	}

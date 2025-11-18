@@ -15,6 +15,23 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Check for global --yes flag (skip confirmations)
+	filteredArgs := make([]string, 0, len(args))
+	for _, arg := range args {
+		if arg == "--yes" || arg == "-y" {
+			skipConfirmation = true
+		} else {
+			filteredArgs = append(filteredArgs, arg)
+		}
+	}
+	args = filteredArgs
+
+	// Re-check after filtering
+	if len(args) == 0 {
+		printUsage()
+		os.Exit(1)
+	}
+
 	command := args[0]
 
 	// The 'connect' command is special: it can create or show the config.

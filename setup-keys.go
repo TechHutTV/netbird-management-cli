@@ -623,7 +623,22 @@ func (c *Client) deleteSetupKey(keyID string) error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
+
+	var key SetupKey
+	if err := json.NewDecoder(resp.Body).Decode(&key); err != nil {
+		return fmt.Errorf("failed to decode setup key: %v", err)
+	}
+
+	// Show confirmation prompt with key details
+	details := map[string]string{
+		"Type":  key.Type,
+		"State": formatState(key.State, key.Valid, key.Revoked),
+	}
+
+	if !confirmSingleDeletion("setup key", key.Name, key.ID, details) {
+		return nil
+	}
 
 	// Perform deletion
 	resp, err = c.makeRequest("DELETE", "/setup-keys/"+keyID, nil)
@@ -632,7 +647,7 @@ func (c *Client) deleteSetupKey(keyID string) error {
 	}
 	defer resp.Body.Close()
 
-	fmt.Printf("✓ Setup key %s has been deleted.\n", keyID)
+	fmt.Printf("✓ Setup key %s has been deleted.\n", key.Name)
 	return nil
 }
 
@@ -655,29 +670,14 @@ func (c *Client) deleteAllSetupKeys() error {
 		return nil
 	}
 
-	// Show what will be deleted
-	fmt.Printf("⚠️  WARNING: This will delete %d setup key(s):\n\n", len(keys))
-
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tTYPE\tSTATE")
-	fmt.Fprintln(w, "--\t----\t----\t-----")
-	for _, key := range keys {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-			key.ID,
-			key.Name,
-			key.Type,
-			formatState(key.State, key.Valid, key.Revoked),
-		)
+	// Build confirmation list
+	keyList := make([]string, len(keys))
+	for i, key := range keys {
+		keyList[i] = fmt.Sprintf("%s (%s, %s)", key.Name, key.Type, formatState(key.State, key.Valid, key.Revoked))
 	}
-	w.Flush()
 
-	// Prompt for confirmation
-	fmt.Printf("\nThis action cannot be undone. Type 'yes' to confirm deletion: ")
-	var confirmation string
-	fmt.Scanln(&confirmation)
-
-	if confirmation != "yes" {
-		fmt.Println("Deletion cancelled.")
+	// Prompt for bulk deletion confirmation
+	if !confirmBulkDeletion("setup keys", keyList, len(keys)) {
 		return nil
 	}
 

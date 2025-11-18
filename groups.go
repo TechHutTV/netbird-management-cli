@@ -304,10 +304,17 @@ func (c *Client) deleteGroup(groupIdentifier string) error {
 		return fmt.Errorf("failed to get group: %v", err)
 	}
 
-	fmt.Printf("Deleting group '%s' (ID: %s)...\n", group.Name, group.ID)
-	if group.PeersCount > 0 || group.ResourcesCount > 0 {
-		fmt.Printf("Warning: This group has %d peer(s) and %d resource(s)\n", group.PeersCount, group.ResourcesCount)
+	// Show confirmation prompt with group details
+	details := map[string]string{
+		"Peers":     fmt.Sprintf("%d", group.PeersCount),
+		"Resources": fmt.Sprintf("%d", group.ResourcesCount),
 	}
+
+	if !confirmSingleDeletion("group", group.Name, group.ID, details) {
+		return nil
+	}
+
+	fmt.Printf("Deleting group '%s' (ID: %s)...\n", group.Name, group.ID)
 
 	endpoint := "/groups/" + groupID
 	resp, err := c.makeRequest("DELETE", endpoint, nil)
@@ -316,7 +323,7 @@ func (c *Client) deleteGroup(groupIdentifier string) error {
 	}
 	defer resp.Body.Close()
 
-	fmt.Printf("Successfully deleted group '%s'\n", group.Name)
+	fmt.Printf("✓ Successfully deleted group '%s'\n", group.Name)
 	return nil
 }
 
@@ -606,23 +613,14 @@ func (c *Client) deleteUnusedGroups() error {
 		return nil
 	}
 
-	// Show what will be deleted
-	fmt.Printf("\nFound %d unused group(s):\n\n", len(unusedGroups))
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tPEERS\tRESOURCES")
-	fmt.Fprintln(w, "--\t----\t-----\t---------")
-	for _, group := range unusedGroups {
-		fmt.Fprintf(w, "%s\t%s\t%d\t%d\n", group.ID, group.Name, group.PeersCount, group.ResourcesCount)
+	// Build confirmation list
+	groupList := make([]string, len(unusedGroups))
+	for i, group := range unusedGroups {
+		groupList[i] = fmt.Sprintf("%s (ID: %s)", group.Name, group.ID)
 	}
-	w.Flush()
 
-	// Prompt for confirmation
-	fmt.Printf("\nThis will permanently delete %d group(s). Type 'yes' to confirm: ", len(unusedGroups))
-	var confirmation string
-	fmt.Scanln(&confirmation)
-
-	if confirmation != "yes" {
-		fmt.Println("Deletion cancelled.")
+	// Prompt for bulk deletion confirmation
+	if !confirmBulkDeletion("groups", groupList, len(unusedGroups)) {
 		return nil
 	}
 

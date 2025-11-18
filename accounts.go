@@ -26,8 +26,7 @@ func handleAccountsCommand(client *Client, args []string) error {
 
 	// Modification flags
 	updateFlag := accountCmd.String("update", "", "Update an account by its ID (use with update flags)")
-	deleteFlag := accountCmd.String("delete", "", "Delete an account by its ID (requires --confirm)")
-	confirmFlag := accountCmd.Bool("confirm", false, "Confirm destructive operations")
+	deleteFlag := accountCmd.String("delete", "", "Delete an account by its ID")
 
 	// Update flags (use with --update)
 	peerLoginExpFlag := accountCmd.String("peer-login-expiration", "", "Peer login expiration (e.g., 24h, 7d)")
@@ -81,9 +80,6 @@ func handleAccountsCommand(client *Client, args []string) error {
 	}
 
 	if *deleteFlag != "" {
-		if !*confirmFlag {
-			return fmt.Errorf("deleting an account is destructive and requires --confirm flag")
-		}
 		return client.deleteAccount(*deleteFlag)
 	}
 
@@ -303,10 +299,32 @@ func (c *Client) updateAccountFromFlags(accountID string,
 
 // deleteAccount deletes an account and all its resources
 func (c *Client) deleteAccount(accountID string) error {
-	fmt.Printf("⚠️  WARNING: This will delete account %s and ALL associated resources!\n", accountID)
-	fmt.Println("This action cannot be undone.")
+	// Fetch account details first
+	resp, err := c.makeRequest("GET", "/accounts/"+accountID, nil)
+	if err != nil {
+		return err
+	}
+	var account Account
+	if err := json.NewDecoder(resp.Body).Decode(&account); err != nil {
+		resp.Body.Close()
+		return fmt.Errorf("failed to decode account: %v", err)
+	}
+	resp.Body.Close()
 
-	resp, err := c.makeRequest("DELETE", "/accounts/"+accountID, nil)
+	// Build details map
+	details := map[string]string{
+		"Domain":       account.Domain,
+		"Created By":   account.CreatedBy,
+		"Created At":   account.CreatedAt,
+		"⚠️  WARNING": "This will delete ALL associated resources!",
+	}
+
+	// Ask for confirmation
+	if !confirmSingleDeletion("account", "", accountID, details) {
+		return nil // User cancelled
+	}
+
+	resp, err = c.makeRequest("DELETE", "/accounts/"+accountID, nil)
 	if err != nil {
 		return err
 	}
@@ -324,7 +342,7 @@ func printAccountUsage() {
 	fmt.Println("  --inspect <id>                          Show detailed account information")
 	fmt.Println("\nModification Commands:")
 	fmt.Println("  --update <id>                           Update account settings (requires update flags)")
-	fmt.Println("  --delete <id>                           Delete account (requires --confirm)")
+	fmt.Println("  --delete <id>                           Delete account")
 	fmt.Println("\nUpdate Flags (use with --update):")
 	fmt.Println("  --peer-login-expiration <duration>      Peer login expiration (e.g., 24h, 7d)")
 	fmt.Println("  --peer-inactivity-expiration <duration> Peer inactivity timeout (e.g., 30d)")
@@ -337,14 +355,12 @@ func printAccountUsage() {
 	fmt.Println("  --regular-users-view-blocked <bool>     Block regular users view")
 	fmt.Println("  --peer-approval-enabled <bool>          Enable peer approval (Cloud-only)")
 	fmt.Println("  --traffic-logging <bool>                Enable traffic logging (Cloud-only)")
-	fmt.Println("\nSafety Flags:")
-	fmt.Println("  --confirm                               Confirm destructive operations")
 	fmt.Println("\nExamples:")
 	fmt.Println("  netbird-manage account --list")
 	fmt.Println("  netbird-manage account --inspect <account-id>")
 	fmt.Println("  netbird-manage account --update <id> --dns-domain nb.local")
 	fmt.Println("  netbird-manage account --update <id> --peer-login-expiration 48h")
-	fmt.Println("  netbird-manage account --delete <id> --confirm")
+	fmt.Println("  netbird-manage account --delete <id>")
 }
 
 // formatSeconds formats seconds into a human-readable duration string

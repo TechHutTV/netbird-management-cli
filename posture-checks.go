@@ -346,7 +346,33 @@ func (c *Client) updatePostureCheck(checkID, description, checkType string, flag
 
 // deletePostureCheck implements the "posture-check --delete" command
 func (c *Client) deletePostureCheck(checkID string) error {
-	resp, err := c.makeRequest("DELETE", "/posture-checks/"+checkID, nil)
+	// Fetch posture check details first
+	resp, err := c.makeRequest("GET", "/posture-checks/"+checkID, nil)
+	if err != nil {
+		return err
+	}
+	var check PostureCheck
+	if err := json.NewDecoder(resp.Body).Decode(&check); err != nil {
+		resp.Body.Close()
+		return fmt.Errorf("failed to decode posture check: %v", err)
+	}
+	resp.Body.Close()
+
+	// Build details map
+	checkType := getCheckType(check.Checks)
+	details := map[string]string{
+		"Type": checkType,
+	}
+	if check.Description != "" {
+		details["Description"] = check.Description
+	}
+
+	// Ask for confirmation
+	if !confirmSingleDeletion("posture check", check.Name, checkID, details) {
+		return nil // User cancelled
+	}
+
+	resp, err = c.makeRequest("DELETE", "/posture-checks/"+checkID, nil)
 	if err != nil {
 		return err
 	}

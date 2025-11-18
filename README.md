@@ -6,11 +6,59 @@ netbird-manage is an unofficial command-line tool written in Go for interacting 
 
 ## Setup & Installation
 
-You must have the [Go toolchain](https://go.dev/doc/install) (version 1.18 or later) installed on your system. Place all .go files from this project into a new directory (e.g., netbird-manage). From inside that directory, initialize the Go module and run the go build command:  
+You must have the [Go toolchain](https://go.dev/doc/install) (version 1.18 or later) installed on your system. Place all .go files from this project into a new directory (e.g., netbird-manage). From inside that directory, initialize the Go module and run the go build command:
 ```
 go mod init netbird-manage
 go build
 ```
+
+## Safety Features
+
+### Confirmation Prompts
+
+To prevent accidental data loss, all destructive operations (delete, remove, revoke) now require explicit confirmation before executing. When you attempt to delete a resource, you'll see detailed information about what will be removed:
+
+```bash
+$ netbird-manage peer --remove abc123
+
+About to remove peer:
+  Name:      laptop-001
+  ID:        abc123
+  IP:        100.64.0.5
+  Hostname:  laptop-001.local
+  OS:        Linux
+  Connected: true
+  Groups:    2 (developers, ssh-access)
+
+⚠️  This action cannot be undone. Continue? [y/N]: _
+```
+
+**For bulk operations** (like `--delete-unused` or `--delete-all`), you'll need to type a confirmation phrase:
+
+```bash
+$ netbird-manage group --delete-unused
+
+🔴 This will delete 3 groups:
+  - old-servers (ID: def456)
+  - test-group (ID: ghi789)
+  - unused-group (ID: jkl012)
+
+Type 'delete 3 groups' to confirm: _
+```
+
+### Automation Mode
+
+For scripts and automation, use the `--yes` (or `-y`) flag to skip all confirmation prompts:
+
+```bash
+# Skip confirmation for automation
+netbird-manage --yes peer --remove abc123
+
+# Also works with short flag
+netbird-manage -y group --delete def456
+```
+
+**Warning:** When using `--yes`, deletions happen immediately without any prompts. Use with caution!
 
 ## Current Commands & Functionality
 
