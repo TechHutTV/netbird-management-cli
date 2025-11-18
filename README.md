@@ -1528,12 +1528,16 @@ This tool is in active development. The goal is to build a comprehensive and eas
 - ✅ **YAML Export** - Export all configuration to YAML files (single or split mode)
 - ✅ **YAML Import** - Apply YAML configuration to NetBird with conflict resolution
 
+**Safety & UX Enhancements (Phase 6 - COMPLETED):**
+- ✅ **Confirmation Prompts** - Prevent accidental deletions with detailed resource info and Y/N prompts
+- ✅ **Bulk Deletion Confirmations** - Type-to-confirm for operations affecting multiple resources
+- ✅ **Automation Mode** - Global `--yes` flag to skip confirmations for scripts and automation
+
 **API Coverage:** 14/14 NetBird API resource types fully implemented (100%) 🎉
 
 ### 📋 Planned Features
 
 **Interactive CLI:**
-- ❌ **Confirmation Prompts** - Safety for destructive operations
 - ❌ **Interactive Selection** - User-friendly resource picking with [bubbletea](https://github.com/charmbracelet/bubbletea)
 - ❌ **TUI Mode** - Full-screen terminal interface with real-time updates
 - ❌ **Shell Completion** - Tab completion for bash/zsh/fish
