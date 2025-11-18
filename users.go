@@ -286,7 +286,34 @@ func (c *Client) updateUser(userID, role string, autoGroups []string, isBlocked 
 
 // removeUser deletes a user from the account
 func (c *Client) removeUser(userID string) error {
-	resp, err := c.makeRequest("DELETE", "/users/"+userID, nil)
+	// Fetch user details first
+	resp, err := c.makeRequest("GET", "/users/"+userID, nil)
+	if err != nil {
+		return err
+	}
+	var user User
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		resp.Body.Close()
+		return fmt.Errorf("failed to decode user: %v", err)
+	}
+	resp.Body.Close()
+
+	// Build details map
+	details := map[string]string{
+		"Email":  user.Email,
+		"Role":   user.Role,
+		"Status": user.Status,
+	}
+	if user.IsBlocked {
+		details["Blocked"] = "Yes"
+	}
+
+	// Ask for confirmation
+	if !confirmSingleDeletion("user", user.Name, userID, details) {
+		return nil // User cancelled
+	}
+
+	resp, err = c.makeRequest("DELETE", "/users/"+userID, nil)
 	if err != nil {
 		return err
 	}

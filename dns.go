@@ -400,7 +400,36 @@ func (c *Client) updateDNSGroup(groupID, nameservers, groups, domains, descripti
 
 // deleteDNSGroup implements the "dns --delete" command
 func (c *Client) deleteDNSGroup(groupID string) error {
-	resp, err := c.makeRequest("DELETE", "/dns/nameservers/"+groupID, nil)
+	// Fetch DNS group details first
+	resp, err := c.makeRequest("GET", "/dns/nameservers/"+groupID, nil)
+	if err != nil {
+		return err
+	}
+	var group DNSNameserverGroup
+	if err := json.NewDecoder(resp.Body).Decode(&group); err != nil {
+		resp.Body.Close()
+		return fmt.Errorf("failed to decode DNS group: %v", err)
+	}
+	resp.Body.Close()
+
+	// Build details map
+	details := map[string]string{
+		"Nameservers": fmt.Sprintf("%d", len(group.Nameservers)),
+		"Groups":      fmt.Sprintf("%d", len(group.Groups)),
+		"Domains":     fmt.Sprintf("%d", len(group.Domains)),
+		"Primary":     fmt.Sprintf("%v", group.Primary),
+		"Enabled":     fmt.Sprintf("%v", group.Enabled),
+	}
+	if group.Description != "" {
+		details["Description"] = group.Description
+	}
+
+	// Ask for confirmation
+	if !confirmSingleDeletion("DNS nameserver group", group.Name, groupID, details) {
+		return nil // User cancelled
+	}
+
+	resp, err = c.makeRequest("DELETE", "/dns/nameservers/"+groupID, nil)
 	if err != nil {
 		return err
 	}

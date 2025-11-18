@@ -323,7 +323,34 @@ func (c *Client) updateIngressPort(peerID, allocationID string, req IngressPortU
 
 // deleteIngressPort deletes a port allocation
 func (c *Client) deleteIngressPort(peerID, allocationID string) error {
-	resp, err := c.makeRequest("DELETE", "/peers/"+peerID+"/ingress/ports/"+allocationID, nil)
+	// Fetch port allocation details first
+	resp, err := c.makeRequest("GET", "/peers/"+peerID+"/ingress/ports/"+allocationID, nil)
+	if err != nil {
+		return err
+	}
+	var allocation IngressPortAllocation
+	if err := json.NewDecoder(resp.Body).Decode(&allocation); err != nil {
+		resp.Body.Close()
+		return fmt.Errorf("failed to decode port allocation: %v", err)
+	}
+	resp.Body.Close()
+
+	// Build details map
+	details := map[string]string{
+		"Target Port": fmt.Sprintf("%d", allocation.TargetPort),
+		"Public Port": fmt.Sprintf("%d", allocation.PublicPort),
+		"Protocol":    allocation.Protocol,
+	}
+	if allocation.Description != "" {
+		details["Description"] = allocation.Description
+	}
+
+	// Ask for confirmation
+	if !confirmSingleDeletion("ingress port allocation", "", allocationID, details) {
+		return nil // User cancelled
+	}
+
+	resp, err = c.makeRequest("DELETE", "/peers/"+peerID+"/ingress/ports/"+allocationID, nil)
 	if err != nil {
 		return err
 	}
@@ -453,7 +480,35 @@ func (c *Client) updateIngressPeer(ingressPeerID string, req IngressPeerUpdateRe
 
 // deleteIngressPeer deletes an ingress peer
 func (c *Client) deleteIngressPeer(ingressPeerID string) error {
-	resp, err := c.makeRequest("DELETE", "/ingress/peers/"+ingressPeerID, nil)
+	// Fetch ingress peer details first
+	resp, err := c.makeRequest("GET", "/ingress/peers/"+ingressPeerID, nil)
+	if err != nil {
+		return err
+	}
+	var peer IngressPeer
+	if err := json.NewDecoder(resp.Body).Decode(&peer); err != nil {
+		resp.Body.Close()
+		return fmt.Errorf("failed to decode ingress peer: %v", err)
+	}
+	resp.Body.Close()
+
+	// Build details map
+	details := map[string]string{
+		"Enabled": fmt.Sprintf("%v", peer.Enabled),
+	}
+	if peer.Location != "" {
+		details["Location"] = peer.Location
+	}
+	if peer.Hostname != "" {
+		details["Hostname"] = peer.Hostname
+	}
+
+	// Ask for confirmation
+	if !confirmSingleDeletion("ingress peer", peer.Name, ingressPeerID, details) {
+		return nil // User cancelled
+	}
+
+	resp, err = c.makeRequest("DELETE", "/ingress/peers/"+ingressPeerID, nil)
 	if err != nil {
 		return err
 	}

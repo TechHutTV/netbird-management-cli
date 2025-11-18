@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 )
 
@@ -254,10 +255,33 @@ func (c *Client) getPeerByID(peerID string) (*Peer, error) {
 
 // removePeerByID implements the "peer --remove <id>" command
 func (c *Client) removePeerByID(peerID string) error {
-	// First, let's confirm the peer exists to give a better error message
+	// First, fetch peer details
 	peer, err := c.getPeerByID(peerID)
 	if err != nil {
 		return fmt.Errorf("cannot remove peer: %v", err)
+	}
+
+	// Show confirmation prompt with peer details
+	details := map[string]string{
+		"IP":        peer.IP,
+		"Hostname":  peer.Hostname,
+		"OS":        formatOS(peer.OS),
+		"Connected": fmt.Sprintf("%t", peer.Connected),
+	}
+
+	// Add groups if any
+	if len(peer.Groups) > 0 {
+		groupNames := make([]string, len(peer.Groups))
+		for i, g := range peer.Groups {
+			groupNames[i] = g.Name
+		}
+		details["Groups"] = fmt.Sprintf("%d (%s)", len(peer.Groups), strings.Join(groupNames, ", "))
+	} else {
+		details["Groups"] = "None"
+	}
+
+	if !confirmSingleDeletion("peer", peer.Name, peer.ID, details) {
+		return nil
 	}
 
 	fmt.Printf("Removing peer '%s' (ID: %s)...\n", peer.Name, peer.ID)
@@ -268,7 +292,7 @@ func (c *Client) removePeerByID(peerID string) error {
 	}
 	resp.Body.Close()
 
-	fmt.Printf("Successfully removed peer '%s' (ID: %s)\n", peer.Name, peer.ID)
+	fmt.Printf("✓ Successfully removed peer '%s' (ID: %s)\n", peer.Name, peer.ID)
 	return nil
 }
 

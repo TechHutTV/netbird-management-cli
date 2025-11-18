@@ -295,6 +295,107 @@ w.Flush()
 - Errors: `fmt.Fprintln(os.Stderr, "Error: message")` → stderr
 - Success: `fmt.Println("✓ Operation successful")` → stdout
 
+### Confirmation Prompts
+
+**All destructive operations require user confirmation** to prevent accidental data loss. The CLI implements two types of confirmation prompts:
+
+**1. Single Resource Deletion** (Y/N prompt):
+```go
+details := map[string]string{
+    "IP":        peer.IP,
+    "Hostname":  peer.Hostname,
+    "Connected": fmt.Sprintf("%t", peer.Connected),
+}
+
+if !confirmSingleDeletion("peer", peer.Name, peer.ID, details) {
+    return nil // User cancelled
+}
+```
+
+Output example:
+```
+About to remove peer:
+  Name:      laptop-001
+  ID:        abc123
+  IP:        100.64.0.5
+  Hostname:  laptop-001.local
+  Connected: true
+
+⚠️  This action cannot be undone. Continue? [y/N]:
+```
+
+**2. Bulk Operations** (Type-to-confirm):
+```go
+itemList := []string{
+    "old-servers (ID: def456)",
+    "test-group (ID: ghi789)",
+}
+
+if !confirmBulkDeletion("groups", itemList, len(itemList)) {
+    return nil // User cancelled
+}
+```
+
+Output example:
+```
+🔴 This will delete 2 groups:
+  - old-servers (ID: def456)
+  - test-group (ID: ghi789)
+
+Type 'delete 2 groups' to confirm:
+```
+
+**Skipping Confirmations:**
+- Global flag: `--yes` or `-y` (placed before command)
+- Sets `skipConfirmation = true` (global variable in `helpers.go`)
+- All confirmation functions check this flag first
+- Usage: `netbird-manage --yes peer --remove abc123`
+
+**Implementation Functions** (in `helpers.go`):
+- `confirmSingleDeletion(resourceType, name, id string, details map[string]string) bool`
+- `confirmBulkDeletion(resourceType string, items []string, count int) bool`
+- `readYesNo() bool` (helper for Y/N input)
+
+**All delete operations updated:**
+1. Peers: `removePeerByID()`
+2. Groups: `deleteGroup()`, `deleteUnusedGroups()`
+3. Setup Keys: `deleteSetupKey()`, `deleteAllSetupKeys()`
+4. Networks: `deleteNetwork()`, `removeNetworkResource()`, `removeNetworkRouter()`
+5. Policies: `deletePolicy()`
+6. Users: `removeUser()`
+7. Tokens: `revokeToken()`
+8. Routes: `deleteRoute()`
+9. DNS: `deleteDNSGroup()`
+10. Posture Checks: `deletePostureCheck()`
+11. Accounts: `deleteAccount()`
+12. Ingress Ports: `deleteIngressPort()`, `deleteIngressPeer()`
+
+**Pattern for all deletions:**
+```go
+func (c *Client) deleteResource(id string) error {
+    // 1. Fetch resource details (if not already available)
+    resource, err := c.getResourceByID(id)
+    if err != nil {
+        return err
+    }
+
+    // 2. Build details map
+    details := map[string]string{
+        "Key1": "value1",
+        "Key2": "value2",
+    }
+
+    // 3. Confirm deletion
+    if !confirmSingleDeletion("resource", resource.Name, resource.ID, details) {
+        return nil
+    }
+
+    // 4. Proceed with deletion
+    resp, err := c.makeRequest("DELETE", "/resources/"+id, nil)
+    // ... handle response
+}
+```
+
 ---
 
 ## Data Models
@@ -1020,12 +1121,6 @@ This section tracks the implementation status of CLI features and planned enhanc
   ```
 
 **Interactive CLI Enhancements:**
-- ❌ **Confirmation Prompts** - Safety for destructive operations
-  ```bash
-  $ netbird-manage peer --remove abc123
-  ⚠️  Are you sure you want to remove peer 'laptop-001'? [y/N]: _
-  ```
-
 - ❌ **Interactive Selection** - User-friendly resource picking
   ```bash
   $ netbird-manage peer --interactive
@@ -1083,16 +1178,24 @@ This section tracks the implementation status of CLI features and planned enhanc
 12. ✅ Accounts management (full CRUD operations)
 13. ✅ Ingress Ports (Cloud-only - port forwarding and ingress peers)
 
-**Phase 5: Developer Experience (Lower Priority)**
-14. YAML export/import
-15. Interactive prompts
-16. Shell completion
-17. TUI mode
+**✅ Phase 5: Safety & UX Enhancements (COMPLETED)**
+14. ✅ Confirmation Prompts - Prevent accidental deletions with detailed resource info and Y/N prompts
+15. ✅ Bulk deletion confirmations - Type-to-confirm for operations affecting multiple resources
+16. ✅ Global `--yes` flag - Skip confirmations for automation and scripts
+   - Implemented in `helpers.go`: `confirmSingleDeletion()`, `confirmBulkDeletion()`
+   - Applied to all 16 delete operations across the codebase
+   - Zero external dependencies (uses stdlib `bufio` and `fmt.Scanln`)
 
-**Phase 6: Quality of Life (Nice to Have)**
-18. Batch operations
-19. Colorized output
-20. Verbose/Debug mode
+**Phase 6: Developer Experience (Lower Priority)**
+17. YAML export/import
+18. Interactive selection prompts
+19. Shell completion
+20. TUI mode
+
+**Phase 7: Quality of Life (Nice to Have)**
+21. Batch operations
+22. Colorized output
+23. Verbose/Debug mode
 
 ### Implementation Notes
 

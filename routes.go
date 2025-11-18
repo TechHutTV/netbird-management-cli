@@ -432,7 +432,39 @@ func (c *Client) updateRoute(routeID, networkID, description, peer, peerGroups s
 
 // deleteRoute implements the "route --delete" command
 func (c *Client) deleteRoute(routeID string) error {
-	resp, err := c.makeRequest("DELETE", "/routes/"+routeID, nil)
+	// Fetch route details first
+	resp, err := c.makeRequest("GET", "/routes/"+routeID, nil)
+	if err != nil {
+		return err
+	}
+	var route Route
+	if err := json.NewDecoder(resp.Body).Decode(&route); err != nil {
+		resp.Body.Close()
+		return fmt.Errorf("failed to decode route: %v", err)
+	}
+	resp.Body.Close()
+
+	// Build details map
+	details := map[string]string{
+		"Network": route.Network,
+		"Metric":  fmt.Sprintf("%d", route.Metric),
+		"Enabled": fmt.Sprintf("%v", route.Enabled),
+	}
+	if route.Description != "" {
+		details["Description"] = route.Description
+	}
+	if route.Peer != "" {
+		details["Peer"] = route.Peer
+	} else if len(route.PeerGroups) > 0 {
+		details["Peer Groups"] = fmt.Sprintf("%d groups", len(route.PeerGroups))
+	}
+
+	// Ask for confirmation
+	if !confirmSingleDeletion("route", "", routeID, details) {
+		return nil // User cancelled
+	}
+
+	resp, err = c.makeRequest("DELETE", "/routes/"+routeID, nil)
 	if err != nil {
 		return err
 	}

@@ -2,8 +2,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 )
 
@@ -11,6 +13,9 @@ var (
 	// netbirdCGNATRange is the NetBird CGNAT range (100.64.0.0/10)
 	// Parsed once at initialization for performance
 	netbirdCGNATRange *net.IPNet
+
+	// skipConfirmation is set to true when --yes flag is provided
+	skipConfirmation = false
 )
 
 func init() {
@@ -22,7 +27,9 @@ func printUsage() {
 	fmt.Println("----------------------")
 	fmt.Println("A simple tool to manage your NetBird network via the API.")
 	fmt.Println("\nUsage:")
-	fmt.Println("  netbird-manage <command> [arguments]")
+	fmt.Println("  netbird-manage [--yes] <command> [arguments]")
+	fmt.Println("\nGlobal Flags:")
+	fmt.Println("  --yes, -y                     Skip confirmation prompts (for automation)")
 	fmt.Println("\nAvailable Commands:")
 	fmt.Println("  connect                       Check current connection status")
 	fmt.Println("  connect [flags]               Connect and save your API token")
@@ -326,4 +333,92 @@ func splitCommaList(input string) []string {
 	}
 
 	return result
+}
+
+// confirmSingleDeletion shows resource details and asks for Y/N confirmation
+// Returns true if user confirms, false otherwise
+func confirmSingleDeletion(resourceType, resourceName, resourceID string, details map[string]string) bool {
+	// Skip confirmation if --yes flag was provided
+	if skipConfirmation {
+		return true
+	}
+
+	fmt.Fprintf(os.Stderr, "\nAbout to remove %s:\n", resourceType)
+
+	// Always show name and ID first if available
+	if resourceName != "" {
+		fmt.Fprintf(os.Stderr, "  Name:      %s\n", resourceName)
+	}
+	if resourceID != "" {
+		fmt.Fprintf(os.Stderr, "  ID:        %s\n", resourceID)
+	}
+
+	// Show additional details in consistent order
+	for key, value := range details {
+		fmt.Fprintf(os.Stderr, "  %-10s %s\n", key+":", value)
+	}
+
+	fmt.Fprintf(os.Stderr, "\n⚠️  This action cannot be undone. Continue? [y/N]: ")
+
+	return readYesNo()
+}
+
+// confirmBulkDeletion shows a summary list and requires typing to confirm
+// Returns true if user types the correct confirmation text
+func confirmBulkDeletion(resourceType string, items []string, count int) bool {
+	// Skip confirmation if --yes flag was provided
+	if skipConfirmation {
+		return true
+	}
+
+	fmt.Fprintf(os.Stderr, "\n🔴 This will delete %d %s:\n", count, resourceType)
+
+	// Show up to 10 items in the list
+	maxShow := 10
+	for i, item := range items {
+		if i >= maxShow {
+			fmt.Fprintf(os.Stderr, "  ... and %d more\n", count-maxShow)
+			break
+		}
+		fmt.Fprintf(os.Stderr, "  - %s\n", item)
+	}
+
+	// Generate confirmation text
+	confirmText := fmt.Sprintf("delete %d %s", count, resourceType)
+
+	fmt.Fprintf(os.Stderr, "\nType '%s' to confirm: ", confirmText)
+
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return false
+	}
+
+	input = strings.TrimSpace(input)
+
+	if input == confirmText {
+		return true
+	}
+
+	fmt.Fprintln(os.Stderr, "Operation cancelled")
+	return false
+}
+
+// readYesNo reads a y/N response from the user
+// Returns true if user types 'y' or 'yes' (case insensitive)
+func readYesNo() bool {
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return false
+	}
+
+	input = strings.TrimSpace(strings.ToLower(input))
+
+	if input == "y" || input == "yes" {
+		return true
+	}
+
+	fmt.Fprintln(os.Stderr, "Operation cancelled")
+	return false
 }

@@ -211,7 +211,33 @@ func (c *Client) createToken(userID, name string, expiresIn int) error {
 func (c *Client) revokeToken(userID, tokenID string) error {
 	endpoint := fmt.Sprintf("/users/%s/tokens/%s", userID, tokenID)
 
-	resp, err := c.makeRequest("DELETE", endpoint, nil)
+	// Fetch token details first
+	resp, err := c.makeRequest("GET", endpoint, nil)
+	if err != nil {
+		return err
+	}
+	var token PersonalAccessToken
+	if err := json.NewDecoder(resp.Body).Decode(&token); err != nil {
+		resp.Body.Close()
+		return fmt.Errorf("failed to decode token: %v", err)
+	}
+	resp.Body.Close()
+
+	// Build details map
+	details := map[string]string{
+		"Created": token.CreatedAt,
+		"Expires": token.ExpirationDate,
+	}
+	if token.LastUsed != "" {
+		details["Last Used"] = token.LastUsed
+	}
+
+	// Ask for confirmation
+	if !confirmSingleDeletion("token", token.Name, tokenID, details) {
+		return nil // User cancelled
+	}
+
+	resp, err = c.makeRequest("DELETE", endpoint, nil)
 	if err != nil {
 		return err
 	}

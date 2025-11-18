@@ -446,7 +446,33 @@ func convertRuleToWrite(rule *PolicyRule) *PolicyRuleForWrite {
 
 // deletePolicy implements the "policy --delete" command
 func (c *Client) deletePolicy(policyID string) error {
-	resp, err := c.makeRequest("DELETE", "/policies/"+policyID, nil)
+	// Fetch policy details first
+	resp, err := c.makeRequest("GET", "/policies/"+policyID, nil)
+	if err != nil {
+		return err
+	}
+	var policy Policy
+	if err := json.NewDecoder(resp.Body).Decode(&policy); err != nil {
+		resp.Body.Close()
+		return fmt.Errorf("failed to decode policy: %v", err)
+	}
+	resp.Body.Close()
+
+	// Build details map
+	details := map[string]string{
+		"Enabled": fmt.Sprintf("%t", policy.Enabled),
+		"Rules":   fmt.Sprintf("%d", len(policy.Rules)),
+	}
+	if policy.Description != "" {
+		details["Description"] = policy.Description
+	}
+
+	// Ask for confirmation
+	if !confirmSingleDeletion("policy", policy.Name, policyID, details) {
+		return nil // User cancelled
+	}
+
+	resp, err = c.makeRequest("DELETE", "/policies/"+policyID, nil)
 	if err != nil {
 		return err
 	}
