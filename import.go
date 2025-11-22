@@ -118,7 +118,12 @@ func handleImportCommand(client *Client, args []string) error {
 	postureOnlyFlag := importCmd.Bool("posture-only", false, "Import only posture checks")
 	setupKeysOnlyFlag := importCmd.Bool("setup-keys-only", false, "Import only setup keys")
 
-	if err := importCmd.Parse(args[1:]); err != nil {
+	// Reorder args to put flags before positional arguments
+	// This allows users to write: import config.yml --apply
+	// instead of requiring: import --apply config.yml
+	reorderedArgs := reorderArgsForFlags(args[1:])
+
+	if err := importCmd.Parse(reorderedArgs); err != nil {
 		return err
 	}
 
