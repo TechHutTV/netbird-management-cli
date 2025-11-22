@@ -338,6 +338,30 @@ func splitCommaList(input string) []string {
 	return result
 }
 
+// reorderArgsForFlags reorders command arguments to put flags before positional arguments.
+// This allows users to write: command file.yml --flag
+// instead of requiring: command --flag file.yml
+// Go's flag package requires flags before positional arguments.
+func reorderArgsForFlags(args []string) []string {
+	if len(args) == 0 {
+		return args
+	}
+
+	var flags []string
+	var positional []string
+
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "-") {
+			flags = append(flags, arg)
+		} else {
+			positional = append(positional, arg)
+		}
+	}
+
+	// Return flags first, then positional arguments
+	return append(flags, positional...)
+}
+
 // confirmSingleDeletion shows resource details and asks for Y/N confirmation
 // Returns true if user confirms, false otherwise
 func confirmSingleDeletion(resourceType, resourceName, resourceID string, details map[string]string) bool {
