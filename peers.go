@@ -224,18 +224,21 @@ func (c *Client) listPeers(filterName, filterIP string) error {
 
 	// Print a formatted table
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, header("ID\tNAME\tIP\tCONNECTED\tOS\tVERSION\tHOSTNAME"))
-	fmt.Fprintln(w, dim("--\t----\t--\t---------\t--\t-------\t--------"))
+	fmt.Fprintln(w, "ID\tNAME\tIP\tCONNECTED\tOS\tVERSION\tHOSTNAME")
+	fmt.Fprintln(w, "--\t----\t--\t---------\t--\t-------\t--------")
 
 	for _, peer := range filteredPeers {
-		connectedStatus := statusConnected(peer.Connected)
+		connectedStatus := "Offline"
+		if peer.Connected {
+			connectedStatus = "Online"
+		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			formatID(peer.ID),
+			peer.ID,
 			peer.Name,
-			cyan(peer.IP),
+			peer.IP,
 			connectedStatus,
 			formatOS(peer.OS),
-			dim(peer.Version),
+			peer.Version,
 			peer.Hostname,
 		)
 	}
@@ -298,7 +301,7 @@ func (c *Client) removePeerByID(peerID string) error {
 	}
 	resp.Body.Close()
 
-	printSuccess("Successfully removed peer '%s' (ID: %s)", peer.Name, peer.ID)
+	fmt.Printf("Successfully removed peer '%s' (ID: %s)\n", peer.Name, peer.ID)
 	return nil
 }
 
@@ -317,11 +320,11 @@ func (c *Client) removePeersBatch(idList string) error {
 	for _, id := range peerIDs {
 		peer, err := c.getPeerByID(id)
 		if err != nil {
-			printWarning("Skipping %s: %v", id, err)
+			fmt.Fprintf(os.Stderr, "Warning: Skipping %s: %v\n", id, err)
 			continue
 		}
 		peers = append(peers, peer)
-		itemList = append(itemList, fmt.Sprintf("%s (ID: %s, IP: %s)", peer.Name, dim(peer.ID), peer.IP))
+		itemList = append(itemList, fmt.Sprintf("%s (ID: %s, IP: %s)", peer.Name, peer.ID, peer.IP))
 	}
 
 	if len(peers) == 0 {
@@ -336,26 +339,26 @@ func (c *Client) removePeersBatch(idList string) error {
 	// Process deletions with progress
 	var succeeded, failed int
 	for i, peer := range peers {
-		fmt.Printf("[%d/%d] "+dim("Removing peer '%s'...")+" ", i+1, len(peers), peer.Name)
+		fmt.Printf("[%d/%d] Removing peer '%s'... ", i+1, len(peers), peer.Name)
 
 		endpoint := "/peers/" + peer.ID
 		resp, err := c.makeRequest("DELETE", endpoint, nil)
 		if err != nil {
-			fmt.Println(failure(fmt.Sprintf("Failed: %v", err)))
+			fmt.Printf("Failed: %v\n", err)
 			failed++
 			continue
 		}
 		resp.Body.Close()
-		fmt.Println(success("Done"))
+		fmt.Println("Done")
 		succeeded++
 	}
 
 	// Print summary
 	fmt.Println()
 	if failed > 0 {
-		printWarning("Completed: %d succeeded, %d failed", succeeded, failed)
+		fmt.Fprintf(os.Stderr, "Warning: Completed: %d succeeded, %d failed\n", succeeded, failed)
 	} else {
-		printSuccess("All %d peers removed successfully", succeeded)
+		fmt.Printf("All %d peers removed successfully\n", succeeded)
 	}
 
 	return nil

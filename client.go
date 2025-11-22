@@ -34,8 +34,8 @@ func (c *Client) makeRequest(method, endpoint string, body io.Reader) (*http.Res
 
 	// Debug: Log request details
 	if c.Debug {
-		fmt.Fprintf(os.Stderr, "\n"+cyan("═══ DEBUG: HTTP REQUEST ═══")+"\n")
-		fmt.Fprintf(os.Stderr, "%s %s\n", bold(method), url)
+		fmt.Fprintf(os.Stderr, "\n=== DEBUG: HTTP REQUEST ===\n")
+		fmt.Fprintf(os.Stderr, "%s %s\n", method, url)
 	}
 
 	// Read body for debug logging (need to recreate reader after)
@@ -63,19 +63,19 @@ func (c *Client) makeRequest(method, endpoint string, body io.Reader) (*http.Res
 
 	// Debug: Log request headers (redact token)
 	if c.Debug {
-		fmt.Fprintf(os.Stderr, "\n"+dim("Headers:")+"\n")
+		fmt.Fprintf(os.Stderr, "\nHeaders:\n")
 		for key, values := range req.Header {
 			value := strings.Join(values, ", ")
 			if key == "Authorization" {
 				// Redact token for security
-				value = "Token " + dim("[REDACTED]")
+				value = "Token [REDACTED]"
 			}
 			fmt.Fprintf(os.Stderr, "  %s: %s\n", key, value)
 		}
 
 		// Log request body if present
 		if len(bodyBytes) > 0 {
-			fmt.Fprintf(os.Stderr, "\n"+dim("Request Body:")+"\n")
+			fmt.Fprintf(os.Stderr, "\nRequest Body:\n")
 			var prettyJSON bytes.Buffer
 			if err := json.Indent(&prettyJSON, bodyBytes, "", "  "); err == nil {
 				fmt.Fprintf(os.Stderr, "%s\n", prettyJSON.String())
@@ -88,21 +88,17 @@ func (c *Client) makeRequest(method, endpoint string, body io.Reader) (*http.Res
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		if c.Debug {
-			fmt.Fprintf(os.Stderr, "\n"+red("Error: %v")+"\n", err)
+			fmt.Fprintf(os.Stderr, "\nError: %v\n", err)
 		}
 		return nil, fmt.Errorf("api request failed: %v", err)
 	}
 
 	// Debug: Log response details
 	if c.Debug {
-		fmt.Fprintf(os.Stderr, "\n"+cyan("═══ DEBUG: HTTP RESPONSE ═══")+"\n")
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			fmt.Fprintf(os.Stderr, "Status: %s\n", green(resp.Status))
-		} else {
-			fmt.Fprintf(os.Stderr, "Status: %s\n", red(resp.Status))
-		}
+		fmt.Fprintf(os.Stderr, "\n=== DEBUG: HTTP RESPONSE ===\n")
+		fmt.Fprintf(os.Stderr, "Status: %s\n", resp.Status)
 
-		fmt.Fprintf(os.Stderr, "\n"+dim("Headers:")+"\n")
+		fmt.Fprintf(os.Stderr, "\nHeaders:\n")
 		for key, values := range resp.Header {
 			fmt.Fprintf(os.Stderr, "  %s: %s\n", key, strings.Join(values, ", "))
 		}
@@ -116,7 +112,7 @@ func (c *Client) makeRequest(method, endpoint string, body io.Reader) (*http.Res
 		respBody, _ := io.ReadAll(resp.Body)
 
 		if c.Debug && len(respBody) > 0 {
-			fmt.Fprintf(os.Stderr, "\n"+dim("Response Body:")+"\n")
+			fmt.Fprintf(os.Stderr, "\nResponse Body:\n")
 			var prettyJSON bytes.Buffer
 			if err := json.Indent(&prettyJSON, respBody, "", "  "); err == nil {
 				fmt.Fprintf(os.Stderr, "%s\n", prettyJSON.String())
@@ -141,7 +137,7 @@ func (c *Client) makeRequest(method, endpoint string, body io.Reader) (*http.Res
 	if c.Debug {
 		respBody, err := io.ReadAll(resp.Body)
 		if err == nil && len(respBody) > 0 {
-			fmt.Fprintf(os.Stderr, "\n"+dim("Response Body:")+"\n")
+			fmt.Fprintf(os.Stderr, "\nResponse Body:\n")
 			var prettyJSON bytes.Buffer
 			if err := json.Indent(&prettyJSON, respBody, "", "  "); err == nil {
 				fmt.Fprintf(os.Stderr, "%s\n", prettyJSON.String())
@@ -151,7 +147,7 @@ func (c *Client) makeRequest(method, endpoint string, body io.Reader) (*http.Res
 			// Recreate response body for caller
 			resp.Body = io.NopCloser(bytes.NewReader(respBody))
 		}
-		fmt.Fprintf(os.Stderr, cyan("═══════════════════════════")+"\n\n")
+		fmt.Fprintf(os.Stderr, "===========================\n\n")
 	}
 
 	return resp, nil

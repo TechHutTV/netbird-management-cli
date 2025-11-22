@@ -141,30 +141,16 @@ func (c *Client) listGroups(filterName string) error {
 
 	// Print a formatted table
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, header("ID\tNAME\tPEERS\tRESOURCES\tISSUED BY"))
-	fmt.Fprintln(w, dim("--\t----\t-----\t---------\t---------"))
+	fmt.Fprintln(w, "ID\tNAME\tPEERS\tRESOURCES\tISSUED BY")
+	fmt.Fprintln(w, "--\t----\t-----\t---------\t---------")
 
 	for _, g := range filteredGroups {
-		peerCount := fmt.Sprintf("%d", g.PeersCount)
-		if g.PeersCount > 0 {
-			peerCount = cyan(peerCount)
-		} else {
-			peerCount = dim(peerCount)
-		}
-
-		resourceCount := fmt.Sprintf("%d", g.ResourcesCount)
-		if g.ResourcesCount > 0 {
-			resourceCount = cyan(resourceCount)
-		} else {
-			resourceCount = dim(resourceCount)
-		}
-
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-			formatID(g.ID),
-			bold(g.Name),
-			peerCount,
-			resourceCount,
-			dim(g.Issued),
+		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%s\n",
+			g.ID,
+			g.Name,
+			g.PeersCount,
+			g.ResourcesCount,
+			g.Issued,
 		)
 	}
 	w.Flush()
@@ -342,7 +328,7 @@ func (c *Client) deleteGroup(groupIdentifier string) error {
 	}
 	defer resp.Body.Close()
 
-	printSuccess("Successfully deleted group '%s'", group.Name)
+	fmt.Printf("Successfully deleted group '%s'\n", group.Name)
 	return nil
 }
 
@@ -362,18 +348,18 @@ func (c *Client) deleteGroupsBatch(idList string) error {
 		// Resolve identifier to ID
 		resolvedID, err := c.resolveGroupIdentifier(id)
 		if err != nil {
-			printWarning("Skipping %s: %v", id, err)
+			fmt.Fprintf(os.Stderr, "Warning: Skipping %s: %v\n", id, err)
 			continue
 		}
 
 		group, err := c.getGroupByID(resolvedID)
 		if err != nil {
-			printWarning("Skipping %s: %v", id, err)
+			fmt.Fprintf(os.Stderr, "Warning: Skipping %s: %v\n", id, err)
 			continue
 		}
 		groups = append(groups, group)
 		itemList = append(itemList, fmt.Sprintf("%s (ID: %s, Peers: %d, Resources: %d)",
-			group.Name, dim(group.ID), group.PeersCount, group.ResourcesCount))
+			group.Name, group.ID, group.PeersCount, group.ResourcesCount))
 	}
 
 	if len(groups) == 0 {
@@ -388,26 +374,26 @@ func (c *Client) deleteGroupsBatch(idList string) error {
 	// Process deletions with progress
 	var succeeded, failed int
 	for i, group := range groups {
-		fmt.Printf("[%d/%d] "+dim("Deleting group '%s'...")+" ", i+1, len(groups), group.Name)
+		fmt.Printf("[%d/%d] Deleting group '%s'... ", i+1, len(groups), group.Name)
 
 		endpoint := "/groups/" + group.ID
 		resp, err := c.makeRequest("DELETE", endpoint, nil)
 		if err != nil {
-			fmt.Println(failure(fmt.Sprintf("Failed: %v", err)))
+			fmt.Printf("Failed: %v\n", err)
 			failed++
 			continue
 		}
 		resp.Body.Close()
-		fmt.Println(success("Done"))
+		fmt.Println("Done")
 		succeeded++
 	}
 
 	// Print summary
 	fmt.Println()
 	if failed > 0 {
-		printWarning("Completed: %d succeeded, %d failed", succeeded, failed)
+		fmt.Fprintf(os.Stderr, "Warning: Completed: %d succeeded, %d failed\n", succeeded, failed)
 	} else {
-		printSuccess("All %d groups deleted successfully", succeeded)
+		fmt.Printf("All %d groups deleted successfully\n", succeeded)
 	}
 
 	return nil
