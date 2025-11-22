@@ -346,22 +346,22 @@ func confirmSingleDeletion(resourceType, resourceName, resourceID string, detail
 		return true
 	}
 
-	fmt.Fprintf(os.Stderr, "\n"+yellow("About to remove %s:")+"\n", resourceType)
+	fmt.Fprintf(os.Stderr, "\nAbout to remove %s:\n", resourceType)
 
 	// Always show name and ID first if available
 	if resourceName != "" {
-		fmt.Fprintf(os.Stderr, "  "+bold("Name:")+"      %s\n", resourceName)
+		fmt.Fprintf(os.Stderr, "  Name:      %s\n", resourceName)
 	}
 	if resourceID != "" {
-		fmt.Fprintf(os.Stderr, "  "+bold("ID:")+"        %s\n", dim(resourceID))
+		fmt.Fprintf(os.Stderr, "  ID:        %s\n", resourceID)
 	}
 
 	// Show additional details in consistent order
 	for key, value := range details {
-		fmt.Fprintf(os.Stderr, "  "+bold("%-10s")+" %s\n", key+":", value)
+		fmt.Fprintf(os.Stderr, "  %-10s %s\n", key+":", value)
 	}
 
-	fmt.Fprintf(os.Stderr, "\n"+warning("This action cannot be undone. Continue? [y/N]:")+" ")
+	fmt.Fprintf(os.Stderr, "\nThis action cannot be undone. Continue? [y/N]: ")
 
 	return readYesNo()
 }
@@ -374,13 +374,13 @@ func confirmBulkDeletion(resourceType string, items []string, count int) bool {
 		return true
 	}
 
-	fmt.Fprintf(os.Stderr, "\n"+red("🔴 This will delete %d %s:")+"\n", count, resourceType)
+	fmt.Fprintf(os.Stderr, "\nThis will delete %d %s:\n", count, resourceType)
 
 	// Show up to 10 items in the list
 	maxShow := 10
 	for i, item := range items {
 		if i >= maxShow {
-			fmt.Fprintf(os.Stderr, "  "+dim("... and %d more")+"\n", count-maxShow)
+			fmt.Fprintf(os.Stderr, "  ... and %d more\n", count-maxShow)
 			break
 		}
 		fmt.Fprintf(os.Stderr, "  - %s\n", item)
@@ -389,7 +389,7 @@ func confirmBulkDeletion(resourceType string, items []string, count int) bool {
 	// Generate confirmation text
 	confirmText := fmt.Sprintf("delete %d %s", count, resourceType)
 
-	fmt.Fprintf(os.Stderr, "\n"+yellow("Type '%s' to confirm:")+"\n> ", bold(confirmText))
+	fmt.Fprintf(os.Stderr, "\nType '%s' to confirm:\n> ", confirmText)
 
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
@@ -403,7 +403,7 @@ func confirmBulkDeletion(resourceType string, items []string, count int) bool {
 		return true
 	}
 
-	fmt.Fprintln(os.Stderr, red("✗ Operation cancelled"))
+	fmt.Fprintln(os.Stderr, "Operation cancelled")
 	return false
 }
 
@@ -422,6 +422,6 @@ func readYesNo() bool {
 		return true
 	}
 
-	fmt.Fprintln(os.Stderr, red("✗ Operation cancelled"))
+	fmt.Fprintln(os.Stderr, "Operation cancelled")
 	return false
 }

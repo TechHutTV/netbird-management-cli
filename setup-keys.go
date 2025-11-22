@@ -652,7 +652,7 @@ func (c *Client) deleteSetupKey(keyID string) error {
 	}
 	defer resp.Body.Close()
 
-	printSuccess("Setup key %s has been deleted", key.Name)
+	fmt.Printf("Setup key %s has been deleted\n", key.Name)
 	return nil
 }
 
@@ -671,14 +671,14 @@ func (c *Client) deleteSetupKeysBatch(idList string) error {
 	for _, id := range keyIDs {
 		resp, err := c.makeRequest("GET", "/setup-keys/"+id, nil)
 		if err != nil {
-			printWarning("Skipping %s: %v", id, err)
+			fmt.Fprintf(os.Stderr, "Warning: Skipping %s: %v\n", id, err)
 			continue
 		}
 
 		var key SetupKey
 		if err := json.NewDecoder(resp.Body).Decode(&key); err != nil {
 			resp.Body.Close()
-			printWarning("Skipping %s: failed to decode", id)
+			fmt.Fprintf(os.Stderr, "Warning: Skipping %s: failed to decode\n", id)
 			continue
 		}
 		resp.Body.Close()
@@ -686,7 +686,7 @@ func (c *Client) deleteSetupKeysBatch(idList string) error {
 		keys = append(keys, key)
 		state := formatState(key.State, key.Valid, key.Revoked)
 		itemList = append(itemList, fmt.Sprintf("%s (ID: %s, Type: %s, State: %s)",
-			key.Name, dim(key.ID), key.Type, state))
+			key.Name, key.ID, key.Type, state))
 	}
 
 	if len(keys) == 0 {
@@ -701,25 +701,25 @@ func (c *Client) deleteSetupKeysBatch(idList string) error {
 	// Process deletions with progress
 	var succeeded, failed int
 	for i, key := range keys {
-		fmt.Printf("[%d/%d] "+dim("Deleting setup key '%s'...")+" ", i+1, len(keys), key.Name)
+		fmt.Printf("[%d/%d] Deleting setup key '%s'... ", i+1, len(keys), key.Name)
 
 		resp, err := c.makeRequest("DELETE", "/setup-keys/"+key.ID, nil)
 		if err != nil {
-			fmt.Println(failure(fmt.Sprintf("Failed: %v", err)))
+			fmt.Printf("Failed: %v\n", err)
 			failed++
 			continue
 		}
 		resp.Body.Close()
-		fmt.Println(success("Done"))
+		fmt.Println("Done")
 		succeeded++
 	}
 
 	// Print summary
 	fmt.Println()
 	if failed > 0 {
-		printWarning("Completed: %d succeeded, %d failed", succeeded, failed)
+		fmt.Fprintf(os.Stderr, "Warning: Completed: %d succeeded, %d failed\n", succeeded, failed)
 	} else {
-		printSuccess("All %d setup keys deleted successfully", succeeded)
+		fmt.Printf("All %d setup keys deleted successfully\n", succeeded)
 	}
 
 	return nil
