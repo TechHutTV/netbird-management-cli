@@ -1087,87 +1087,8 @@ This section tracks the implementation status of CLI features and planned enhanc
 
 #### 📋 Planned Features
 
-**Monitoring & Analytics (Phase 3 - COMPLETED):**
-- ✅ **Events** - Audit logs and activity monitoring (2 API endpoints)
-  - List audit events with filtering (user ID, target ID, activity code, date range, search)
-  - List network traffic events with pagination (Cloud-only experimental feature)
-  - Table and JSON output formats
-  - **Implementation File:** `events.go`
-
-- ✅ **Geo-Locations** - Location data for access control (2 API endpoints)
-  - List all country codes (ISO 3166-1 alpha-2 format)
-  - List cities by country code with geoname IDs
-  - Table and JSON output formats
-  - **Implementation File:** `geo-locations.go`
-
-**Account Management:**
-- ❌ **Accounts** - Account settings and configuration (3 API endpoints available)
-  - Get account information, update settings, manage billing
-  - **Implementation File:** `accounts.go` (to be created)
-  - **API Docs:** `docs/api/resources/accounts.md`
-
-**Cloud-Only Features:**
-- ❌ **Ingress Ports** - Port forwarding and ingress peers (10 API endpoints available)
-  - Configure port forwarding, manage ingress peer assignments
-  - **Note:** Only available on NetBird Cloud
-  - **Implementation File:** `ingress-ports.go` (to be created)
-  - **API Docs:** `docs/api/resources/ingress-ports.md`
-
-#### 🎯 Enhancement Features
-
-**YAML/JSON Configuration Management:**
-- ❌ **YAML Export/Import** - GitOps workflow support
-  ```bash
-  # Export resources to YAML
-  netbird-manage policy export > policies.yml
-  netbird-manage group export > groups.yml
-
-  # Apply from YAML (declarative configuration)
-  netbird-manage policy apply -f policies.yml
-  ```
-  - **Benefits:** Infrastructure as Code, version control, team collaboration
-  - **Implementation:** Add YAML library dependency (`gopkg.in/yaml.v3`)
-
-- ❌ **JSON Output Mode** - Machine-readable output for scripting
-  ```bash
-  netbird-manage peer --list --output json
-  netbird-manage policy --inspect abc123 --output json | jq '.rules'
-  ```
-
-**Interactive CLI Enhancements:**
-- ❌ **Interactive Selection** - User-friendly resource picking
-  ```bash
-  $ netbird-manage peer --interactive
-  ? Select a peer:
-  ❯ laptop-001 (abc123) - Online
-    server-002 (def456) - Offline
-  ```
-  - **Library:** `github.com/charmbracelet/bubbletea` or `github.com/manifoldco/promptui`
-
-- ❌ **TUI Mode** - Full-screen terminal interface with real-time updates
-  ```bash
-  netbird-manage tui
-  ```
-  - **Library:** `github.com/charmbracelet/bubbletea` + `github.com/charmbracelet/bubbles`
-
-**Advanced Peer Management:**
-- ❌ **Peer Update** - Modify peer properties including SSH settings and login expiration
-  - **API Endpoint:** `PUT /peers/{id}` (available but not implemented)
-
-- ❌ **Accessible Peers** - Query peer connectivity
-  - **API Endpoint:** `GET /peers/{id}/accessible-peers` (available but not implemented)
-
-**Bulk Operations:**
-- ❌ **Batch Commands** - Process multiple resources at once
-  ```bash
-  netbird-manage peer --remove-batch abc123,def456,ghi789
-  netbird-manage group --add-peers my-group --peers abc,def,ghi
-  ```
-
-**Quality of Life:**
+**Developer Experience:**
 - ❌ **Shell Completion** - Tab completion for bash/zsh/fish
-- ❌ **Colorized Output** - Improve readability with color coding
-- ❌ **Verbose/Debug Mode** - Show HTTP requests and responses for troubleshooting
 
 #### 📊 Implementation Priority
 
@@ -1224,20 +1145,15 @@ This section tracks the implementation status of CLI features and planned enhanc
    - Color-coded status codes
    - Zero external dependencies
 
-**Phase 7: Developer Experience (Lower Priority)**
-20. ❌ YAML export/import
-21. ❌ Interactive selection prompts
-22. ❌ Shell completion
-23. ❌ TUI mode
+**Phase 7: Developer Experience**
+20. ❌ Shell completion - Tab completion for bash/zsh/fish
 
 ### Implementation Notes
 
 **Maintaining Zero Dependencies:**
 - Current implementation uses only Go stdlib
-- Adding features like YAML/TUI requires external libraries
-- Consider a "lite" vs "full" build option:
-  - Lite build: zero dependencies (current state)
-  - Full build: includes YAML, TUI, colors, etc.
+- Zero external dependencies maintained throughout all phases
+- All features implemented using pure Go standard library
 
 **API Coverage Status:**
 - ✅ **100% Coverage:** All 14 NetBird API resource types fully implemented
