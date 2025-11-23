@@ -1641,14 +1641,94 @@ Errors:
 
 ### Migrate
 
-Migrate peers between NetBird accounts. This command generates migration commands that can be run on peer devices to move them from one NetBird account to another. Running `netbird-manage migrate` by itself will display the help menu.
+Migrate peers and/or complete configuration between NetBird accounts. This command supports both peer migration (generates commands for peer devices) and configuration migration (copies groups, policies, networks, routes, DNS, posture checks). Running `netbird-manage migrate` by itself will display the help menu.
 
 #### Use Cases
 
-- **Cloud to Self-Hosted Migration**: Move peers from NetBird Cloud to your own self-hosted instance
-- **Self-Hosted to Cloud**: Move peers from self-hosted to NetBird Cloud
+- **Full Account Migration**: Move everything from one account to another with `--all`
+- **Configuration Replication**: Copy network configuration between accounts with `--config`
+- **Cloud to Self-Hosted Migration**: Move peers and config from NetBird Cloud to self-hosted
+- **Self-Hosted to Cloud**: Move from self-hosted to NetBird Cloud
 - **Account Consolidation**: Merge multiple NetBird accounts into one
-- **Organization Transfers**: Move network infrastructure between organizations
+- **Configuration Backup & Restore**: Migrate configuration between environments
+
+#### Configuration Migration
+
+Migrate groups, policies, networks, routes, DNS, posture checks, and setup keys between accounts.
+
+```bash
+# Preview configuration migration (dry-run, recommended first)
+netbird-manage migrate \
+  --source-token "nbp_source..." \
+  --dest-token "nbp_dest..." \
+  --config --dry-run
+
+# Migrate all configuration
+netbird-manage migrate \
+  --source-token "nbp_source..." \
+  --dest-token "nbp_dest..." \
+  --config
+
+# Migrate configuration, skip existing resources
+netbird-manage migrate \
+  --source-token "nbp_source..." \
+  --dest-token "nbp_dest..." \
+  --config --skip-existing
+
+# Migrate configuration and update existing resources
+netbird-manage migrate \
+  --source-token "nbp_source..." \
+  --dest-token "nbp_dest..." \
+  --config --update
+```
+
+#### Selective Configuration Migration
+
+Migrate only specific resource types:
+
+```bash
+# Migrate only groups
+netbird-manage migrate \
+  --source-token "nbp_source..." \
+  --dest-token "nbp_dest..." \
+  --groups
+
+# Migrate only policies (requires groups to exist in destination)
+netbird-manage migrate \
+  --source-token "nbp_source..." \
+  --dest-token "nbp_dest..." \
+  --policies --skip-existing
+
+# Migrate groups and policies together
+netbird-manage migrate \
+  --source-token "nbp_source..." \
+  --dest-token "nbp_dest..." \
+  --groups --policies
+
+# Migrate network configuration (routes, DNS, networks)
+netbird-manage migrate \
+  --source-token "nbp_source..." \
+  --dest-token "nbp_dest..." \
+  --routes --dns --networks --skip-existing
+```
+
+#### Full Migration (Configuration + Peers)
+
+Migrate everything including configuration and generate peer migration commands:
+
+```bash
+# Migrate everything (config + all peers)
+netbird-manage migrate \
+  --source-token "nbp_source..." \
+  --dest-token "nbp_dest..." \
+  --all
+
+# Migrate everything with verbose output
+netbird-manage migrate \
+  --source-token "nbp_source..." \
+  --dest-token "nbp_dest..." \
+  --all --verbose
+```
 
 #### Single Peer Migration
 
@@ -1675,7 +1755,7 @@ netbird-manage migrate \
   --peer "abc123def"
 ```
 
-#### Batch Migration (by Group)
+#### Batch Peer Migration (by Group)
 
 ```bash
 # Migrate all peers in a group
@@ -1692,7 +1772,61 @@ netbird-manage migrate \
   --key-expiry "7d"
 ```
 
-#### Example Output
+#### Configuration Migration Example Output
+
+```
+$ netbird-manage migrate \
+    --source-token "nbp_Sxxxx..." \
+    --dest-token "nbp_Dxxxx..." \
+    --config --dry-run --verbose
+
+Configuration Migration Preview (Dry Run)
+==========================================
+  Source: https://api.netbird.io/api
+  Destination: https://api.netbird.io/api
+
+Fetching current state...
+  Source: 5 groups, 3 policies, 2 networks, 4 routes, 2 DNS, 1 posture checks, 3 setup keys, 12 peers
+  Destination: 2 groups, 1 policies, 0 networks, 0 DNS, 0 posture checks, 0 setup keys, 0 peers
+
+Groups:
+  CREATE   developers (would create)
+  CREATE   production-servers (would create)
+  SKIP     All (already exists)
+
+Posture Checks:
+  CREATE   min-version-check (would create)
+
+Policies:
+  CREATE   dev-to-prod (would create)
+  CREATE   ssh-access (would create)
+  SKIP     Default (already exists)
+
+Routes:
+  CREATE   10.0.0.0/16 (would create)
+
+DNS Nameserver Groups:
+  CREATE   corp-dns (would create)
+
+Networks:
+  CREATE   production-network (would create)
+
+Setup Keys:
+  CREATE   team-onboarding (would create)
+
+================================================
+Migration Summary
+================================================
+
+✓ Created:  0 resources
+⚠ Skipped:  3 resources
+    - Group All
+    - Policy Default
+
+This was a dry run. Use without --dry-run to apply changes.
+```
+
+#### Peer Migration Example Output
 
 ```
 $ netbird-manage migrate \
@@ -1745,72 +1879,108 @@ To remove the old peer from source after migration:
   netbird-manage peer --remove abc123def456
 ```
 
-#### Batch Migration Output
+#### Flags Reference
 
-```
-$ netbird-manage migrate \
-    --source-token "nbp_Sxxxx..." \
-    --dest-token "nbp_Dxxxx..." \
-    --group "old-servers"
+**Required Flags:**
 
-Fetching peers in group 'old-servers' from source...
-  Source: https://api.netbird.io/api
+| Flag | Description |
+|------|-------------|
+| `--source-token` | API token for the source (exporting) account |
+| `--dest-token` | API token for the destination (importing) account |
 
-Found 3 peers to migrate.
+**Migration Type Flags (choose one or combine):**
 
-Connecting to destination account...
-  Destination: https://api.netbird.io/api
+| Flag | Description |
+|------|-------------|
+| `--config` | Migrate all configuration (groups, policies, networks, routes, DNS, posture checks, setup keys) |
+| `--all` | Migrate everything (configuration + generate peer migration commands) |
+| `--peer <id>` | Migrate a single peer by ID |
+| `--group <name>` | Migrate all peers in a group |
 
-Peer 1/3: server-web-01
-  Creating setup key... Done
-Peer 2/3: server-db-01
-  Creating setup key... Done
-Peer 3/3: server-cache-01
-  Creating setup key... Done
+**Selective Configuration Flags:**
 
-========================================================================
-MIGRATION COMMANDS - Run on each peer:
-========================================================================
+| Flag | Description |
+|------|-------------|
+| `--groups` | Migrate only groups |
+| `--policies` | Migrate only policies |
+| `--networks` | Migrate only networks |
+| `--routes` | Migrate only routes |
+| `--dns` | Migrate only DNS nameserver groups |
+| `--posture-checks` | Migrate only posture checks |
+| `--setup-keys` | Migrate only setup keys |
 
-# server-web-01 (100.64.0.20)
-sudo netbird down && sudo netbird up --setup-key AAAA-AAAA-AAAA-AAAA --hostname server-web-01
+**Configuration Migration Options:**
 
-# server-db-01 (100.64.0.21)
-sudo netbird down && sudo netbird up --setup-key BBBB-BBBB-BBBB-BBBB --hostname server-db-01
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--skip-existing` | `false` | Skip resources that already exist in destination |
+| `--update` | `false` | Update existing resources in destination |
+| `--dry-run` | `false` | Preview changes without applying them |
+| `--verbose` | `false` | Show detailed output |
 
-# server-cache-01 (100.64.0.22)
-sudo netbird down && sudo netbird up --setup-key CCCC-CCCC-CCCC-CCCC --hostname server-cache-01
+**Peer Migration Options:**
 
-========================================================================
-```
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--source-url` | `https://api.netbird.io/api` | Management URL for source |
+| `--dest-url` | `https://api.netbird.io/api` | Management URL for destination |
+| `--create-groups` | `true` | Create missing groups in destination |
+| `--key-expiry` | `24h` | Setup key expiration (e.g., 1h, 24h, 7d) |
 
-#### Flags
+#### What Gets Migrated
 
-| Flag | Required | Default | Description |
-|------|----------|---------|-------------|
-| `--source-token` | Yes | - | API token for source account |
-| `--source-url` | No | `https://api.netbird.io/api` | Management URL for source |
-| `--dest-token` | Yes | - | API token for destination account |
-| `--dest-url` | No | `https://api.netbird.io/api` | Management URL for destination |
-| `--peer` | Yes* | - | Peer ID to migrate |
-| `--group` | Yes* | - | Migrate all peers in group |
-| `--create-groups` | No | `true` | Create missing groups in destination |
-| `--key-expiry` | No | `24h` | Setup key expiration (e.g., 1h, 24h, 7d) |
+**Configuration Migration (`--config`):**
+- ✅ Groups (created empty - without peers)
+- ✅ Policies (with all rules, group references resolved)
+- ✅ Networks (with resources and routers where possible)
+- ✅ Routes (peer group routes only - routes referencing specific peers are skipped)
+- ✅ DNS nameserver groups
+- ✅ Posture checks (all 5 check types)
+- ✅ Setup keys (with resolved auto-groups)
 
-*Either `--peer` or `--group` is required.
-
-**What Gets Migrated:**
+**Peer Migration (`--peer` or `--group`):**
 - ✅ Hostname (preserved via `--hostname` flag)
 - ✅ Group memberships (groups created in destination if missing)
 - ❌ Peer ID (new one assigned by destination)
 - ❌ IP address (new one assigned by destination network)
 - ❌ Connection history/statistics
 
-**Important Notes:**
-- The peer must be accessible to run the migration command on it
-- Setup keys are single-use and expire after the specified duration
-- The old peer entry in the source account must be manually removed after migration
-- Groups are automatically created in the destination if they don't exist (unless `--create-groups=false`)
+#### Recommended Migration Order
+
+For a complete migration, follow this order:
+
+```bash
+# Step 1: Preview configuration migration
+netbird-manage migrate \
+  --source-token "nbp_source..." \
+  --dest-token "nbp_dest..." \
+  --config --dry-run
+
+# Step 2: Apply configuration migration
+netbird-manage migrate \
+  --source-token "nbp_source..." \
+  --dest-token "nbp_dest..." \
+  --config --skip-existing
+
+# Step 3: Migrate peers (generates commands)
+netbird-manage migrate \
+  --source-token "nbp_source..." \
+  --dest-token "nbp_dest..." \
+  --group "all-servers"
+
+# Step 4: Run the generated commands on each peer device
+
+# Step 5: Clean up old peers from source account
+netbird-manage --yes peer --remove-batch <old-peer-ids>
+```
+
+#### Important Notes
+
+- **Configuration Migration**: Resources are migrated in dependency order (groups → posture checks → policies → routes → DNS → networks → setup keys)
+- **Peer Dependencies**: Some resources (like routes with specific peer routing) reference peers. These will be skipped with a warning. Migrate peers first, then re-run configuration migration with `--update`.
+- **Groups are Empty**: When migrating groups via configuration, they are created without peers. Use peer migration to add peers to groups.
+- **Dry Run First**: Always use `--dry-run` to preview changes before applying
+- **Skip Existing**: Use `--skip-existing` to safely re-run migrations after fixing errors
 
 ## 🚀 Roadmap
 
@@ -1860,6 +2030,10 @@ This tool is in active development. The goal is to build a comprehensive and eas
 - ✅ **Peer Migration** - Migrate peers between NetBird accounts (cloud-to-cloud, cloud-to-self-hosted, or self-hosted-to-cloud)
 - ✅ **Batch Migration** - Migrate all peers in a group with a single command
 - ✅ **Auto Group Creation** - Automatically create missing groups in destination account
+- ✅ **Full Configuration Migration** - Migrate groups, policies, networks, routes, DNS, posture checks, and setup keys between accounts
+- ✅ **Selective Migration** - Migrate specific resource types with granular control (--groups, --policies, etc.)
+- ✅ **Dry Run Mode** - Preview migration changes before applying
+- ✅ **Peer Dependency Checking** - Warns when resources reference peers that haven't been migrated
 
 **API Coverage:** 14/14 NetBird API resource types fully implemented (100%) 🎉
 
