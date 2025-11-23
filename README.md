@@ -1354,54 +1354,73 @@ netbird-manage ingress-peer --update ing-001 --enabled false
 
 ### Export
 
-Export your NetBird configuration to YAML files for GitOps workflows, backup, and infrastructure-as-code. Running `netbird-manage export` by itself will display the help menu.
+Export your NetBird configuration to YAML or JSON files for GitOps workflows, backup, and infrastructure-as-code. Running `netbird-manage export` by itself will display the help menu.
 
 #### Export Operations
 ```bash
 # Export to single YAML file (default)
 netbird-manage export
 netbird-manage export --full
+netbird-manage export --format yaml
+
+# Export to single JSON file
+netbird-manage export --format json
 
 # Export to single file in specific directory
 netbird-manage export --full ./backups
+netbird-manage export --format json ./backups
 
 # Export to split files (one file per resource type)
 netbird-manage export --split
+netbird-manage export --split --format json
 
 # Export to split files in specific directory
 netbird-manage export --split ~/exports
+netbird-manage export --split --format json ~/exports
 ```
 
 **Output Formats:**
 
-**Single File** (`netbird-manage-export-YYMMDD.yml`):
+**Single File** (`netbird-manage-export-YYMMDD.{yml,json}`):
 - All resources in one file
-- Clean map-based YAML structure
+- Clean map-based structure
 - Perfect for backups and small deployments
 - Easy to review entire configuration
 
 **Split Files** (`netbird-manage-export-YYMMDD/`):
 ```
-├── config.yml          # Metadata and import order
-├── groups.yml          # Group definitions with peer names
-├── policies.yml        # Access control policies with rules
-├── networks.yml        # Networks with resources and routers
-├── routes.yml          # Custom network routes
-├── dns.yml             # DNS nameserver groups
-├── posture-checks.yml  # Device compliance checks
-└── setup-keys.yml      # Device onboarding keys
+├── config.{yml,json}          # Metadata and import order
+├── groups.{yml,json}          # Group definitions with peer names
+├── policies.{yml,json}        # Access control policies with rules
+├── networks.{yml,json}        # Networks with resources and routers
+├── routes.{yml,json}          # Custom network routes
+├── dns.{yml,json}             # DNS nameserver groups
+├── posture-checks.{yml,json}  # Device compliance checks
+└── setup-keys.{yml,json}      # Device onboarding keys
 ```
+
+**Format Options:**
+| Flag | Description |
+|------|-------------|
+| `--format yaml` | Export as YAML (default) |
+| `--format json` | Export as JSON |
 
 **Examples:**
 ```bash
-# Quick backup to current directory
+# Quick backup to current directory (YAML)
 netbird-manage export
+
+# Quick backup as JSON
+netbird-manage export --format json
 
 # Backup to specific folder
 netbird-manage export --full ~/netbird-backups
 
 # GitOps-friendly split export
 netbird-manage export --split
+
+# JSON split export for automation
+netbird-manage export --split --format json
 
 # Export for version control
 netbird-manage export --split ./git-repo/netbird-config
