@@ -262,6 +262,18 @@ func ReadYesNo() bool {
 	return false
 }
 
+// ConfirmAction displays a prompt and asks for Y/N confirmation
+// Returns true if user confirms, false otherwise
+// Respects the global SkipConfirmation flag
+func ConfirmAction(prompt string) bool {
+	if SkipConfirmation {
+		return true
+	}
+
+	fmt.Fprintf(os.Stderr, "%s [y/N]: ", prompt)
+	return ReadYesNo()
+}
+
 // DurationBounds specifies optional min/max bounds for duration validation
 type DurationBounds struct {
 	Min           int  // Minimum seconds (0 = no minimum)
