@@ -26,6 +26,7 @@ type ImportContext struct {
 	Force            bool
 	Verbose          bool
 	SkipMissingPeers bool
+	ValidatePeers    bool
 	GroupsOnly       bool
 	PoliciesOnly     bool
 	NetworksOnly     bool
@@ -77,6 +78,7 @@ func (s *Service) HandleImportCommand(args []string) error {
 	forceFlag := importCmd.Bool("force", false, "Create or update all resources (upsert)")
 	verboseFlag := importCmd.Bool("verbose", false, "Show detailed output")
 	skipMissingPeersFlag := importCmd.Bool("skip-missing-peers", false, "Create groups without peers that don't exist yet")
+	validatePeersFlag := importCmd.Bool("validate-peers", false, "Validate that peers referenced in groups exist (checks without importing)")
 
 	groupsOnlyFlag := importCmd.Bool("groups-only", false, "Import only groups")
 	policiesOnlyFlag := importCmd.Bool("policies-only", false, "Import only policies")
@@ -113,6 +115,7 @@ func (s *Service) HandleImportCommand(args []string) error {
 		Force:                *forceFlag,
 		Verbose:              *verboseFlag,
 		SkipMissingPeers:     *skipMissingPeersFlag,
+		ValidatePeers:        *validatePeersFlag,
 		GroupsOnly:           *groupsOnlyFlag,
 		PoliciesOnly:         *policiesOnlyFlag,
 		NetworksOnly:         *networksOnlyFlag,
@@ -167,6 +170,11 @@ func (s *Service) HandleImportCommand(args []string) error {
 	// Step 2: Fetch current state from API
 	if err := ctx.fetchCurrentState(); err != nil {
 		return fmt.Errorf("failed to fetch current state: %v", err)
+	}
+
+	// Step 2.5: If --validate-peers is set, validate peers and exit
+	if ctx.ValidatePeers {
+		return ctx.validatePeersInConfig(yamlData)
 	}
 
 	// Step 3: Import resources in dependency order
@@ -1241,6 +1249,105 @@ func (ctx *ImportContext) addNetworkRouters(networkID string, data map[string]in
 
 func (ctx *ImportContext) importSetupKeys(data map[string]interface{}) error {
 	// TODO: Implement setup keys import
+	return nil
+}
+
+// validatePeersInConfig extracts all peer names from the config and validates they exist
+func (ctx *ImportContext) validatePeersInConfig(data map[string]interface{}) error {
+	fmt.Println("Validating Peers Referenced in Configuration")
+	fmt.Println("================================================")
+	fmt.Println()
+
+	// Extract all peer names from groups
+	groupsData, ok := data["groups"].(map[string]interface{})
+	if !ok {
+		fmt.Println("No groups found in configuration.")
+		return nil
+	}
+
+	// Collect all referenced peer names and which groups reference them
+	peerToGroups := make(map[string][]string) // peer name -> list of group names
+
+	for groupName, groupDataInterface := range groupsData {
+		groupData, ok := groupDataInterface.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		peersInterface, ok := groupData["peers"]
+		if !ok || peersInterface == nil {
+			continue
+		}
+
+		peersList, ok := peersInterface.([]interface{})
+		if !ok {
+			continue
+		}
+
+		for _, peerInterface := range peersList {
+			peerName, ok := peerInterface.(string)
+			if !ok {
+				continue
+			}
+			peerToGroups[peerName] = append(peerToGroups[peerName], groupName)
+		}
+	}
+
+	if len(peerToGroups) == 0 {
+		fmt.Println("No peers referenced in any groups.")
+		return nil
+	}
+
+	// Categorize peers as found or missing
+	var foundPeers []string
+	var missingPeers []string
+
+	for peerName := range peerToGroups {
+		if _, exists := ctx.PeerNameToID[peerName]; exists {
+			foundPeers = append(foundPeers, peerName)
+		} else {
+			missingPeers = append(missingPeers, peerName)
+		}
+	}
+
+	// Print results
+	fmt.Printf("Total peers referenced: %d\n", len(peerToGroups))
+	fmt.Printf("Found in NetBird:       %d\n", len(foundPeers))
+	fmt.Printf("Missing:                %d\n", len(missingPeers))
+	fmt.Println()
+
+	if len(foundPeers) > 0 {
+		fmt.Println("✓ Found Peers:")
+		for _, peerName := range foundPeers {
+			peerID := ctx.PeerNameToID[peerName]
+			groups := peerToGroups[peerName]
+			fmt.Printf("  - %s (ID: %s)\n", peerName, peerID)
+			if ctx.Verbose {
+				fmt.Printf("    Groups: %v\n", groups)
+			}
+		}
+		fmt.Println()
+	}
+
+	if len(missingPeers) > 0 {
+		fmt.Println("✗ Missing Peers:")
+		for _, peerName := range missingPeers {
+			groups := peerToGroups[peerName]
+			fmt.Printf("  - %s\n", peerName)
+			fmt.Printf("    Referenced in groups: %v\n", groups)
+		}
+		fmt.Println()
+
+		fmt.Println("Suggestions:")
+		fmt.Println("  1. Register the missing peers in NetBird first")
+		fmt.Println("  2. Use --skip-missing-peers to create groups without missing peers")
+		fmt.Println("  3. Update the YAML config to remove references to missing peers")
+		fmt.Println()
+
+		return fmt.Errorf("%d peer(s) not found in NetBird", len(missingPeers))
+	}
+
+	fmt.Println("All referenced peers exist in NetBird. Ready to import!")
 	return nil
 }
 
