@@ -157,11 +157,13 @@ func writeYAMLFile(outputPath string, data interface{}) error {
 
 // fetchAllResources fetches all resources from the API and converts to YAML-friendly map structure
 func (s *Service) fetchAllResources() (map[string]interface{}, error) {
-	// Create metadata
+	// Create metadata with important warnings
 	metadata := map[string]interface{}{
 		"version":        "1.0",
 		"exported_at":    time.Now().Format(time.RFC3339),
 		"management_url": s.Client.ManagementURL,
+		"_important_note": "PEERS CANNOT BE IMPORTED - Use 'netbird-manage migrate' to migrate peers between accounts. " +
+			"Groups will be imported WITHOUT their peers. See 'netbird-manage migrate --help' for peer migration.",
 	}
 
 	// Fetch all resource types
@@ -227,17 +229,29 @@ func (s *Service) fetchGroupsAsMap() (map[string]interface{}, error) {
 	}
 
 	result := make(map[string]interface{})
+
+	// Add warning about peers at the top of groups section
+	result["_peers_warning"] = "PEERS LISTED BELOW ARE FOR REFERENCE ONLY - They will NOT be imported. " +
+		"Use 'netbird-manage migrate' command to migrate peers between accounts."
+
 	for _, group := range groups {
-		// Extract peer names
+		// Extract peer names (for reference only - not importable)
 		peerNames := make([]string, len(group.Peers))
 		for i, peer := range group.Peers {
 			peerNames[i] = peer.Name
 		}
 
-		result[group.Name] = map[string]interface{}{
+		groupData := map[string]interface{}{
 			"description": fmt.Sprintf("Group with %d peers", group.PeersCount),
-			"peers":       peerNames,
 		}
+
+		// Only include peers if there are any (for reference/backup purposes)
+		if len(peerNames) > 0 {
+			groupData["peers"] = peerNames
+			groupData["_peers_note"] = "These peers are for reference only and will NOT be imported"
+		}
+
+		result[group.Name] = groupData
 	}
 
 	return result, nil

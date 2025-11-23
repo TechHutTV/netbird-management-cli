@@ -1442,7 +1442,7 @@ netbird-manage export --split ./git-repo/netbird-config
 - **Version controlled**: Ideal for Git workflows and change tracking
 
 **Exported Resources:**
-- ✅ Groups (with peer names)
+- ✅ Groups (with peer names - **for reference only, not imported**)
 - ✅ Policies (with rules and group references)
 - ✅ Networks (with resources and routers)
 - ✅ Routes (with routing configuration)
@@ -1477,10 +1477,13 @@ policies:
 - Timestamp format: YYMMDD (e.g., `251117` for November 17, 2025)
 - Exported YAML is designed for import functionality
 - Split mode is recommended for large configurations and team collaboration
+- **Peer names in groups are for reference/backup only** - use `netbird-manage migrate` to move peers
 
 ### Import
 
 Import NetBird configuration from YAML files for declarative infrastructure-as-code management. Running `netbird-manage import` by itself will display the help menu.
+
+> ⚠️ **IMPORTANT: Peers cannot be imported via YAML.** Groups will be created/updated WITHOUT their peers. Peer data in the exported YAML is for reference and backup purposes only. To migrate peers between accounts, use the `migrate` command - see [Migrate](#migrate) section below.
 
 #### Import Operations
 ```bash
@@ -1568,9 +1571,8 @@ Resources are imported in the correct order to satisfy dependencies:
 
 **Smart Name Resolution:**
 - Group names automatically resolved to IDs
-- Peer names resolved to IDs
-- Missing peers cause errors (must be registered first)
 - Missing groups referenced in policies cause errors
+- **Peers are NOT imported** - use `netbird-manage migrate` instead
 
 **Validation:**
 - ✅ Valid YAML syntax
@@ -1612,7 +1614,7 @@ Errors:
 - Flags must come **before** the filename: `netbird-manage import --apply config.yml`
 - Partial failures are OK - successfully imported resources remain
 - Use `--skip-existing` to re-import after fixing errors
-- Cannot create peers via YAML (use setup keys instead)
+- **Peers cannot be imported** - groups are created empty; use `netbird-manage migrate` to move peers between accounts
 - Policy rules reference groups by name (automatically resolved)
 
 ### Migrate
