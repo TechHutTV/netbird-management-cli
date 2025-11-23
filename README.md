@@ -6,10 +6,16 @@ netbird-manage is an unofficial command-line tool written in Go for interacting 
 
 ## Setup & Installation
 
-You must have the [Go toolchain](https://go.dev/doc/install) (version 1.18 or later) installed on your system. Place all .go files from this project into a new directory (e.g., netbird-manage). From inside that directory, initialize the Go module and run the go build command:
+You must have the [Go toolchain](https://go.dev/doc/install) (version 1.18 or later) installed on your system. Clone this repository and build the binary:
+```bash
+git clone https://github.com/TechHutTV/netbird-management-cli.git
+cd netbird-management-cli
+go build ./cmd/netbird-manage
 ```
-go mod init netbird-manage
-go build
+
+This creates a `netbird-manage` binary in the current directory. Optionally, move it to a directory in your PATH:
+```bash
+sudo mv netbird-manage /usr/local/bin/
 ```
 
 ## Safety Features

@@ -157,11 +157,8 @@ Methods on Client act as repositories:
 ### Building the Project
 
 ```bash
-# Initialize module (if not already done)
-go mod init netbird-manage
-
 # Build binary
-go build
+go build ./cmd/netbird-manage
 
 # Result: ./netbird-manage (or netbird-manage.exe on Windows)
 ```
@@ -170,16 +167,16 @@ go build
 
 ```bash
 # Linux AMD64
-GOOS=linux GOARCH=amd64 go build -o netbird-manage-linux-amd64
+GOOS=linux GOARCH=amd64 go build -o netbird-manage-linux-amd64 ./cmd/netbird-manage
 
 # Windows AMD64
-GOOS=windows GOARCH=amd64 go build -o netbird-manage-windows-amd64.exe
+GOOS=windows GOARCH=amd64 go build -o netbird-manage-windows-amd64.exe ./cmd/netbird-manage
 
 # macOS ARM64 (Apple Silicon)
-GOOS=darwin GOARCH=arm64 go build -o netbird-manage-darwin-arm64
+GOOS=darwin GOARCH=arm64 go build -o netbird-manage-darwin-arm64 ./cmd/netbird-manage
 
 # macOS AMD64 (Intel)
-GOOS=darwin GOARCH=amd64 go build -o netbird-manage-darwin-amd64
+GOOS=darwin GOARCH=amd64 go build -o netbird-manage-darwin-amd64 ./cmd/netbird-manage
 ```
 
 ### Testing the CLI
@@ -1006,7 +1003,7 @@ golangci-lint run
 go vet ./...
 
 # Build for current platform
-go build
+go build ./cmd/netbird-manage
 
 # Show dependencies
 go list -m all
@@ -1288,7 +1285,7 @@ docs: Update README with YAML export instructions
 ### Pull Request Checklist
 
 When creating a PR:
-- [ ] Code builds successfully (`go build`)
+- [ ] Code builds successfully (`go build ./cmd/netbird-manage`)
 - [ ] No linting errors (`go vet ./...`, `go fmt ./...`)
 - [ ] Manually tested all affected commands
 - [ ] Updated README.md if user-facing changes
