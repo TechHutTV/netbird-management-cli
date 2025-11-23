@@ -65,6 +65,9 @@ func (s *Service) HandleNetworkCommand(args []string) error {
 	masquerade := networkCmd.Bool("masquerade", false, "Enable masquerading (NAT)")
 	noMasquerade := networkCmd.Bool("no-masquerade", false, "Disable masquerading")
 
+	// Output format flag
+	outputFlag := networkCmd.String("output", "table", "Output format: table or json")
+
 	// If no flags are provided (just 'netbird-manage network'), show usage
 	if len(args) == 1 {
 		PrintNetworkUsage()
@@ -94,7 +97,7 @@ func (s *Service) HandleNetworkCommand(args []string) error {
 		return s.updateNetworkDescription(*updateFlag, *description)
 	}
 	if *inspectFlag != "" {
-		return s.inspectNetwork(*inspectFlag)
+		return s.inspectNetwork(*inspectFlag, *outputFlag)
 	}
 
 	// Handle resource operations
@@ -188,7 +191,7 @@ func (s *Service) HandleNetworkCommand(args []string) error {
 
 	// Handle list with optional filter
 	if *listFlag {
-		return s.listNetworks(*filterName)
+		return s.listNetworks(*filterName, *outputFlag)
 	}
 
 	// If no known flag was used
@@ -200,7 +203,7 @@ func (s *Service) HandleNetworkCommand(args []string) error {
 // ========== Network CRUD Operations ==========
 
 // listNetworks lists all networks with optional name filtering
-func (s *Service) listNetworks(filterName string) error {
+func (s *Service) listNetworks(filterName string, outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/networks", nil)
 	if err != nil {
 		return err
@@ -232,6 +235,16 @@ func (s *Service) listNetworks(filterName string) error {
 		return nil
 	}
 
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(networks, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
+	}
+
 	// Print a formatted table
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "ID\tNAME\tROUTERS\tRESOURCES\tPOLICIES\tDESCRIPTION")
@@ -252,7 +265,7 @@ func (s *Service) listNetworks(filterName string) error {
 }
 
 // inspectNetwork shows detailed information about a specific network
-func (s *Service) inspectNetwork(networkID string) error {
+func (s *Service) inspectNetwork(networkID string, outputFormat string) error {
 	// Fetch basic network details
 	resp, err := s.Client.MakeRequest("GET", "/networks/"+networkID, nil)
 	if err != nil {
@@ -291,6 +304,25 @@ func (s *Service) inspectNetwork(networkID string) error {
 			return fmt.Errorf("failed to decode resources response: %v", err)
 		}
 		resp.Body.Close()
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output := struct {
+			models.NetworkDetail
+			RoutersDetail   []models.NetworkRouter   `json:"routers_detail"`
+			ResourcesDetail []models.NetworkResource `json:"resources_detail"`
+		}{
+			NetworkDetail:   network,
+			RoutersDetail:   routers,
+			ResourcesDetail: resources,
+		}
+		jsonOutput, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(jsonOutput))
+		return nil
 	}
 
 	// Display network information

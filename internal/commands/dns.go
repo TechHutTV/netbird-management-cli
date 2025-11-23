@@ -29,6 +29,7 @@ func (s *Service) HandleDNSCommand(args []string) error {
 	primaryOnlyFlag := dnsCmd.Bool("primary-only", false, "Show only primary groups")
 	enabledOnlyFlag := dnsCmd.Bool("enabled-only", false, "Show only enabled groups")
 	getSettingsFlag := dnsCmd.Bool("get-settings", false, "Get DNS settings for the account")
+	outputFlag := dnsCmd.String("output", "table", "Output format: table or json")
 
 	// Create flags
 	createFlag := dnsCmd.String("create", "", "Create a new DNS nameserver group with the given name")
@@ -70,7 +71,7 @@ func (s *Service) HandleDNSCommand(args []string) error {
 
 	// Get settings
 	if *getSettingsFlag {
-		return s.getDNSSettings()
+		return s.getDNSSettings(*outputFlag)
 	}
 
 	// Update settings
@@ -125,7 +126,7 @@ func (s *Service) HandleDNSCommand(args []string) error {
 
 	// Inspect DNS group
 	if *inspectFlag != "" {
-		return s.inspectDNSGroup(*inspectFlag)
+		return s.inspectDNSGroup(*inspectFlag, *outputFlag)
 	}
 
 	// List DNS groups
@@ -135,7 +136,7 @@ func (s *Service) HandleDNSCommand(args []string) error {
 			PrimaryOnly: *primaryOnlyFlag,
 			EnabledOnly: *enabledOnlyFlag,
 		}
-		return s.listDNSGroups(filters)
+		return s.listDNSGroups(filters, *outputFlag)
 	}
 
 	// If no known flag was used
@@ -152,7 +153,7 @@ type DNSFilters struct {
 }
 
 // listDNSGroups implements the "dns --list" command
-func (s *Service) listDNSGroups(filters *DNSFilters) error {
+func (s *Service) listDNSGroups(filters *DNSFilters, outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/dns/nameservers", nil)
 	if err != nil {
 		return err
@@ -187,6 +188,16 @@ func (s *Service) listDNSGroups(filters *DNSFilters) error {
 
 	if len(filtered) == 0 {
 		fmt.Println("No DNS nameserver groups found.")
+		return nil
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(filtered, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
 		return nil
 	}
 
@@ -225,7 +236,7 @@ func (s *Service) listDNSGroups(filters *DNSFilters) error {
 }
 
 // inspectDNSGroup implements the "dns --inspect" command
-func (s *Service) inspectDNSGroup(groupID string) error {
+func (s *Service) inspectDNSGroup(groupID string, outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/dns/nameservers/"+groupID, nil)
 	if err != nil {
 		return err
@@ -235,6 +246,16 @@ func (s *Service) inspectDNSGroup(groupID string) error {
 	var group models.DNSNameserverGroup
 	if err := json.NewDecoder(resp.Body).Decode(&group); err != nil {
 		return fmt.Errorf("failed to decode DNS group response: %v", err)
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(group, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
 	}
 
 	// Print detailed DNS group information
@@ -488,7 +509,7 @@ func (s *Service) toggleDNSGroup(groupID string, enable bool) error {
 }
 
 // getDNSSettings implements the "dns --get-settings" command
-func (s *Service) getDNSSettings() error {
+func (s *Service) getDNSSettings(outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/dns/settings", nil)
 	if err != nil {
 		return err
@@ -498,6 +519,16 @@ func (s *Service) getDNSSettings() error {
 	var settings models.DNSSettings
 	if err := json.NewDecoder(resp.Body).Decode(&settings); err != nil {
 		return fmt.Errorf("failed to decode DNS settings response: %v", err)
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(settings, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
 	}
 
 	fmt.Println("DNS Settings:")

@@ -33,6 +33,7 @@ func (s *Service) HandleGroupsCommand(args []string) error {
 	peersFlag := groupCmd.String("peers", "", "Comma-separated list of peer IDs")
 
 	deleteUnusedFlag := groupCmd.Bool("delete-unused", false, "Delete all unused groups (not referenced anywhere)")
+	outputFlag := groupCmd.String("output", "table", "Output format: table or json")
 
 	if len(args) == 1 {
 		PrintGroupUsage()
@@ -44,11 +45,11 @@ func (s *Service) HandleGroupsCommand(args []string) error {
 	}
 
 	if *listFlag {
-		return s.listGroups(*filterNameFlag)
+		return s.listGroups(*filterNameFlag, *outputFlag)
 	}
 
 	if *inspectFlag != "" {
-		return s.inspectGroup(*inspectFlag)
+		return s.inspectGroup(*inspectFlag, *outputFlag)
 	}
 
 	if *createFlag != "" {
@@ -99,7 +100,7 @@ func (s *Service) HandleGroupsCommand(args []string) error {
 	return nil
 }
 
-func (s *Service) listGroups(filterName string) error {
+func (s *Service) listGroups(filterName, outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/groups", nil)
 	if err != nil {
 		return err
@@ -128,6 +129,17 @@ func (s *Service) listGroups(filterName string) error {
 		return nil
 	}
 
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(filteredGroups, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
+	}
+
+	// Table output (default)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "ID\tNAME\tPEERS\tRESOURCES\tISSUED BY")
 	fmt.Fprintln(w, "--\t----\t-----\t---------\t---------")
@@ -196,7 +208,7 @@ func (s *Service) updateGroup(id string, reqBody models.GroupPutRequest) error {
 	return nil
 }
 
-func (s *Service) inspectGroup(groupIdentifier string) error {
+func (s *Service) inspectGroup(groupIdentifier, outputFormat string) error {
 	groupID, err := s.resolveGroupIdentifier(groupIdentifier)
 	if err != nil {
 		return err
@@ -207,6 +219,17 @@ func (s *Service) inspectGroup(groupIdentifier string) error {
 		return err
 	}
 
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(group, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
+	}
+
+	// Table output (default)
 	fmt.Printf("Group: %s (%s)\n", group.Name, group.ID)
 	fmt.Println("--------------------------------------------------")
 	fmt.Printf("  Peers Count:     %d\n", group.PeersCount)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -39,6 +40,7 @@ func (s *Service) HandlePeersCommand(args []string) error {
 	accessiblePeersFlag := peerCmd.String("accessible-peers", "", "List peers accessible from the specified peer ID")
 	filterNameFlag := peerCmd.String("filter-name", "", "Filter peers by name pattern (use with --list)")
 	filterIPFlag := peerCmd.String("filter-ip", "", "Filter peers by IP pattern (use with --list)")
+	outputFlag := peerCmd.String("output", "table", "Output format: table or json")
 
 	if len(args) == 1 {
 		PrintPeerUsage()
@@ -50,11 +52,11 @@ func (s *Service) HandlePeersCommand(args []string) error {
 	}
 
 	if *listFlag {
-		return s.listPeers(*filterNameFlag, *filterIPFlag)
+		return s.listPeers(*filterNameFlag, *filterIPFlag, *outputFlag)
 	}
 
 	if *inspectFlag != "" {
-		return s.inspectPeer(*inspectFlag)
+		return s.inspectPeer(*inspectFlag, *outputFlag)
 	}
 
 	if *removeFlag != "" {
@@ -66,7 +68,7 @@ func (s *Service) HandlePeersCommand(args []string) error {
 	}
 
 	if *accessiblePeersFlag != "" {
-		return s.getAccessiblePeers(*accessiblePeersFlag)
+		return s.getAccessiblePeers(*accessiblePeersFlag, *outputFlag)
 	}
 
 	if *editFlag != "" {
@@ -166,8 +168,22 @@ func (s *Service) handlePeerUpdate(peerID, rename, ssh, loginExp, inactivityExp,
 	return s.updatePeer(peerID, updateReq)
 }
 
-func (s *Service) listPeers(filterName, filterIP string) error {
-	resp, err := s.Client.MakeRequest("GET", "/peers", nil)
+func (s *Service) listPeers(filterName, filterIP, outputFormat string) error {
+	// Build query parameters for server-side filtering
+	params := url.Values{}
+	if filterName != "" {
+		params.Add("name", filterName)
+	}
+	if filterIP != "" {
+		params.Add("ip", filterIP)
+	}
+
+	endpoint := "/peers"
+	if len(params) > 0 {
+		endpoint += "?" + params.Encode()
+	}
+
+	resp, err := s.Client.MakeRequest("GET", endpoint, nil)
 	if err != nil {
 		return err
 	}
@@ -178,6 +194,7 @@ func (s *Service) listPeers(filterName, filterIP string) error {
 		return fmt.Errorf("failed to decode peers response: %v", err)
 	}
 
+	// Apply additional local filtering for pattern matching (server does exact match)
 	var filteredPeers []models.Peer
 	for _, peer := range peers {
 		if filterName != "" && !helpers.MatchesPattern(peer.Name, filterName) {
@@ -198,6 +215,17 @@ func (s *Service) listPeers(filterName, filterIP string) error {
 		return nil
 	}
 
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(filteredPeers, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
+	}
+
+	// Table output (default)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "ID\tNAME\tIP\tCONNECTED\tOS\tVERSION\tHOSTNAME")
 	fmt.Fprintln(w, "--\t----\t--\t---------\t--\t-------\t--------")
@@ -329,12 +357,23 @@ func (s *Service) removePeersBatch(idList string) error {
 	return nil
 }
 
-func (s *Service) inspectPeer(peerID string) error {
+func (s *Service) inspectPeer(peerID, outputFormat string) error {
 	peer, err := s.getPeerByID(peerID)
 	if err != nil {
 		return err
 	}
 
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(peer, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
+	}
+
+	// Table output (default)
 	fmt.Printf("Inspecting Peer: %s (%s)\n", peer.Name, peer.ID)
 	fmt.Println("---------------------------------")
 	fmt.Printf("  IP:          %s\n", peer.IP)
@@ -359,7 +398,7 @@ func (s *Service) modifyPeerGroup(peerID, groupIdentifier, action string) error 
 	if groupIdentifier == "" {
 		fmt.Println("Error: No group identifier specified.")
 		fmt.Println("Listing available groups:")
-		if err := s.listGroups(""); err != nil {
+		if err := s.listGroups("", "table"); err != nil {
 			fmt.Fprintf(os.Stderr, "Could not list groups: %v\n", err)
 		}
 		return fmt.Errorf("missing <group-id> or <group-name> argument for --add-group or --remove-group")
@@ -453,7 +492,7 @@ func (s *Service) updatePeer(peerID string, updates models.PeerUpdateRequest) er
 	return nil
 }
 
-func (s *Service) getAccessiblePeers(peerID string) error {
+func (s *Service) getAccessiblePeers(peerID, outputFormat string) error {
 	endpoint := "/peers/" + peerID + "/accessible-peers"
 	resp, err := s.Client.MakeRequest("GET", endpoint, nil)
 	if err != nil {
@@ -467,10 +506,25 @@ func (s *Service) getAccessiblePeers(peerID string) error {
 	}
 
 	if len(accessiblePeers) == 0 {
-		fmt.Println("This peer cannot access any other peers.")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("This peer cannot access any other peers.")
+		}
 		return nil
 	}
 
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(accessiblePeers, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
+	}
+
+	// Table output (default)
 	fmt.Printf("Peers accessible from %s:\n\n", peerID)
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)

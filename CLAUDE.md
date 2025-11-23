@@ -336,6 +336,30 @@ w.Flush()
 - Errors: `fmt.Fprintln(os.Stderr, "Error: message")` → stderr
 - Success: `fmt.Println("✓ Operation successful")` → stdout
 
+**JSON Output Mode:**
+All list and inspect commands support `--output json` for machine-readable output:
+```bash
+# JSON output for any command
+netbird-manage peer --list --output json
+netbird-manage group --inspect "group-id" --output json
+netbird-manage policy --list --output json
+```
+
+**Implementation pattern:**
+```go
+outputFlag := cmd.String("output", "table", "Output format: table or json")
+// ...
+if outputFormat == "json" {
+    output, err := json.MarshalIndent(data, "", "  ")
+    if err != nil {
+        return fmt.Errorf("failed to marshal JSON: %v", err)
+    }
+    fmt.Println(string(output))
+    return nil
+}
+// Table output follows...
+```
+
 ### Confirmation Prompts
 
 **All destructive operations require user confirmation** to prevent accidental data loss. The CLI implements two types of confirmation prompts:
@@ -1151,7 +1175,7 @@ This section tracks the implementation status of CLI features and planned enhanc
 **✅ Phase 3: Monitoring & Analytics (COMPLETED)**
 7. ✅ Events (audit logs and network traffic monitoring)
 8. ✅ Geo-Locations (country/city data for posture checks)
-9. ✅ JSON output mode (implemented for events and geo-locations)
+9. ✅ JSON output mode (now expanded to ALL commands)
 
 **✅ Phase 4: Account & Advanced Peer Features (COMPLETED)**
 10. ✅ Peer update operations (SSH, login expiration, IP address)
@@ -1194,8 +1218,24 @@ This section tracks the implementation status of CLI features and planned enhanc
    - Generates `netbird up` commands with proper hostname and management URL
    - Zero external dependencies
 
-**Phase 8: Developer Experience**
-20. ❌ Shell completion - Tab completion for bash/zsh/fish
+**✅ Phase 8: Output & Filtering Improvements (COMPLETED)**
+20. ✅ Universal JSON output - `--output json` flag for all list/inspect commands
+   - Added to all 14 resource commands: peers, groups, networks, policies, setup-keys, users, tokens, routes, dns, posture-checks, accounts, events, geo-locations, ingress-ports
+   - Consistent implementation pattern across all commands
+   - Machine-readable output for scripting and automation
+
+21. ✅ Server-side filtering for peers - API query parameters
+   - `--filter-name` uses API `name` query parameter
+   - `--filter-ip` uses API `ip` query parameter
+   - Falls back to local pattern matching for wildcards
+
+22. ✅ Extended route model - Additional API fields
+   - `domains` - Support for domain-based routing (up to 32 domains)
+   - `keep_route` - Keep route configuration
+   - `access_control_groups` - Optional access control groups
+
+**Phase 9: Developer Experience**
+23. ❌ Shell completion - Tab completion for bash/zsh/fish
 
 ### Implementation Notes
 

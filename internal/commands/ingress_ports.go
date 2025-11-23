@@ -36,6 +36,9 @@ func (s *Service) HandleIngressPortsCommand(args []string) error {
 	protocolFlag := ingressPortCmd.String("protocol", "tcp", "Protocol (tcp or udp)")
 	descriptionFlag := ingressPortCmd.String("description", "", "Port allocation description")
 
+	// Output format
+	outputFlag := ingressPortCmd.String("output", "table", "Output format: table or json")
+
 	// If no flags are provided (just 'netbird-manage ingress-port'), show usage
 	if len(args) == 1 {
 		PrintIngressPortUsage()
@@ -53,14 +56,14 @@ func (s *Service) HandleIngressPortsCommand(args []string) error {
 		if *peerFlag == "" {
 			return fmt.Errorf("--peer is required for --list")
 		}
-		return s.listIngressPorts(*peerFlag)
+		return s.listIngressPorts(*peerFlag, *outputFlag)
 	}
 
 	if *inspectFlag != "" {
 		if *peerFlag == "" {
 			return fmt.Errorf("--peer is required for --inspect")
 		}
-		return s.inspectIngressPort(*peerFlag, *inspectFlag)
+		return s.inspectIngressPort(*peerFlag, *inspectFlag, *outputFlag)
 	}
 
 	if *createFlag {
@@ -134,6 +137,9 @@ func (s *Service) HandleIngressPeersCommand(args []string) error {
 	locationFlag := ingressPeerCmd.String("location", "", "Geographic location")
 	enabledFlag := ingressPeerCmd.String("enabled", "", "Enable/disable ingress peer (true/false)")
 
+	// Output format
+	outputFlag := ingressPeerCmd.String("output", "table", "Output format: table or json")
+
 	// If no flags are provided (just 'netbird-manage ingress-peer'), show usage
 	if len(args) == 1 {
 		PrintIngressPeerUsage()
@@ -148,11 +154,11 @@ func (s *Service) HandleIngressPeersCommand(args []string) error {
 
 	// Handle the flags
 	if *listFlag {
-		return s.listIngressPeers()
+		return s.listIngressPeers(*outputFlag)
 	}
 
 	if *inspectFlag != "" {
-		return s.inspectIngressPeer(*inspectFlag)
+		return s.inspectIngressPeer(*inspectFlag, *outputFlag)
 	}
 
 	if *createFlag {
@@ -207,7 +213,7 @@ func (s *Service) HandleIngressPeersCommand(args []string) error {
 }
 
 // listIngressPorts lists all port allocations for a peer
-func (s *Service) listIngressPorts(peerID string) error {
+func (s *Service) listIngressPorts(peerID string, outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/peers/"+peerID+"/ingress/ports", nil)
 	if err != nil {
 		return err
@@ -221,6 +227,16 @@ func (s *Service) listIngressPorts(peerID string) error {
 
 	if len(allocations) == 0 {
 		fmt.Println("No ingress port allocations found for this peer")
+		return nil
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(allocations, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
 		return nil
 	}
 
@@ -248,7 +264,7 @@ func (s *Service) listIngressPorts(peerID string) error {
 }
 
 // inspectIngressPort shows detailed information about a port allocation
-func (s *Service) inspectIngressPort(peerID, allocationID string) error {
+func (s *Service) inspectIngressPort(peerID, allocationID string, outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/peers/"+peerID+"/ingress/ports/"+allocationID, nil)
 	if err != nil {
 		return err
@@ -258,6 +274,16 @@ func (s *Service) inspectIngressPort(peerID, allocationID string) error {
 	var allocation models.IngressPortAllocation
 	if err := json.NewDecoder(resp.Body).Decode(&allocation); err != nil {
 		return fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(allocation, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
 	}
 
 	// Display allocation details
@@ -364,7 +390,7 @@ func (s *Service) deleteIngressPort(peerID, allocationID string) error {
 }
 
 // listIngressPeers lists all ingress peers
-func (s *Service) listIngressPeers() error {
+func (s *Service) listIngressPeers(outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/ingress/peers", nil)
 	if err != nil {
 		return err
@@ -378,6 +404,16 @@ func (s *Service) listIngressPeers() error {
 
 	if len(peers) == 0 {
 		fmt.Println("No ingress peers found")
+		return nil
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(peers, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
 		return nil
 	}
 
@@ -409,7 +445,7 @@ func (s *Service) listIngressPeers() error {
 }
 
 // inspectIngressPeer shows detailed information about an ingress peer
-func (s *Service) inspectIngressPeer(ingressPeerID string) error {
+func (s *Service) inspectIngressPeer(ingressPeerID string, outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/ingress/peers/"+ingressPeerID, nil)
 	if err != nil {
 		return err
@@ -419,6 +455,16 @@ func (s *Service) inspectIngressPeer(ingressPeerID string) error {
 	var peer models.IngressPeer
 	if err := json.NewDecoder(resp.Body).Decode(&peer); err != nil {
 		return fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(peer, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
 	}
 
 	// Display ingress peer details

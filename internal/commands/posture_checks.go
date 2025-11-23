@@ -32,6 +32,7 @@ func (s *Service) HandlePostureChecksCommand(args []string) error {
 	inspectFlag := postureCmd.String("inspect", "", "Inspect a posture check by ID")
 	filterName := postureCmd.String("filter-name", "", "Filter by name pattern")
 	filterType := postureCmd.String("filter-type", "", "Filter by check type")
+	outputFlag := postureCmd.String("output", "table", "Output format: table or json")
 
 	// Create flags
 	createFlag := postureCmd.String("create", "", "Create a new posture check with the given name")
@@ -92,7 +93,7 @@ func (s *Service) HandlePostureChecksCommand(args []string) error {
 
 	// Inspect posture check
 	if *inspectFlag != "" {
-		return s.inspectPostureCheck(*inspectFlag)
+		return s.inspectPostureCheck(*inspectFlag, *outputFlag)
 	}
 
 	// List posture checks
@@ -101,7 +102,7 @@ func (s *Service) HandlePostureChecksCommand(args []string) error {
 			NamePattern: *filterName,
 			CheckType:   *filterType,
 		}
-		return s.listPostureChecks(filters)
+		return s.listPostureChecks(filters, *outputFlag)
 	}
 
 	// If no known flag was used
@@ -111,7 +112,7 @@ func (s *Service) HandlePostureChecksCommand(args []string) error {
 }
 
 // listPostureChecks implements the "posture-check --list" command
-func (s *Service) listPostureChecks(filters *PostureCheckFilters) error {
+func (s *Service) listPostureChecks(filters *PostureCheckFilters, outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/posture-checks", nil)
 	if err != nil {
 		return err
@@ -147,6 +148,16 @@ func (s *Service) listPostureChecks(filters *PostureCheckFilters) error {
 		return nil
 	}
 
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(filtered, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
+	}
+
 	// Print a formatted table
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "ID\tNAME\tTYPE\tDESCRIPTION")
@@ -173,7 +184,7 @@ func (s *Service) listPostureChecks(filters *PostureCheckFilters) error {
 }
 
 // inspectPostureCheck implements the "posture-check --inspect" command
-func (s *Service) inspectPostureCheck(checkID string) error {
+func (s *Service) inspectPostureCheck(checkID string, outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/posture-checks/"+checkID, nil)
 	if err != nil {
 		return err
@@ -183,6 +194,16 @@ func (s *Service) inspectPostureCheck(checkID string) error {
 	var check models.PostureCheck
 	if err := json.NewDecoder(resp.Body).Decode(&check); err != nil {
 		return fmt.Errorf("failed to decode posture check response: %v", err)
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(check, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
 	}
 
 	// Print detailed posture check information

@@ -66,6 +66,9 @@ func (s *Service) HandlePoliciesCommand(args []string) error {
 	removeRuleFlag := policyCmd.String("remove-rule", "", "Remove a rule by name or ID (requires --policy-id)")
 	policyIDFlag := policyCmd.String("policy-id", "", "Target policy ID for rule operations")
 
+	// Output format flag
+	outputFlag := policyCmd.String("output", "table", "Output format: table or json")
+
 	// Rule configuration flags
 	ruleNameFlag := policyCmd.String("rule-name", "", "Rule name")
 	ruleDescFlag := policyCmd.String("rule-description", "", "Rule description")
@@ -188,7 +191,7 @@ func (s *Service) HandlePoliciesCommand(args []string) error {
 
 	// Inspect policy
 	if *inspectFlag != "" {
-		return s.inspectPolicy(*inspectFlag)
+		return s.inspectPolicy(*inspectFlag, *outputFlag)
 	}
 
 	// List policies (with optional filtering)
@@ -198,7 +201,7 @@ func (s *Service) HandlePoliciesCommand(args []string) error {
 			DisabledOnly: *disabledFilterFlag,
 			NameFilter:   *nameFilterFlag,
 		}
-		return s.listPolicies(filters)
+		return s.listPolicies(filters, *outputFlag)
 	}
 
 	// If no known flag was used
@@ -208,7 +211,7 @@ func (s *Service) HandlePoliciesCommand(args []string) error {
 }
 
 // listPolicies implements the "policy --list" command
-func (s *Service) listPolicies(filters *policyFilters) error {
+func (s *Service) listPolicies(filters *policyFilters, outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/policies", nil)
 	if err != nil {
 		return err
@@ -241,6 +244,16 @@ func (s *Service) listPolicies(filters *policyFilters) error {
 
 	if len(filteredPolicies) == 0 {
 		fmt.Println("No policies found.")
+		return nil
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(filteredPolicies, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
 		return nil
 	}
 
@@ -279,7 +292,7 @@ func (s *Service) listPolicies(filters *policyFilters) error {
 }
 
 // inspectPolicy implements the "policy --inspect" command
-func (s *Service) inspectPolicy(policyID string) error {
+func (s *Service) inspectPolicy(policyID, outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/policies/"+policyID, nil)
 	if err != nil {
 		return err
@@ -289,6 +302,16 @@ func (s *Service) inspectPolicy(policyID string) error {
 	var policy models.Policy
 	if err := json.NewDecoder(resp.Body).Decode(&policy); err != nil {
 		return fmt.Errorf("failed to decode policy response: %v", err)
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(policy, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
 	}
 
 	// Print detailed policy information

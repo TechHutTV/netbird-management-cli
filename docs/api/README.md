@@ -18,33 +18,26 @@ Complete reference documentation for the NetBird Management API, organized for A
 
 ### ✅ Fully Implemented in CLI
 
-These resources have complete implementation in the netbird-manage CLI:
+All 14 NetBird API resource types are fully implemented in the CLI:
 
 | Resource | Documentation | CLI Commands | Coverage |
 |----------|---------------|--------------|----------|
-| **Peers** | [peers.md](resources/peers.md) | `peer --list`, `--inspect`, `--update`, `--remove`, `--accessible-peers`, `--edit` | 5/5 endpoints |
-| **Groups** | [groups.md](resources/groups.md) | `group --list`, `--inspect`, `--create`, `--delete`, `--rename`, `--add-peers`, `--remove-peers` | 5/5 endpoints |
-| **Networks** | [networks.md](resources/networks.md) | `network` (full CRUD + resources + routers) | 12/12 endpoints |
-| **Policies** | [policies.md](resources/policies.md) | `policy` (full CRUD + rule management) | 5/5 endpoints |
-| **Setup Keys** | [setup-keys.md](resources/setup-keys.md) | `setup-key --list`, `--inspect`, `--create`, `--quick`, `--delete`, `--revoke`, `--enable`, `--update-groups` | 5/5 endpoints |
-| **Users** | [users.md](resources/users.md) | `user --list`, `--me`, `--invite`, `--update`, `--remove`, `--resend-invite` | 6/6 endpoints |
-| **Tokens** | [tokens.md](resources/tokens.md) | `token --list`, `--inspect`, `--create`, `--revoke` | 4/4 endpoints |
-| **Routes** | [routes.md](resources/routes.md) | `route --list`, `--inspect`, `--create`, `--update`, `--delete`, `--enable`, `--disable` | 5/5 endpoints |
-| **DNS** | [dns.md](resources/dns.md) | `dns --list`, `--inspect`, `--create`, `--update`, `--delete`, `--enable`, `--disable`, `--get-settings`, `--update-settings` | 6/6 endpoints |
-| **Posture Checks** | [posture-checks.md](resources/posture-checks.md) | `posture-check --list`, `--inspect`, `--create`, `--update`, `--delete` (5 check types) | 5/5 endpoints |
+| **Peers** | [peers.md](resources/peers.md) | `peer --list`, `--inspect`, `--update`, `--remove`, `--accessible-peers`, `--edit`, `--output json` | 5/5 endpoints |
+| **Groups** | [groups.md](resources/groups.md) | `group --list`, `--inspect`, `--create`, `--delete`, `--rename`, `--add-peers`, `--remove-peers`, `--output json` | 5/5 endpoints |
+| **Networks** | [networks.md](resources/networks.md) | `network` (full CRUD + resources + routers), `--output json` | 12/12 endpoints |
+| **Policies** | [policies.md](resources/policies.md) | `policy` (full CRUD + rule management), `--output json` | 5/5 endpoints |
+| **Setup Keys** | [setup-keys.md](resources/setup-keys.md) | `setup-key --list`, `--inspect`, `--create`, `--quick`, `--delete`, `--revoke`, `--enable`, `--update-groups`, `--output json` | 5/5 endpoints |
+| **Users** | [users.md](resources/users.md) | `user --list`, `--me`, `--invite`, `--update`, `--remove`, `--resend-invite`, `--output json` | 6/6 endpoints |
+| **Tokens** | [tokens.md](resources/tokens.md) | `token --list`, `--inspect`, `--create`, `--revoke`, `--output json` | 4/4 endpoints |
+| **Routes** | [routes.md](resources/routes.md) | `route --list`, `--inspect`, `--create`, `--update`, `--delete`, `--enable`, `--disable`, `--output json` | 5/5 endpoints |
+| **DNS** | [dns.md](resources/dns.md) | `dns --list`, `--inspect`, `--create`, `--update`, `--delete`, `--enable`, `--disable`, `--get-settings`, `--update-settings`, `--output json` | 6/6 endpoints |
+| **Posture Checks** | [posture-checks.md](resources/posture-checks.md) | `posture-check --list`, `--inspect`, `--create`, `--update`, `--delete` (5 check types), `--output json` | 5/5 endpoints |
+| **Accounts** | [accounts.md](resources/accounts.md) | `account --list`, `--inspect`, `--update`, `--delete`, `--output json` | 4/4 endpoints |
+| **Events** | [events.md](resources/events.md) | `event --audit`, `--traffic` (with filters), `--output json` | 2/2 endpoints |
+| **Geo-Locations** | [geo-locations.md](resources/geo-locations.md) | `geo --countries`, `--cities`, `--output json` | 2/2 endpoints |
+| **Ingress Ports** | [ingress-ports.md](resources/ingress-ports.md) | `ingress-port` and `ingress-peer` (Cloud-only), `--output json` | 10/10 endpoints |
 
-**Total API Coverage: 10/14 resource types (71%)** - 58 total endpoints implemented
-
-### ❌ Not Yet Implemented
-
-These resources are documented but not yet implemented in the CLI (planned for future releases):
-
-| Resource | Documentation | Planned Features |
-|----------|---------------|------------------|
-| **Accounts** | [accounts.md](resources/accounts.md) | Account settings, configuration (3 endpoints) |
-| **Events** | [events.md](resources/events.md) | Audit logs, traffic monitoring (2 endpoints) |
-| **Geo-Locations** | [geo-locations.md](resources/geo-locations.md) | Location data for policies (2 endpoints) |
-| **Ingress Ports** | [ingress-ports.md](resources/ingress-ports.md) | Port forwarding - NetBird Cloud only (10 endpoints) |
+**Total API Coverage: 14/14 resource types (100%)** 🎉 - 75 total endpoints implemented
 
 ## API Base URLs
 
@@ -174,6 +167,24 @@ DELETE /policies/{id}         → client.deletePolicy()        → policies.go
 
 # Plus: Setup Keys, Users, Tokens, Routes, DNS, Posture Checks
 # See individual resource docs for details
+
+# Accounts (4/4 endpoints)
+GET /accounts                 → client.listAccounts()        → accounts.go
+GET /accounts/{id}            → client.inspectAccount()      → accounts.go
+PUT /accounts/{id}            → client.updateAccount()       → accounts.go
+DELETE /accounts/{id}         → client.deleteAccount()       → accounts.go
+
+# Events (2/2 endpoints)
+GET /events/audit             → client.listAuditEvents()     → events.go
+GET /events/network-traffic   → client.listTrafficEvents()   → events.go
+
+# Geo-Locations (2/2 endpoints)
+GET /locations/countries      → client.listCountries()       → geo_locations.go
+GET /locations/countries/{c}/cities → client.listCities()    → geo_locations.go
+
+# Ingress Ports (10/10 endpoints - Cloud only)
+GET /peers/{id}/ingress/ports → client.listIngressPorts()    → ingress_ports.go
+# ... plus 9 more endpoints for ports and ingress peers
 ```
 
 ## External Resources
@@ -185,10 +196,10 @@ DELETE /policies/{id}         → client.deletePolicy()        → policies.go
 
 ## Document Status
 
-- **Last Updated:** 2025-11-15
+- **Last Updated:** 2025-11-23
 - **API Version:** v1 (Beta)
-- **Documentation Version:** 1.0
-- **CLI Compatibility:** netbird-manage v0.1 (current codebase)
+- **Documentation Version:** 2.0
+- **CLI Compatibility:** netbird-manage v0.2 (100% API coverage)
 
 ## Contributing
 

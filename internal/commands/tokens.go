@@ -21,6 +21,7 @@ func (s *Service) HandleTokensCommand(args []string) error {
 	// Query flags
 	listFlag := tokenCmd.Bool("list", false, "List all personal access tokens")
 	inspectFlag := tokenCmd.String("inspect", "", "Inspect token by ID")
+	outputFlag := tokenCmd.String("output", "table", "Output format: table or json")
 
 	// Create flags
 	createFlag := tokenCmd.Bool("create", false, "Create a new personal access token")
@@ -51,11 +52,11 @@ func (s *Service) HandleTokensCommand(args []string) error {
 
 	// Handle commands
 	if *listFlag {
-		return s.listTokens(targetUserID)
+		return s.listTokens(targetUserID, *outputFlag)
 	}
 
 	if *inspectFlag != "" {
-		return s.inspectToken(targetUserID, *inspectFlag)
+		return s.inspectToken(targetUserID, *inspectFlag, *outputFlag)
 	}
 
 	if *createFlag {
@@ -97,7 +98,7 @@ func (s *Service) getCurrentUserID() (string, error) {
 }
 
 // listTokens lists all personal access tokens for a user
-func (s *Service) listTokens(userID string) error {
+func (s *Service) listTokens(userID string, outputFormat string) error {
 	endpoint := fmt.Sprintf("/users/%s/tokens", userID)
 
 	resp, err := s.Client.MakeRequest("GET", endpoint, nil)
@@ -113,6 +114,16 @@ func (s *Service) listTokens(userID string) error {
 
 	if len(tokens) == 0 {
 		fmt.Println("No tokens found")
+		return nil
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(tokens, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
 		return nil
 	}
 
@@ -141,7 +152,7 @@ func (s *Service) listTokens(userID string) error {
 }
 
 // inspectToken shows detailed information about a specific token
-func (s *Service) inspectToken(userID, tokenID string) error {
+func (s *Service) inspectToken(userID, tokenID string, outputFormat string) error {
 	endpoint := fmt.Sprintf("/users/%s/tokens/%s", userID, tokenID)
 
 	resp, err := s.Client.MakeRequest("GET", endpoint, nil)
@@ -153,6 +164,16 @@ func (s *Service) inspectToken(userID, tokenID string) error {
 	var token models.PersonalAccessToken
 	if err := json.NewDecoder(resp.Body).Decode(&token); err != nil {
 		return fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(token, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
 	}
 
 	fmt.Printf("Token ID:         %s\n", token.ID)
