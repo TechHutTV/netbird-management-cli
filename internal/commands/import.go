@@ -20,18 +20,22 @@ type ImportContext struct {
 	Service *Service
 
 	// Flags
-	Apply         bool
-	Update        bool
-	SkipExisting  bool
-	Force         bool
-	Verbose       bool
-	GroupsOnly    bool
-	PoliciesOnly  bool
-	NetworksOnly  bool
-	RoutesOnly    bool
-	DNSOnly       bool
-	PostureOnly   bool
-	SetupKeysOnly bool
+	Apply            bool
+	Update           bool
+	SkipExisting     bool
+	Force            bool
+	Verbose          bool
+	SkipMissingPeers bool
+	GroupsOnly       bool
+	PoliciesOnly     bool
+	NetworksOnly     bool
+	RoutesOnly       bool
+	DNSOnly          bool
+	PostureOnly      bool
+	SetupKeysOnly    bool
+
+	// Warnings for skipped items
+	SkippedPeers []string
 
 	// State mappings (name -> ID)
 	GroupNameToID        map[string]string
@@ -72,6 +76,7 @@ func (s *Service) HandleImportCommand(args []string) error {
 	skipFlag := importCmd.Bool("skip-existing", false, "Skip resources that already exist")
 	forceFlag := importCmd.Bool("force", false, "Create or update all resources (upsert)")
 	verboseFlag := importCmd.Bool("verbose", false, "Show detailed output")
+	skipMissingPeersFlag := importCmd.Bool("skip-missing-peers", false, "Create groups without peers that don't exist yet")
 
 	groupsOnlyFlag := importCmd.Bool("groups-only", false, "Import only groups")
 	policiesOnlyFlag := importCmd.Bool("policies-only", false, "Import only policies")
@@ -107,6 +112,7 @@ func (s *Service) HandleImportCommand(args []string) error {
 		SkipExisting:         *skipFlag,
 		Force:                *forceFlag,
 		Verbose:              *verboseFlag,
+		SkipMissingPeers:     *skipMissingPeersFlag,
 		GroupsOnly:           *groupsOnlyFlag,
 		PoliciesOnly:         *policiesOnlyFlag,
 		NetworksOnly:         *networksOnlyFlag,
@@ -638,6 +644,7 @@ func (ctx *ImportContext) updateGroup(name, groupID string, data map[string]inte
 }
 
 // resolvePeerNames resolves peer names to IDs
+// When SkipMissingPeers is true, unknown peers are skipped with a warning
 func (ctx *ImportContext) resolvePeerNames(peersInterface interface{}) ([]string, error) {
 	if peersInterface == nil {
 		return []string{}, nil
@@ -657,7 +664,12 @@ func (ctx *ImportContext) resolvePeerNames(peersInterface interface{}) ([]string
 
 		peerID, exists := ctx.PeerNameToID[peerName]
 		if !exists {
-			return nil, fmt.Errorf("peer '%s' not found (peers must be registered first)", peerName)
+			if ctx.SkipMissingPeers {
+				// Track the skipped peer for warnings
+				ctx.SkippedPeers = append(ctx.SkippedPeers, peerName)
+				continue
+			}
+			return nil, fmt.Errorf("peer '%s' not found (peers must be registered first, or use --skip-missing-peers)", peerName)
 		}
 
 		peerIDs = append(peerIDs, peerID)
@@ -1281,6 +1293,28 @@ func (ctx *ImportContext) printSummary() {
 		for i, fail := range ctx.Failed {
 			fmt.Printf("  %d. %s: %v\n", i+1, fail.Resource, fail.Error)
 		}
+	}
+
+	// Show warnings for skipped peers
+	if len(ctx.SkippedPeers) > 0 {
+		// Deduplicate peer names
+		seen := make(map[string]bool)
+		uniquePeers := []string{}
+		for _, peer := range ctx.SkippedPeers {
+			if !seen[peer] {
+				seen[peer] = true
+				uniquePeers = append(uniquePeers, peer)
+			}
+		}
+
+		fmt.Println()
+		fmt.Printf("Warnings: %d peers not found (groups created without them)\n", len(uniquePeers))
+		fmt.Println("  These peers can be added to groups after they register:")
+		for _, peer := range uniquePeers {
+			fmt.Printf("    - %s\n", peer)
+		}
+		fmt.Println()
+		fmt.Println("  Tip: Re-run with --update after peers register to add them to groups")
 	}
 
 	fmt.Println()
