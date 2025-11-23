@@ -102,34 +102,7 @@ Response Body:
 - Shows full HTTP method and URL
 - Displays request headers (token redacted for security)
 - Pretty-prints JSON request/response bodies
-- Color-coded status codes (green for success, red for errors)
 - All debug output goes to stderr (keeps stdout clean for scripting)
-
-### Colorized Output
-
-The CLI automatically detects when output is going to a terminal and applies color coding for improved readability:
-
-**Colors used:**
-- **Headers:** Bold cyan
-- **IDs/UUIDs:** Dimmed (less visual noise)
-- **IP addresses:** Cyan
-- **Status:** Green (online/enabled), Red (offline/disabled)
-- **Success messages:** Green with ✓
-- **Errors:** Red with ✗
-- **Warnings:** Yellow with ⚠️
-- **Names:** Bold for emphasis
-- **Counts:** Cyan when > 0, dimmed when 0
-
-**Pipe-friendly:** Colors are automatically disabled when piping output to files or other commands, so scripts won't break:
-
-```bash
-# Terminal: Colorized output
-netbird-manage peer --list
-
-# File/pipe: Plain text (no colors)
-netbird-manage peer --list > peers.txt
-netbird-manage peer --list | grep ubuntu
-```
 
 ### Batch Operations
 
@@ -1832,7 +1805,6 @@ This tool is in active development. The goal is to build a comprehensive and eas
 
 **Quality of Life (Phase 7 - COMPLETED):**
 - ✅ **Batch Operations** - Process multiple resources at once with progress indicators
-- ✅ **Colorized Output** - Improved readability with ANSI color coding and TTY detection
 - ✅ **Debug Mode** - Verbose HTTP request/response logging with `--debug` or `-d` flag
 
 **Migration Tools (Phase 8 - COMPLETED):**

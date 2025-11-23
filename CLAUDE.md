@@ -1176,22 +1176,15 @@ This section tracks the implementation status of CLI features and planned enhanc
    - Uses same confirmation system (confirmBulkDeletion)
    - Zero external dependencies
 
-18. ✅ Colorized output - Improve readability with ANSI color coding
-   - Color scheme: Headers (bold cyan), IDs (dim), Status (green/red), Success/Error/Warning indicators
-   - Applied to peer and group list outputs
-   - Pipe-friendly: Auto-disables when output is not a TTY
-   - Zero external dependencies (pure ANSI escape codes)
-
-19. ✅ Debug mode - Verbose HTTP request/response logging
+18. ✅ Debug mode - Verbose HTTP request/response logging
    - Global `--debug` or `-d` flag (cmd/netbird-manage/main.go)
    - Client.Debug field enables logging in MakeRequest (internal/client/client.go)
    - Shows: HTTP method, URL, headers (token redacted), request/response bodies (pretty-printed JSON)
    - All debug output to stderr (keeps stdout clean for scripting)
-   - Color-coded status codes
    - Zero external dependencies
 
 **✅ Phase 7: Migration Tools (COMPLETED)**
-20. ✅ Peer migration - Migrate peers between NetBird accounts
+19. ✅ Peer migration - Migrate peers between NetBird accounts
    - Implemented in `internal/commands/migrate.go` with dual-client support
    - Single peer migration: `--peer <peer-id>`
    - Batch migration by group: `--group <group-name>`
@@ -1202,7 +1195,7 @@ This section tracks the implementation status of CLI features and planned enhanc
    - Zero external dependencies
 
 **Phase 8: Developer Experience**
-21. ❌ Shell completion - Tab completion for bash/zsh/fish
+20. ❌ Shell completion - Tab completion for bash/zsh/fish
 
 ### Implementation Notes
 
