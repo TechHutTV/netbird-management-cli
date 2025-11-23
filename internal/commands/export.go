@@ -19,11 +19,18 @@ func (s *Service) HandleExportCommand(args []string) error {
 	exportCmd := flag.NewFlagSet("export", flag.ContinueOnError)
 	exportCmd.SetOutput(os.Stderr)
 
-	fullFlag := exportCmd.Bool("full", false, "Export to a single YAML file (default if neither flag specified)")
-	splitFlag := exportCmd.Bool("split", false, "Export to multiple YAML files in a directory")
+	fullFlag := exportCmd.Bool("full", false, "Export to a single file (default if neither flag specified)")
+	splitFlag := exportCmd.Bool("split", false, "Export to multiple files in a directory")
+	formatFlag := exportCmd.String("format", "yaml", "Output format: yaml or json")
 
 	if err := exportCmd.Parse(args[1:]); err != nil {
 		return err
+	}
+
+	// Validate format
+	format := *formatFlag
+	if format != "yaml" && format != "json" {
+		return fmt.Errorf("invalid format '%s': must be 'yaml' or 'json'", format)
 	}
 
 	// Get optional directory argument
@@ -43,14 +50,14 @@ func (s *Service) HandleExportCommand(args []string) error {
 	timestamp := time.Now().Format("060102") // YYMMDD format
 
 	if useSplitMode {
-		return s.exportSplitFiles(directory, timestamp)
+		return s.exportSplitFiles(directory, timestamp, format)
 	}
-	return s.exportFullSingleFile(directory, timestamp)
+	return s.exportFullSingleFile(directory, timestamp, format)
 }
 
-// exportFullSingleFile exports all resources to a single YAML file
-func (s *Service) exportFullSingleFile(directory, timestamp string) error {
-	fmt.Println("Exporting NetBird configuration to single YAML file...")
+// exportFullSingleFile exports all resources to a single file (YAML or JSON)
+func (s *Service) exportFullSingleFile(directory, timestamp, format string) error {
+	fmt.Printf("Exporting NetBird configuration to single %s file...\n", format)
 
 	// Fetch all resources
 	data, err := s.fetchAllResources()
@@ -58,28 +65,26 @@ func (s *Service) exportFullSingleFile(directory, timestamp string) error {
 		return fmt.Errorf("failed to fetch resources: %v", err)
 	}
 
-	// Create output filename
-	filename := fmt.Sprintf("netbird-manage-export-%s.yml", timestamp)
+	// Create output filename with appropriate extension
+	ext := "yml"
+	if format == "json" {
+		ext = "json"
+	}
+	filename := fmt.Sprintf("netbird-manage-export-%s.%s", timestamp, ext)
 	outputPath := filepath.Join(directory, filename)
 
-	// Marshal to YAML
-	yamlData, err := yaml.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal YAML: %v", err)
-	}
-
-	// Write to file
-	if err := os.WriteFile(outputPath, yamlData, 0644); err != nil {
-		return fmt.Errorf("failed to write file: %v", err)
+	// Write to file using the specified format
+	if err := writeDataFile(outputPath, data, format); err != nil {
+		return err
 	}
 
 	fmt.Printf("Export completed: %s\n", outputPath)
 	return nil
 }
 
-// exportSplitFiles exports resources to multiple YAML files in a directory
-func (s *Service) exportSplitFiles(directory, timestamp string) error {
-	fmt.Println("Exporting NetBird configuration to split YAML files...")
+// exportSplitFiles exports resources to multiple files in a directory (YAML or JSON)
+func (s *Service) exportSplitFiles(directory, timestamp, format string) error {
+	fmt.Printf("Exporting NetBird configuration to split %s files...\n", format)
 
 	// Create output directory
 	dirName := fmt.Sprintf("netbird-manage-export-%s", timestamp)
@@ -95,43 +100,51 @@ func (s *Service) exportSplitFiles(directory, timestamp string) error {
 		return fmt.Errorf("failed to fetch resources: %v", err)
 	}
 
-	// Extract metadata for config.yml
+	// Determine file extension
+	ext := "yml"
+	if format == "json" {
+		ext = "json"
+	}
+
+	// Extract metadata for config file
 	metadata := allData["metadata"]
 	configData := map[string]interface{}{
 		"metadata": metadata,
 		"import_order": []string{
-			"groups.yml",
-			"posture-checks.yml",
-			"policies.yml",
-			"routes.yml",
-			"dns.yml",
-			"networks.yml",
-			"setup-keys.yml",
+			fmt.Sprintf("groups.%s", ext),
+			fmt.Sprintf("posture-checks.%s", ext),
+			fmt.Sprintf("policies.%s", ext),
+			fmt.Sprintf("routes.%s", ext),
+			fmt.Sprintf("dns.%s", ext),
+			fmt.Sprintf("networks.%s", ext),
+			fmt.Sprintf("setup-keys.%s", ext),
 		},
 	}
 
-	// Write config.yml
-	if err := writeYAMLFile(filepath.Join(dirPath, "config.yml"), configData); err != nil {
+	// Write config file
+	configFilename := fmt.Sprintf("config.%s", ext)
+	if err := writeDataFile(filepath.Join(dirPath, configFilename), configData, format); err != nil {
 		return err
 	}
-	fmt.Printf("  config.yml\n")
+	fmt.Printf("  %s\n", configFilename)
 
 	// Write individual resource files
 	files := map[string]string{
-		"groups.yml":         "groups",
-		"posture-checks.yml": "posture_checks",
-		"policies.yml":       "policies",
-		"routes.yml":         "routes",
-		"dns.yml":            "dns",
-		"networks.yml":       "networks",
-		"setup-keys.yml":     "setup_keys",
+		"groups":         "groups",
+		"posture-checks": "posture_checks",
+		"policies":       "policies",
+		"routes":         "routes",
+		"dns":            "dns",
+		"networks":       "networks",
+		"setup-keys":     "setup_keys",
 	}
 
-	for filename, key := range files {
+	for baseName, key := range files {
+		filename := fmt.Sprintf("%s.%s", baseName, ext)
 		fileData := map[string]interface{}{
 			key: allData[key],
 		}
-		if err := writeYAMLFile(filepath.Join(dirPath, filename), fileData); err != nil {
+		if err := writeDataFile(filepath.Join(dirPath, filename), fileData, format); err != nil {
 			return err
 		}
 		fmt.Printf("  %s\n", filename)
@@ -141,18 +154,33 @@ func (s *Service) exportSplitFiles(directory, timestamp string) error {
 	return nil
 }
 
-// writeYAMLFile writes data to a YAML file
-func writeYAMLFile(outputPath string, data interface{}) error {
-	yamlData, err := yaml.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal YAML: %v", err)
+// writeDataFile writes data to a file in the specified format (yaml or json)
+func writeDataFile(outputPath string, data interface{}, format string) error {
+	var fileData []byte
+	var err error
+
+	if format == "json" {
+		fileData, err = json.MarshalIndent(data, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+	} else {
+		fileData, err = yaml.Marshal(data)
+		if err != nil {
+			return fmt.Errorf("failed to marshal YAML: %v", err)
+		}
 	}
 
-	if err := os.WriteFile(outputPath, yamlData, 0644); err != nil {
+	if err := os.WriteFile(outputPath, fileData, 0644); err != nil {
 		return fmt.Errorf("failed to write %s: %v", outputPath, err)
 	}
 
 	return nil
+}
+
+// writeYAMLFile writes data to a YAML file (kept for compatibility)
+func writeYAMLFile(outputPath string, data interface{}) error {
+	return writeDataFile(outputPath, data, "yaml")
 }
 
 // fetchAllResources fetches all resources from the API and converts to YAML-friendly map structure
