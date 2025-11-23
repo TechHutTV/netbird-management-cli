@@ -16,6 +16,12 @@ import (
 	"netbird-manage/internal/models"
 )
 
+// isAllGroup checks if a group name is the special "All" system group
+// The "All" group is a reserved group in NetBird that cannot be added to setup keys
+func isAllGroup(name string) bool {
+	return strings.EqualFold(name, "All")
+}
+
 // MigrateOptions holds the configuration for a migration operation
 type MigrateOptions struct {
 	SourceToken  string
@@ -120,7 +126,9 @@ func HandleMigrateCommand(args []string, debug bool) error {
 	migrateRoutes := *migrateConfig || *migrateAll || *migrateRoutesOnly
 	migrateDNS := *migrateConfig || *migrateAll || *migrateDNSOnly
 	migratePosture := *migrateConfig || *migrateAll || *migratePostureOnly
-	migrateSetupKeys := *migrateConfig || *migrateAll || *migrateSetupKeysOnly
+	// Setup keys are only migrated if explicitly requested - they're usually not needed
+	// since peer migration creates new setup keys automatically
+	migrateSetupKeys := *migrateSetupKeysOnly
 
 	opts := MigrateOptions{
 		SourceToken:      *sourceToken,
@@ -152,20 +160,47 @@ func HandleMigrateCommand(args []string, debug bool) error {
 	destClient := client.New(opts.DestToken, opts.DestURL)
 	destClient.Debug = debug
 
-	// Handle configuration migration first if requested
+	// For --all, migrate peers FIRST, then configuration
+	// This ensures peers exist before migrating config that may reference them
+	if *migrateAll {
+		// Migrate all peers first
+		if err := migrateAllPeers(sourceClient, destClient, opts); err != nil {
+			return err
+		}
+
+		// Ask user to confirm before migrating configuration
+		fmt.Println()
+		fmt.Println("================================================")
+		fmt.Println("Peer migration commands have been generated above.")
+		fmt.Println("Please run the commands on each peer to complete migration.")
+		fmt.Println("================================================")
+		fmt.Println()
+
+		if !helpers.ConfirmAction("Continue with configuration migration?") {
+			fmt.Println("Configuration migration skipped.")
+			fmt.Println("You can run configuration migration later with:")
+			fmt.Println("  netbird-manage migrate --source-token <token> --dest-token <token> --config")
+			return nil
+		}
+		fmt.Println()
+
+		// Then migrate configuration
+		if err := migrateConfiguration(sourceClient, destClient, opts); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	// Handle configuration migration if requested (not --all)
 	if isConfigMigration {
 		if err := migrateConfiguration(sourceClient, destClient, opts); err != nil {
 			return err
 		}
 	}
 
-	// Handle peer migration if requested (either standalone or with --all)
-	if isPeerMigration || *migrateAll {
-		// For --all without explicit peer/group, migrate all peers
-		if *migrateAll && !isPeerMigration {
-			return migrateAllPeers(sourceClient, destClient, opts)
-		}
-
+	// Handle peer migration if requested (standalone peer/group migration)
+	if isPeerMigration {
 		if *peerID != "" {
 			return migrateSinglePeer(sourceClient, destClient, opts)
 		}
@@ -200,10 +235,12 @@ func migrateSinglePeer(sourceClient, destClient *client.Client, opts MigrateOpti
 		return fmt.Errorf("failed to connect to destination: %v", err)
 	}
 
-	// Get group names from peer
-	groupNames := make([]string, len(peer.Groups))
-	for i, g := range peer.Groups {
-		groupNames[i] = g.Name
+	// Get group names from peer (excluding the "All" group which can't be added to setup keys)
+	var groupNames []string
+	for _, g := range peer.Groups {
+		if !isAllGroup(g.Name) {
+			groupNames = append(groupNames, g.Name)
+		}
 	}
 
 	// Resolve/create groups in destination
@@ -276,11 +313,13 @@ func migrateGroupPeers(sourceClient, destClient *client.Client, opts MigrateOpti
 		return fmt.Errorf("failed to connect to destination: %v", err)
 	}
 
-	// Collect all unique group names from all peers
+	// Collect all unique group names from all peers (excluding "All" group)
 	allGroupNames := make(map[string]bool)
 	for _, peer := range group.Peers {
 		for _, g := range peer.Groups {
-			allGroupNames[g.Name] = true
+			if !isAllGroup(g.Name) {
+				allGroupNames[g.Name] = true
+			}
 		}
 	}
 
@@ -318,12 +357,14 @@ func migrateGroupPeers(sourceClient, destClient *client.Client, opts MigrateOpti
 	for i, peer := range group.Peers {
 		fmt.Printf("Peer %d/%d: %s\n", i+1, len(group.Peers), peer.Name)
 
-		// Get auto-groups for this peer
+		// Get auto-groups for this peer (excluding "All" group)
 		var autoGroupIDs []string
 		if groupIDMap != nil {
 			for _, g := range peer.Groups {
-				if id, ok := groupIDMap[g.Name]; ok {
-					autoGroupIDs = append(autoGroupIDs, id)
+				if !isAllGroup(g.Name) {
+					if id, ok := groupIDMap[g.Name]; ok {
+						autoGroupIDs = append(autoGroupIDs, id)
+					}
 				}
 			}
 		}
@@ -1066,6 +1107,13 @@ func (ctx *MigrateContext) migrateGroups() error {
 	fmt.Println("Groups:")
 
 	for _, group := range ctx.SourceGroups {
+		// Skip the "All" group - it's a system group that already exists and can't be modified
+		if isAllGroup(group.Name) {
+			fmt.Printf("  SKIP     %s (system group)\n", group.Name)
+			ctx.Skipped = append(ctx.Skipped, "Group "+group.Name+": system group")
+			continue
+		}
+
 		// Check if group exists in destination
 		if existing, exists := ctx.DestGroups[group.Name]; exists {
 			if ctx.Opts.SkipExisting {
@@ -1941,11 +1989,13 @@ func migrateAllPeers(sourceClient, destClient *client.Client, opts MigrateOption
 		return fmt.Errorf("failed to connect to destination: %v", err)
 	}
 
-	// Collect all unique group names from all peers
+	// Collect all unique group names from all peers (excluding "All" group)
 	allGroupNames := make(map[string]bool)
 	for _, peer := range peers {
 		for _, g := range peer.Groups {
-			allGroupNames[g.Name] = true
+			if !isAllGroup(g.Name) {
+				allGroupNames[g.Name] = true
+			}
 		}
 	}
 
@@ -1983,12 +2033,14 @@ func migrateAllPeers(sourceClient, destClient *client.Client, opts MigrateOption
 	for i, peer := range peers {
 		fmt.Printf("Peer %d/%d: %s\n", i+1, len(peers), peer.Name)
 
-		// Get auto-groups for this peer
+		// Get auto-groups for this peer (excluding "All" group)
 		var autoGroupIDs []string
 		if groupIDMap != nil {
 			for _, g := range peer.Groups {
-				if id, ok := groupIDMap[g.Name]; ok {
-					autoGroupIDs = append(autoGroupIDs, id)
+				if !isAllGroup(g.Name) {
+					if id, ok := groupIDMap[g.Name]; ok {
+						autoGroupIDs = append(autoGroupIDs, id)
+					}
 				}
 			}
 		}
@@ -2044,9 +2096,9 @@ func PrintMigrateUsage() {
 	fmt.Println("    --group <group-name>       Migrate all peers in a group")
 	fmt.Println()
 	fmt.Println("  Configuration Migration:")
-	fmt.Println("    --config                   Migrate all configuration (groups, policies, networks,")
-	fmt.Println("                               routes, DNS, posture checks, setup keys)")
-	fmt.Println("    --all                      Migrate everything (config + all peers)")
+	fmt.Println("    --config                   Migrate configuration (groups, policies, networks,")
+	fmt.Println("                               routes, DNS, posture checks)")
+	fmt.Println("    --all                      Migrate peers first, then configuration")
 	fmt.Println()
 	fmt.Println("  Selective Configuration:")
 	fmt.Println("    --groups                   Migrate only groups")
@@ -2055,7 +2107,7 @@ func PrintMigrateUsage() {
 	fmt.Println("    --routes                   Migrate only routes")
 	fmt.Println("    --dns                      Migrate only DNS nameserver groups")
 	fmt.Println("    --posture-checks           Migrate only posture checks")
-	fmt.Println("    --setup-keys               Migrate only setup keys")
+	fmt.Println("    --setup-keys               Migrate setup keys (not included in --config or --all)")
 	fmt.Println()
 	fmt.Println("Configuration Options:")
 	fmt.Println("  --skip-existing              Skip resources that already exist in destination")
