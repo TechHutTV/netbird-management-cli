@@ -1,6 +1,6 @@
 # Binaries for programs and plugins
-netbird-manage
-netbird-manage.exe
+/netbird-manage
+/netbird-manage.exe
 *.exe
 *.exe~
 *.dll

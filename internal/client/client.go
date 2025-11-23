@@ -1,5 +1,5 @@
-// client.go
-package main
+// Package client provides the HTTP client for NetBird API requests
+package client
 
 import (
 	"bytes"
@@ -19,8 +19,8 @@ type Client struct {
 	Debug         bool // Enable verbose debug output
 }
 
-// NewClient creates a new NetBird API client
-func NewClient(token, managementURL string) *Client {
+// New creates a new NetBird API client
+func New(token, managementURL string) *Client {
 	return &Client{
 		Token:         token,
 		ManagementURL: managementURL,
@@ -28,8 +28,8 @@ func NewClient(token, managementURL string) *Client {
 	}
 }
 
-// makeRequest is a helper function to create and send authenticated API requests
-func (c *Client) makeRequest(method, endpoint string, body io.Reader) (*http.Response, error) {
+// MakeRequest is a helper function to create and send authenticated API requests
+func (c *Client) MakeRequest(method, endpoint string, body io.Reader) (*http.Response, error) {
 	url := c.ManagementURL + endpoint
 
 	// Debug: Log request details

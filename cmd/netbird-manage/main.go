@@ -1,10 +1,15 @@
-// netbird-manage.go
+// Package main provides the entry point for the NetBird Management CLI
 package main
 
 import (
 	"flag"
 	"fmt"
 	"os"
+
+	"netbird-manage/internal/client"
+	"netbird-manage/internal/commands"
+	"netbird-manage/internal/config"
+	"netbird-manage/internal/helpers"
 )
 
 var (
@@ -16,7 +21,7 @@ func main() {
 	// Parse command-line arguments
 	args := os.Args[1:]
 	if len(args) == 0 {
-		printUsage()
+		commands.PrintUsage()
 		os.Exit(1)
 	}
 
@@ -24,7 +29,7 @@ func main() {
 	filteredArgs := make([]string, 0, len(args))
 	for _, arg := range args {
 		if arg == "--yes" || arg == "-y" {
-			skipConfirmation = true
+			helpers.SkipConfirmation = true
 		} else if arg == "--debug" || arg == "-d" {
 			debugMode = true
 		} else {
@@ -35,7 +40,7 @@ func main() {
 
 	// Re-check after filtering
 	if len(args) == 0 {
-		printUsage()
+		commands.PrintUsage()
 		os.Exit(1)
 	}
 
@@ -54,64 +59,64 @@ func main() {
 	if len(args) == 1 {
 		switch command {
 		case "peer":
-			printPeerUsage()
+			commands.PrintPeerUsage()
 			os.Exit(0)
 		case "group", "groups":
-			printGroupUsage()
+			commands.PrintGroupUsage()
 			os.Exit(0)
 		case "network":
-			printNetworkUsage()
+			commands.PrintNetworkUsage()
 			os.Exit(0)
 		case "policy":
-			printPolicyUsage()
+			commands.PrintPolicyUsage()
 			os.Exit(0)
 		case "setup-key":
-			printSetupKeyUsage()
+			commands.PrintSetupKeyUsage()
 			os.Exit(0)
 		case "user":
-			printUserUsage()
+			commands.PrintUserUsage()
 			os.Exit(0)
 		case "token":
-			printTokenUsage()
+			commands.PrintTokenUsage()
 			os.Exit(0)
 		case "route":
-			printRouteUsage()
+			commands.PrintRouteUsage()
 			os.Exit(0)
 		case "dns":
-			printDNSUsage()
+			commands.PrintDNSUsage()
 			os.Exit(0)
 		case "posture-check", "posture":
-			printPostureCheckUsage()
+			commands.PrintPostureCheckUsage()
 			os.Exit(0)
 		case "event", "events":
-			printEventUsage()
+			commands.PrintEventUsage()
 			os.Exit(0)
 		case "geo", "geo-location", "location":
-			printGeoLocationUsage()
+			commands.PrintGeoLocationUsage()
 			os.Exit(0)
 		case "account", "accounts":
-			printAccountUsage()
+			commands.PrintAccountUsage()
 			os.Exit(0)
 		case "ingress-port", "ingress":
-			printIngressPortUsage()
+			commands.PrintIngressPortUsage()
 			os.Exit(0)
 		case "ingress-peer":
-			printIngressPeerUsage()
+			commands.PrintIngressPeerUsage()
 			os.Exit(0)
 		case "export":
-			printExportUsage()
+			commands.PrintExportUsage()
 			os.Exit(0)
 		case "import":
-			printImportUsage()
+			commands.PrintImportUsage()
 			os.Exit(0)
 		case "help", "--help":
-			printUsage()
+			commands.PrintUsage()
 			os.Exit(0)
 		}
 	}
 
 	// For all other commands, load the config first
-	config, err := loadConfig()
+	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error: Not connected.")
 		fmt.Fprintln(os.Stderr, "Please run 'netbird-manage connect --token <your_token>'")
@@ -119,102 +124,104 @@ func main() {
 		os.Exit(1)
 	}
 
-	client := NewClient(config.Token, config.ManagementURL)
-	client.Debug = debugMode
+	c := client.New(cfg.Token, cfg.ManagementURL)
+	c.Debug = debugMode
+
+	svc := commands.NewService(c)
 
 	// Route the command to the correct handler
 	switch command {
 	case "peer":
-		if err := handlePeersCommand(client, args); err != nil {
+		if err := svc.HandlePeersCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "network":
-		if err := handleNetworkCommand(client, args); err != nil {
+		if err := svc.HandleNetworkCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "policy":
-		if err := handlePoliciesCommand(client, args); err != nil {
+		if err := svc.HandlePoliciesCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "group", "groups":
-		if err := handleGroupsCommand(client, args); err != nil {
+		if err := svc.HandleGroupsCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "setup-key":
-		if err := handleSetupKeysCommand(client, args); err != nil {
+		if err := svc.HandleSetupKeysCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "user":
-		if err := handleUsersCommand(client, args); err != nil {
+		if err := svc.HandleUsersCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "token":
-		if err := handleTokensCommand(client, args); err != nil {
+		if err := svc.HandleTokensCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "route":
-		if err := handleRoutesCommand(client, args); err != nil {
+		if err := svc.HandleRoutesCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "dns":
-		if err := handleDNSCommand(client, args); err != nil {
+		if err := svc.HandleDNSCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "posture-check", "posture":
-		if err := handlePostureChecksCommand(client, args); err != nil {
+		if err := svc.HandlePostureChecksCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "event", "events":
-		if err := handleEventsCommand(client, args); err != nil {
+		if err := svc.HandleEventsCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "geo", "geo-location", "location":
-		if err := handleGeoLocationsCommand(client, args); err != nil {
+		if err := svc.HandleGeoLocationsCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "account", "accounts":
-		if err := handleAccountsCommand(client, args); err != nil {
+		if err := svc.HandleAccountsCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "ingress-port", "ingress":
-		if err := handleIngressPortsCommand(client, args); err != nil {
+		if err := svc.HandleIngressPortsCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "ingress-peer":
-		if err := handleIngressPeersCommand(client, args); err != nil {
+		if err := svc.HandleIngressPeersCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "export":
-		if err := handleExportCommand(client, args); err != nil {
+		if err := svc.HandleExportCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "import":
-		if err := handleImportCommand(client, args); err != nil {
+		if err := svc.HandleImportCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "help", "--help":
-		printUsage()
+		commands.PrintUsage()
 
 	default:
 		fmt.Fprintf(os.Stderr, "Error: Unknown command '%s'\n", command)
-		printUsage()
+		commands.PrintUsage()
 		os.Exit(1)
 	}
 }
@@ -242,17 +249,17 @@ func handleConnectCommand(args []string) error {
 	// If URL is missing, use default
 	mgmtURL := *urlFlag
 	if mgmtURL == "" {
-		mgmtURL = defaultCloudURL
+		mgmtURL = config.DefaultCloudURL
 	}
 
 	// Test and save the new configuration
-	return testAndSaveConfig(*tokenFlag, mgmtURL)
+	return config.TestAndSave(*tokenFlag, mgmtURL)
 }
 
 // handleConnectStatus shows the current connection status
 func handleConnectStatus() error {
 	fmt.Println("Checking connection status...")
-	config, err := loadConfig()
+	cfg, err := config.Load()
 	if err != nil {
 		fmt.Println("Status: Not connected.")
 		fmt.Println("Run 'netbird-manage connect --token <token>' to connect.")
@@ -260,11 +267,11 @@ func handleConnectStatus() error {
 	}
 
 	fmt.Printf("Status:         Connected\n")
-	fmt.Printf("Management URL: %s\n", config.ManagementURL)
+	fmt.Printf("Management URL: %s\n", cfg.ManagementURL)
 
 	// Try to validate the token
-	client := NewClient(config.Token, config.ManagementURL)
-	resp, err := client.makeRequest("GET", "/peers", nil)
+	c := client.New(cfg.Token, cfg.ManagementURL)
+	resp, err := c.MakeRequest("GET", "/peers", nil)
 	if err != nil {
 		fmt.Printf("Token Status:   Validation Failed (%v)\n", err)
 		return nil

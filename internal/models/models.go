@@ -1,5 +1,5 @@
-// models.go
-package main
+// Package models defines all data types for the NetBird Management CLI
+package models
 
 // Config holds the client configuration
 type Config struct {
@@ -204,7 +204,7 @@ type PolicyUpdateRequest struct {
 
 // PolicyRuleForWrite represents a policy rule for create/update operations (uses string IDs instead of objects)
 type PolicyRuleForWrite struct {
-	ID                  string          `json:"id,omitempty"`  // Include ID for updates, omit for creates
+	ID                  string          `json:"id,omitempty"` // Include ID for updates, omit for creates
 	Name                string          `json:"name"`
 	Description         string          `json:"description,omitempty"`
 	Enabled             bool            `json:"enabled"`
@@ -213,8 +213,8 @@ type PolicyRuleForWrite struct {
 	Protocol            string          `json:"protocol"`
 	Ports               []string        `json:"ports,omitempty"`
 	PortRanges          []PortRange     `json:"port_ranges,omitempty"`
-	Sources             []string        `json:"sources,omitempty"`             // String IDs for updates
-	Destinations        []string        `json:"destinations,omitempty"`        // String IDs for updates
+	Sources             []string        `json:"sources,omitempty"`      // String IDs for updates
+	Destinations        []string        `json:"destinations,omitempty"` // String IDs for updates
 	SourceResource      *PolicyResource `json:"sourceResource,omitempty"`
 	DestinationResource *PolicyResource `json:"destinationResource,omitempty"`
 }
@@ -342,15 +342,15 @@ type RouteRequest struct {
 
 // DNSNameserverGroup represents a DNS nameserver group
 type DNSNameserverGroup struct {
-	ID                   string        `json:"id"`
-	Name                 string        `json:"name"`
-	Description          string        `json:"description,omitempty"`
-	Nameservers          []Nameserver  `json:"nameservers"`
-	Groups               []string      `json:"groups"`
-	Domains              []string      `json:"domains,omitempty"`
-	SearchDomainsEnabled bool          `json:"search_domains_enabled"`
-	Primary              bool          `json:"primary"`
-	Enabled              bool          `json:"enabled"`
+	ID                   string       `json:"id"`
+	Name                 string       `json:"name"`
+	Description          string       `json:"description,omitempty"`
+	Nameservers          []Nameserver `json:"nameservers"`
+	Groups               []string     `json:"groups"`
+	Domains              []string     `json:"domains,omitempty"`
+	SearchDomainsEnabled bool         `json:"search_domains_enabled"`
+	Primary              bool         `json:"primary"`
+	Enabled              bool         `json:"enabled"`
 }
 
 // Nameserver represents a DNS nameserver
@@ -387,11 +387,11 @@ type PostureCheck struct {
 
 // PostureCheckDefinition contains the actual check definitions
 type PostureCheckDefinition struct {
-	NBVersionCheck         *NBVersionCheck         `json:"nb_version_check,omitempty"`
-	OSVersionCheck         *OSVersionCheck         `json:"os_version_check,omitempty"`
-	GeoLocationCheck       *GeoLocationCheck       `json:"geo_location_check,omitempty"`
-	PeerNetworkRangeCheck  *PeerNetworkRangeCheck  `json:"peer_network_range_check,omitempty"`
-	ProcessCheck           *ProcessCheck           `json:"process_check,omitempty"`
+	NBVersionCheck        *NBVersionCheck        `json:"nb_version_check,omitempty"`
+	OSVersionCheck        *OSVersionCheck        `json:"os_version_check,omitempty"`
+	GeoLocationCheck      *GeoLocationCheck      `json:"geo_location_check,omitempty"`
+	PeerNetworkRangeCheck *PeerNetworkRangeCheck `json:"peer_network_range_check,omitempty"`
+	ProcessCheck          *ProcessCheck          `json:"process_check,omitempty"`
 }
 
 // NBVersionCheck checks NetBird version
@@ -547,8 +547,8 @@ type Account struct {
 
 // AccountSettings contains account-wide configuration
 type AccountSettings struct {
-	PeerLoginExpiration      int      `json:"peer_login_expiration"`       // Seconds
-	PeerInactivityExpiration int      `json:"peer_inactivity_expiration"`  // Seconds
+	PeerLoginExpiration      int      `json:"peer_login_expiration"`      // Seconds
+	PeerInactivityExpiration int      `json:"peer_inactivity_expiration"` // Seconds
 	DNSDomain                string   `json:"dns_domain"`
 	NetworkRange             string   `json:"network_range"`
 	JWTGroupsEnabled         bool     `json:"jwt_groups_enabled"`
@@ -556,8 +556,8 @@ type AccountSettings struct {
 	JWTAllowGroups           []string `json:"jwt_allow_groups"`
 	GroupsPropagationEnabled bool     `json:"groups_propagation_enabled"`
 	RegularUsersViewBlocked  bool     `json:"regular_users_view_blocked"`
-	PeerApprovalEnabled      bool     `json:"peer_approval_enabled,omitempty"`  // Cloud-only
-	TrafficLogging           bool     `json:"traffic_logging,omitempty"`        // Cloud-only
+	PeerApprovalEnabled      bool     `json:"peer_approval_enabled,omitempty"` // Cloud-only
+	TrafficLogging           bool     `json:"traffic_logging,omitempty"`       // Cloud-only
 }
 
 // AccountOnboarding tracks signup and onboarding progress
@@ -574,16 +574,16 @@ type AccountUpdateRequest struct {
 
 // IngressPortAllocation represents a port forwarding rule
 type IngressPortAllocation struct {
-	ID          string `json:"id"`
+	ID           string `json:"id"`
 	AllocationID string `json:"allocation_id,omitempty"`
-	PeerID      string `json:"peer_id"`
-	TargetPort  int    `json:"target_port"`
-	PublicPort  int    `json:"public_port,omitempty"` // Assigned by NetBird Cloud
-	Protocol    string `json:"protocol"`              // "tcp" or "udp"
-	Description string `json:"description,omitempty"`
-	CreatedAt   string `json:"created_at,omitempty"`
-	UpdatedAt   string `json:"updated_at,omitempty"`
-	IngressPeer string `json:"ingress_peer,omitempty"` // Ingress peer ID
+	PeerID       string `json:"peer_id"`
+	TargetPort   int    `json:"target_port"`
+	PublicPort   int    `json:"public_port,omitempty"` // Assigned by NetBird Cloud
+	Protocol     string `json:"protocol"`              // "tcp" or "udp"
+	Description  string `json:"description,omitempty"`
+	CreatedAt    string `json:"created_at,omitempty"`
+	UpdatedAt    string `json:"updated_at,omitempty"`
+	IngressPeer  string `json:"ingress_peer,omitempty"` // Ingress peer ID
 }
 
 // IngressPeer represents a global ingress endpoint
