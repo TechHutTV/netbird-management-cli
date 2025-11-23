@@ -55,6 +55,15 @@ func main() {
 		os.Exit(0)
 	}
 
+	// The 'migrate' command is special: it uses its own tokens, not the saved config.
+	if command == "migrate" {
+		if err := commands.HandleMigrateCommand(args, debugMode); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	// Show help without requiring connection if just the command name is provided
 	if len(args) == 1 {
 		switch command {
@@ -108,6 +117,9 @@ func main() {
 			os.Exit(0)
 		case "import":
 			commands.PrintImportUsage()
+			os.Exit(0)
+		case "migrate":
+			commands.PrintMigrateUsage()
 			os.Exit(0)
 		case "help", "--help":
 			commands.PrintUsage()

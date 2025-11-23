@@ -1615,6 +1615,179 @@ Errors:
 - Cannot create peers via YAML (use setup keys instead)
 - Policy rules reference groups by name (automatically resolved)
 
+### Migrate
+
+Migrate peers between NetBird accounts. This command generates migration commands that can be run on peer devices to move them from one NetBird account to another. Running `netbird-manage migrate` by itself will display the help menu.
+
+#### Use Cases
+
+- **Cloud to Self-Hosted Migration**: Move peers from NetBird Cloud to your own self-hosted instance
+- **Self-Hosted to Cloud**: Move peers from self-hosted to NetBird Cloud
+- **Account Consolidation**: Merge multiple NetBird accounts into one
+- **Organization Transfers**: Move network infrastructure between organizations
+
+#### Single Peer Migration
+
+```bash
+# Migrate a single peer between cloud accounts
+netbird-manage migrate \
+  --source-token "nbp_source..." \
+  --dest-token "nbp_dest..." \
+  --peer "abc123def"
+
+# Migrate from cloud to self-hosted
+netbird-manage migrate \
+  --source-token "nbp_cloud..." \
+  --source-url "https://api.netbird.io/api" \
+  --dest-token "nbp_selfhost..." \
+  --dest-url "https://netbird.mycompany.com/api" \
+  --peer "abc123def"
+
+# Migrate from self-hosted to cloud
+netbird-manage migrate \
+  --source-token "nbp_selfhost..." \
+  --source-url "https://netbird.mycompany.com/api" \
+  --dest-token "nbp_cloud..." \
+  --peer "abc123def"
+```
+
+#### Batch Migration (by Group)
+
+```bash
+# Migrate all peers in a group
+netbird-manage migrate \
+  --source-token "nbp_source..." \
+  --dest-token "nbp_dest..." \
+  --group "production-servers"
+
+# Migrate group with custom key expiry
+netbird-manage migrate \
+  --source-token "nbp_source..." \
+  --dest-token "nbp_dest..." \
+  --group "dev-team" \
+  --key-expiry "7d"
+```
+
+#### Example Output
+
+```
+$ netbird-manage migrate \
+    --source-token "nbp_Sxxxx..." \
+    --dest-token "nbp_Dxxxx..." \
+    --dest-url "https://netbird.mycompany.com/api" \
+    --peer "abc123def"
+
+Fetching peer from source account...
+  Source: https://api.netbird.io/api
+
+Source Peer Details:
+  Name:       laptop-dev-01
+  Hostname:   brandon-laptop
+  ID:         abc123def456
+  IP:         100.64.0.15
+  OS:         Linux (Ubuntu 22.04)
+  Version:    0.28.4
+  Groups:     developers, ssh-access, monitoring
+
+Connecting to destination account...
+  Destination: https://netbird.mycompany.com/api
+
+Creating setup key in destination...
+  Key Name:   migrate-laptop-dev-01-20251123
+  Type:       one-off
+  Auto-Groups: developers, ssh-access, monitoring
+  Groups created in destination: monitoring
+
+Setup key created successfully.
+
+========================================================================
+MIGRATION COMMAND - Run this on the peer device:
+========================================================================
+
+  sudo netbird down && sudo netbird up \
+    --setup-key XXXX-XXXX-XXXX-XXXX \
+    --hostname brandon-laptop \
+    --management-url https://netbird.mycompany.com
+
+========================================================================
+
+Notes:
+  - The peer will disconnect from the source network
+  - A new peer ID and IP will be assigned in the destination
+  - The setup key expires in 1 day(s) and is single-use
+  - Old peer entry in source account must be manually removed
+
+To remove the old peer from source after migration:
+  netbird-manage peer --remove abc123def456
+```
+
+#### Batch Migration Output
+
+```
+$ netbird-manage migrate \
+    --source-token "nbp_Sxxxx..." \
+    --dest-token "nbp_Dxxxx..." \
+    --group "old-servers"
+
+Fetching peers in group 'old-servers' from source...
+  Source: https://api.netbird.io/api
+
+Found 3 peers to migrate.
+
+Connecting to destination account...
+  Destination: https://api.netbird.io/api
+
+Peer 1/3: server-web-01
+  Creating setup key... Done
+Peer 2/3: server-db-01
+  Creating setup key... Done
+Peer 3/3: server-cache-01
+  Creating setup key... Done
+
+========================================================================
+MIGRATION COMMANDS - Run on each peer:
+========================================================================
+
+# server-web-01 (100.64.0.20)
+sudo netbird down && sudo netbird up --setup-key AAAA-AAAA-AAAA-AAAA --hostname server-web-01
+
+# server-db-01 (100.64.0.21)
+sudo netbird down && sudo netbird up --setup-key BBBB-BBBB-BBBB-BBBB --hostname server-db-01
+
+# server-cache-01 (100.64.0.22)
+sudo netbird down && sudo netbird up --setup-key CCCC-CCCC-CCCC-CCCC --hostname server-cache-01
+
+========================================================================
+```
+
+#### Flags
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--source-token` | Yes | - | API token for source account |
+| `--source-url` | No | `https://api.netbird.io/api` | Management URL for source |
+| `--dest-token` | Yes | - | API token for destination account |
+| `--dest-url` | No | `https://api.netbird.io/api` | Management URL for destination |
+| `--peer` | Yes* | - | Peer ID to migrate |
+| `--group` | Yes* | - | Migrate all peers in group |
+| `--create-groups` | No | `true` | Create missing groups in destination |
+| `--key-expiry` | No | `24h` | Setup key expiration (e.g., 1h, 24h, 7d) |
+
+*Either `--peer` or `--group` is required.
+
+**What Gets Migrated:**
+- ✅ Hostname (preserved via `--hostname` flag)
+- ✅ Group memberships (groups created in destination if missing)
+- ❌ Peer ID (new one assigned by destination)
+- ❌ IP address (new one assigned by destination network)
+- ❌ Connection history/statistics
+
+**Important Notes:**
+- The peer must be accessible to run the migration command on it
+- Setup keys are single-use and expire after the specified duration
+- The old peer entry in the source account must be manually removed after migration
+- Groups are automatically created in the destination if they don't exist (unless `--create-groups=false`)
+
 ## 🚀 Roadmap
 
 This tool is in active development. The goal is to build a comprehensive and easy-to-use CLI for all NetBird management tasks.
@@ -1659,6 +1832,11 @@ This tool is in active development. The goal is to build a comprehensive and eas
 - ✅ **Batch Operations** - Process multiple resources at once with progress indicators
 - ✅ **Colorized Output** - Improved readability with ANSI color coding and TTY detection
 - ✅ **Debug Mode** - Verbose HTTP request/response logging with `--debug` or `-d` flag
+
+**Migration Tools (Phase 8 - COMPLETED):**
+- ✅ **Peer Migration** - Migrate peers between NetBird accounts (cloud-to-cloud, cloud-to-self-hosted, or self-hosted-to-cloud)
+- ✅ **Batch Migration** - Migrate all peers in a group with a single command
+- ✅ **Auto Group Creation** - Automatically create missing groups in destination account
 
 **API Coverage:** 14/14 NetBird API resource types fully implemented (100%) 🎉
 

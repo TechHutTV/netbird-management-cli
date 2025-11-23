@@ -55,6 +55,7 @@ netbird-management-cli/
 ├── accounts.go          # Account management handlers
 ├── ingress-ports.go     # Ingress port handlers (Cloud-only)
 ├── ingress-peers.go     # Ingress peer handlers (Cloud-only)
+├── migrate.go           # Peer migration between accounts (~450 lines)
 ├── go.mod               # Go module definition
 ├── README.md            # User-facing documentation
 ├── API_REFERENCE.md     # Quick API navigation and reference
@@ -90,6 +91,7 @@ netbird-management-cli/
 | `setup-keys.go` | Setup key operations | `handleSetupKeysCommand()`, `listSetupKeys()`, `deleteSetupKeysBatch()` |
 | `networks.go` | Network operations | `handleNetworksCommand()`, `listNetworks()` |
 | `policies.go` | Policy operations | `handlePoliciesCommand()`, `listPolicies()` |
+| `migrate.go` | Peer migration between accounts | `HandleMigrateCommand()`, `migrateSinglePeer()`, `migrateGroupPeers()`, `createMigrationSetupKey()` |
 
 ---
 
@@ -1142,8 +1144,19 @@ This section tracks the implementation status of CLI features and planned enhanc
    - Color-coded status codes
    - Zero external dependencies
 
-**Phase 7: Developer Experience**
-20. ❌ Shell completion - Tab completion for bash/zsh/fish
+**✅ Phase 7: Migration Tools (COMPLETED)**
+20. ✅ Peer migration - Migrate peers between NetBird accounts
+   - Implemented in `migrate.go` with dual-client support
+   - Single peer migration: `--peer <peer-id>`
+   - Batch migration by group: `--group <group-name>`
+   - Cross-instance support: `--source-url` and `--dest-url` flags
+   - Auto group creation in destination: `--create-groups` flag
+   - Configurable setup key expiry: `--key-expiry` flag
+   - Generates `netbird up` commands with proper hostname and management URL
+   - Zero external dependencies
+
+**Phase 8: Developer Experience**
+21. ❌ Shell completion - Tab completion for bash/zsh/fish
 
 ### Implementation Notes
 
