@@ -64,7 +64,7 @@ netbird-management-cli/
 │       ├── accounts.go          # Account management (~386 lines)
 │       ├── ingress_ports.go     # Ingress ports/peers (Cloud-only) (~522 lines)
 │       ├── migrate.go           # Peer migration between accounts (~623 lines)
-│       ├── export.go            # YAML export functionality (~603 lines)
+│       ├── export.go            # YAML/JSON export functionality (~603 lines)
 │       └── import.go            # YAML import functionality (~1380 lines)
 ├── go.mod                       # Go module definition
 ├── go.sum                       # Dependency checksums
@@ -103,7 +103,7 @@ netbird-management-cli/
 | `internal/commands/policies.go` | Policy and rule operations | `HandlePoliciesCommand()`, `listPolicies()`, `addRule()` |
 | `internal/commands/setup_keys.go` | Setup key operations | `HandleSetupKeysCommand()`, `listSetupKeys()`, `createSetupKey()` |
 | `internal/commands/migrate.go` | Peer migration between accounts | `HandleMigrateCommand()`, `migrateSinglePeer()`, `migrateGroupPeers()` |
-| `internal/commands/export.go` | YAML export functionality | `HandleExportCommand()`, `exportFull()`, `exportSplit()` |
+| `internal/commands/export.go` | YAML/JSON export functionality | `HandleExportCommand()`, `exportFullSingleFile()`, `exportSplitFiles()` |
 | `internal/commands/import.go` | YAML import functionality | `HandleImportCommand()`, `parseYAML()`, `importResources()` |
 
 ---

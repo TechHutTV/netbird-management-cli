@@ -450,18 +450,21 @@ func PrintIngressPeerUsage() {
 
 // PrintExportUsage provides specific help for the 'export' command
 func PrintExportUsage() {
-	fmt.Println("Usage: netbird-manage export [options] [output-file]")
-	fmt.Println("\nExport configuration to YAML file.")
+	fmt.Println("Usage: netbird-manage export [options] [directory]")
+	fmt.Println("\nExport configuration to YAML or JSON file.")
 	fmt.Println("\nOptions:")
-	fmt.Println("  --all                            Export all resources (default)")
-	fmt.Println("  --groups                         Export only groups")
-	fmt.Println("  --policies                       Export only policies")
-	fmt.Println("  --setup-keys                     Export only setup keys")
-	fmt.Println("  --routes                         Export only routes")
-	fmt.Println("  --dns                            Export only DNS configuration")
-	fmt.Println("  --posture-checks                 Export only posture checks")
+	fmt.Println("  --full                           Export to a single file (default)")
+	fmt.Println("  --split                          Export to multiple files in a directory")
+	fmt.Println("  --format <yaml|json>             Output format (default: yaml)")
 	fmt.Println()
-	fmt.Println("If no output file is specified, writes to stdout.")
+	fmt.Println("Examples:")
+	fmt.Println("  netbird-manage export                           # Export to single YAML file")
+	fmt.Println("  netbird-manage export --format json             # Export to single JSON file")
+	fmt.Println("  netbird-manage export --split                   # Export to multiple YAML files")
+	fmt.Println("  netbird-manage export --split --format json     # Export to multiple JSON files")
+	fmt.Println("  netbird-manage export /path/to/dir              # Export to specific directory")
+	fmt.Println()
+	fmt.Println("Output files are named: netbird-manage-export-YYMMDD.{yml,json}")
 }
 
 // PrintImportUsage provides specific help for the 'import' command
