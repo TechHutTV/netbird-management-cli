@@ -284,6 +284,9 @@ func migrateSinglePeer(sourceClient, destClient *client.Client, opts MigrateOpti
 	// Output cleanup command
 	outputCleanupNote(peer, opts)
 
+	// Output config cleanup notice
+	outputConfigCleanupNotice()
+
 	return nil
 }
 
@@ -397,6 +400,9 @@ func migrateGroupPeers(sourceClient, destClient *client.Client, opts MigrateOpti
 	}
 
 	fmt.Println(strings.Repeat("=", 72))
+
+	// Output config cleanup notice
+	outputConfigCleanupNotice()
 
 	return nil
 }
@@ -699,6 +705,40 @@ func outputCleanupNote(peer *models.Peer, opts MigrateOptions) {
 		fmt.Println("  # Then remove the peer:")
 	}
 	fmt.Println(cleanupCmd)
+}
+
+// outputConfigCleanupNotice outputs a notice about cleaning up old NetBird configuration files
+// This is important because existing config files can prevent a peer from connecting to a new management server
+func outputConfigCleanupNotice() {
+	fmt.Println()
+	fmt.Println("⚠️  IMPORTANT: Clean Up Old Configuration")
+	fmt.Println("==========================================")
+	fmt.Println()
+	fmt.Println("Before running the migration command on each peer, you may need to remove")
+	fmt.Println("the existing NetBird configuration files. This is required when migrating")
+	fmt.Println("to a different management server, as old credentials can prevent connection.")
+	fmt.Println()
+	fmt.Println("Linux:")
+	fmt.Println("  sudo netbird down")
+	fmt.Println("  sudo rm -rf /etc/netbird/")
+	fmt.Println("  sudo rm -rf /var/lib/netbird/")
+	fmt.Println("  # Then run the migration command above")
+	fmt.Println()
+	fmt.Println("macOS:")
+	fmt.Println("  sudo netbird down")
+	fmt.Println("  sudo rm -rf /etc/netbird/")
+	fmt.Println("  sudo rm -rf /var/db/netbird/")
+	fmt.Println("  # Then run the migration command above")
+	fmt.Println()
+	fmt.Println("Windows (Run as Administrator):")
+	fmt.Println("  netbird down")
+	fmt.Println("  Remove-Item -Recurse -Force \"C:\\ProgramData\\Netbird\"")
+	fmt.Println("  # Then run the migration command above")
+	fmt.Println()
+	fmt.Println("After running the migration command, restart the NetBird service if needed:")
+	fmt.Println("  Linux/macOS: sudo netbird service restart")
+	fmt.Println("  Windows:     netbird service restart (as Administrator)")
+	fmt.Println()
 }
 
 // MigrateContext holds the state for a configuration migration
@@ -2073,6 +2113,9 @@ func migrateAllPeers(sourceClient, destClient *client.Client, opts MigrateOption
 	}
 
 	fmt.Println(strings.Repeat("=", 72))
+
+	// Output config cleanup notice
+	outputConfigCleanupNotice()
 
 	return nil
 }

@@ -1877,6 +1877,34 @@ Notes:
 
 To remove the old peer from source after migration:
   netbird-manage peer --remove abc123def456
+
+⚠️  IMPORTANT: Clean Up Old Configuration
+==========================================
+
+Before running the migration command on each peer, you may need to remove
+the existing NetBird configuration files. This is required when migrating
+to a different management server, as old credentials can prevent connection.
+
+Linux:
+  sudo netbird down
+  sudo rm -rf /etc/netbird/
+  sudo rm -rf /var/lib/netbird/
+  # Then run the migration command above
+
+macOS:
+  sudo netbird down
+  sudo rm -rf /etc/netbird/
+  sudo rm -rf /var/db/netbird/
+  # Then run the migration command above
+
+Windows (Run as Administrator):
+  netbird down
+  Remove-Item -Recurse -Force "C:\ProgramData\Netbird"
+  # Then run the migration command above
+
+After running the migration command, restart the NetBird service if needed:
+  Linux/macOS: sudo netbird service restart
+  Windows:     netbird service restart (as Administrator)
 ```
 
 #### Flags Reference
@@ -1981,6 +2009,41 @@ netbird-manage --yes peer --remove-batch <old-peer-ids>
 - **Groups are Empty**: When migrating groups via configuration, they are created without peers. Use peer migration to add peers to groups.
 - **Dry Run First**: Always use `--dry-run` to preview changes before applying
 - **Skip Existing**: Use `--skip-existing` to safely re-run migrations after fixing errors
+
+#### Cleaning Up Old Configuration
+
+When migrating peers to a different management server (e.g., from NetBird Cloud to self-hosted, or between different self-hosted instances), you may need to remove the existing NetBird configuration files on each peer before running the migration command. Old credentials and configuration can prevent the peer from connecting to the new management server.
+
+**Linux:**
+```bash
+sudo netbird down
+sudo rm -rf /etc/netbird/
+sudo rm -rf /var/lib/netbird/
+# Then run the migration command
+sudo netbird up --setup-key <key> --hostname <hostname> --management-url <url>
+sudo netbird service restart
+```
+
+**macOS:**
+```bash
+sudo netbird down
+sudo rm -rf /etc/netbird/
+sudo rm -rf /var/db/netbird/
+# Then run the migration command
+sudo netbird up --setup-key <key> --hostname <hostname> --management-url <url>
+sudo netbird service restart
+```
+
+**Windows (Run as Administrator):**
+```powershell
+netbird down
+Remove-Item -Recurse -Force "C:\ProgramData\Netbird"
+# Then run the migration command
+netbird up --setup-key <key> --hostname <hostname> --management-url <url>
+netbird service restart
+```
+
+> **Note:** The cleanup notice is automatically displayed when generating peer migration commands. This cleanup is typically only required when changing management servers; it may not be necessary when migrating between accounts on the same server.
 
 ## 🚀 Roadmap
 
