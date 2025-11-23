@@ -139,7 +139,7 @@ func migrateSinglePeer(sourceClient, destClient *client.Client, opts MigrateOpti
 	fmt.Println("Creating setup key in destination...")
 	keyName := fmt.Sprintf("migrate-%s-%s", peer.Name, time.Now().Format("20060102"))
 
-	expiresIn, err := parseKeyExpiry(opts.KeyExpiry)
+	expiresIn, err := helpers.ParseDuration(opts.KeyExpiry, helpers.MigrationKeyDurationBounds())
 	if err != nil {
 		return fmt.Errorf("invalid key expiry: %v", err)
 	}
@@ -222,7 +222,7 @@ func migrateGroupPeers(sourceClient, destClient *client.Client, opts MigrateOpti
 	}
 
 	// Parse key expiry once
-	expiresIn, err := parseKeyExpiry(opts.KeyExpiry)
+	expiresIn, err := helpers.ParseDuration(opts.KeyExpiry, helpers.MigrationKeyDurationBounds())
 	if err != nil {
 		return fmt.Errorf("invalid key expiry: %v", err)
 	}
@@ -488,57 +488,6 @@ func createMigrationSetupKey(c *client.Client, name string, autoGroups []string,
 	return &key, nil
 }
 
-// parseKeyExpiry converts human-readable duration to seconds
-func parseKeyExpiry(duration string) (int, error) {
-	duration = strings.TrimSpace(strings.ToLower(duration))
-
-	// Extract number and unit
-	var num string
-	var unit string
-
-	for i, char := range duration {
-		if char >= '0' && char <= '9' {
-			num += string(char)
-		} else {
-			unit = duration[i:]
-			break
-		}
-	}
-
-	if num == "" {
-		return 0, fmt.Errorf("no numeric value found in duration: %s", duration)
-	}
-
-	var value int
-	fmt.Sscanf(num, "%d", &value)
-	if value <= 0 {
-		return 0, fmt.Errorf("invalid duration value: %s", num)
-	}
-
-	// Convert to seconds
-	var seconds int
-	switch unit {
-	case "h", "hour", "hours":
-		seconds = value * 3600
-	case "d", "day", "days":
-		seconds = value * 24 * 3600
-	case "w", "week", "weeks":
-		seconds = value * 7 * 24 * 3600
-	default:
-		return 0, fmt.Errorf("unknown duration unit: %s (use h, d, or w)", unit)
-	}
-
-	// Clamp to API limits (1 day to 1 year)
-	if seconds < 86400 {
-		seconds = 86400 // Minimum 1 day
-	}
-	if seconds > 31536000 {
-		seconds = 31536000 // Maximum 1 year
-	}
-
-	return seconds, nil
-}
-
 // displaySourcePeer displays peer details from source
 func displaySourcePeer(peer *models.Peer) {
 	fmt.Println("Source Peer Details:")
@@ -606,7 +555,7 @@ func outputCleanupNote(peer *models.Peer, opts MigrateOptions) {
 	fmt.Println("  - A new peer ID and IP will be assigned in the destination")
 
 	// Calculate expiry
-	expiresIn, _ := parseKeyExpiry(opts.KeyExpiry)
+	expiresIn, _ := helpers.ParseDuration(opts.KeyExpiry, helpers.MigrationKeyDurationBounds())
 	hours := expiresIn / 3600
 	if hours >= 24 {
 		days := hours / 24

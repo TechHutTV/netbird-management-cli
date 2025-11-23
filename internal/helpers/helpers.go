@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -259,4 +260,103 @@ func ReadYesNo() bool {
 
 	fmt.Fprintln(os.Stderr, "Operation cancelled")
 	return false
+}
+
+// DurationBounds specifies optional min/max bounds for duration validation
+type DurationBounds struct {
+	Min         int  // Minimum seconds (0 = no minimum)
+	Max         int  // Maximum seconds (0 = no maximum)
+	ClampToBounds bool // If true, clamp values to bounds instead of returning error
+}
+
+// ParseDuration converts a human-readable duration string to seconds.
+// Supported units: s/sec/second(s), m/min/minute(s), h/hour(s), d/day(s), w/week(s), month(s), y/year(s)
+// Optional bounds parameter can specify min/max constraints.
+// Returns an error if the format is invalid or bounds are exceeded (unless ClampToBounds is true).
+func ParseDuration(duration string, bounds *DurationBounds) (int, error) {
+	duration = strings.TrimSpace(strings.ToLower(duration))
+
+	// Extract numeric value and unit
+	var numStr string
+	var unit string
+
+	for i, char := range duration {
+		if char >= '0' && char <= '9' {
+			numStr += string(char)
+		} else {
+			unit = duration[i:]
+			break
+		}
+	}
+
+	if numStr == "" {
+		return 0, fmt.Errorf("no numeric value found in duration: %s", duration)
+	}
+
+	value, err := strconv.Atoi(numStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid numeric value: %s", numStr)
+	}
+
+	if value <= 0 {
+		return 0, fmt.Errorf("duration must be positive: %d", value)
+	}
+
+	// Convert to seconds based on unit
+	var seconds int
+	switch unit {
+	case "s", "sec", "second", "seconds":
+		seconds = value
+	case "m", "min", "minute", "minutes":
+		seconds = value * 60
+	case "h", "hour", "hours":
+		seconds = value * 3600
+	case "d", "day", "days":
+		seconds = value * 24 * 3600
+	case "w", "week", "weeks":
+		seconds = value * 7 * 24 * 3600
+	case "month", "months":
+		seconds = value * 30 * 24 * 3600
+	case "y", "year", "years":
+		seconds = value * 365 * 24 * 3600
+	default:
+		return 0, fmt.Errorf("unknown duration unit: %s (use s, m, h, d, w, month, or y)", unit)
+	}
+
+	// Apply bounds if specified
+	if bounds != nil {
+		if bounds.Min > 0 && seconds < bounds.Min {
+			if bounds.ClampToBounds {
+				seconds = bounds.Min
+			} else {
+				return 0, fmt.Errorf("duration %d seconds is below minimum %d seconds", seconds, bounds.Min)
+			}
+		}
+		if bounds.Max > 0 && seconds > bounds.Max {
+			if bounds.ClampToBounds {
+				seconds = bounds.Max
+			} else {
+				return 0, fmt.Errorf("duration %d seconds exceeds maximum %d seconds", seconds, bounds.Max)
+			}
+		}
+	}
+
+	return seconds, nil
+}
+
+// SetupKeyDurationBounds returns the bounds for setup key expiration (1 day to 1 year)
+func SetupKeyDurationBounds() *DurationBounds {
+	return &DurationBounds{
+		Min: 86400,    // 1 day
+		Max: 31536000, // 1 year
+	}
+}
+
+// MigrationKeyDurationBounds returns the bounds for migration setup key expiration (clamped)
+func MigrationKeyDurationBounds() *DurationBounds {
+	return &DurationBounds{
+		Min:           86400,    // 1 day
+		Max:           31536000, // 1 year
+		ClampToBounds: true,     // Clamp instead of error
+	}
 }

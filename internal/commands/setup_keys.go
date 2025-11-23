@@ -74,7 +74,7 @@ func (s *Service) HandleSetupKeysCommand(args []string) error {
 	}
 
 	if *createFlag != "" {
-		expiresInSec, err := parseDuration(*expiresInFlag)
+		expiresInSec, err := helpers.ParseDuration(*expiresInFlag, helpers.SetupKeyDurationBounds())
 		if err != nil {
 			return fmt.Errorf("invalid expiration duration: %v", err)
 		}
@@ -131,59 +131,6 @@ func (s *Service) HandleSetupKeysCommand(args []string) error {
 	return nil
 }
 
-// parseDuration converts human-readable duration to seconds
-func parseDuration(duration string) (int, error) {
-	duration = strings.TrimSpace(strings.ToLower(duration))
-
-	// Extract number and unit
-	var num string
-	var unit string
-
-	for i, char := range duration {
-		if char >= '0' && char <= '9' {
-			num += string(char)
-		} else {
-			unit = duration[i:]
-			break
-		}
-	}
-
-	if num == "" {
-		return 0, fmt.Errorf("no numeric value found in duration: %s", duration)
-	}
-
-	value, err := strconv.Atoi(num)
-	if err != nil {
-		return 0, fmt.Errorf("invalid numeric value: %s", num)
-	}
-
-	// Convert to seconds based on unit
-	var seconds int
-	switch unit {
-	case "d", "day", "days":
-		seconds = value * 24 * 3600
-	case "w", "week", "weeks":
-		seconds = value * 7 * 24 * 3600
-	case "m", "month", "months":
-		seconds = value * 30 * 24 * 3600
-	case "y", "year", "years":
-		seconds = value * 365 * 24 * 3600
-	case "h", "hour", "hours":
-		seconds = value * 3600
-	default:
-		return 0, fmt.Errorf("unknown duration unit: %s (use d, w, m, y, or h)", unit)
-	}
-
-	// Validate API constraints (86400-31536000 seconds = 1 day to 1 year)
-	if seconds < 86400 {
-		return 0, fmt.Errorf("expiration must be at least 1 day (got %d seconds)", seconds)
-	}
-	if seconds > 31536000 {
-		return 0, fmt.Errorf("expiration cannot exceed 1 year (got %d seconds)", seconds)
-	}
-
-	return seconds, nil
-}
 
 // formatDuration converts seconds to human-readable duration
 func formatDuration(seconds int) string {
