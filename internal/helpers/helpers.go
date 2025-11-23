@@ -264,8 +264,8 @@ func ReadYesNo() bool {
 
 // DurationBounds specifies optional min/max bounds for duration validation
 type DurationBounds struct {
-	Min         int  // Minimum seconds (0 = no minimum)
-	Max         int  // Maximum seconds (0 = no maximum)
+	Min           int  // Minimum seconds (0 = no minimum)
+	Max           int  // Maximum seconds (0 = no maximum)
 	ClampToBounds bool // If true, clamp values to bounds instead of returning error
 }
 

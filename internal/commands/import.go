@@ -20,17 +20,17 @@ type ImportContext struct {
 	Service *Service
 
 	// Flags
-	Apply        bool
-	Update       bool
-	SkipExisting bool
-	Force        bool
-	Verbose      bool
-	GroupsOnly   bool
-	PoliciesOnly bool
-	NetworksOnly bool
-	RoutesOnly   bool
-	DNSOnly      bool
-	PostureOnly  bool
+	Apply         bool
+	Update        bool
+	SkipExisting  bool
+	Force         bool
+	Verbose       bool
+	GroupsOnly    bool
+	PoliciesOnly  bool
+	NetworksOnly  bool
+	RoutesOnly    bool
+	DNSOnly       bool
+	PostureOnly   bool
 	SetupKeysOnly bool
 
 	// Warnings for peers found in config (cannot be imported)

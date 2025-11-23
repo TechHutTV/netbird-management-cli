@@ -31,6 +31,9 @@ func (s *Service) HandleAccountsCommand(args []string) error {
 	updateFlag := accountCmd.String("update", "", "Update an account by its ID (use with update flags)")
 	deleteFlag := accountCmd.String("delete", "", "Delete an account by its ID")
 
+	// Output flags
+	outputFlag := accountCmd.String("output", "table", "Output format: table or json")
+
 	// Update flags (use with --update)
 	peerLoginExpFlag := accountCmd.String("peer-login-expiration", "", "Peer login expiration (e.g., 24h, 7d)")
 	peerInactivityExpFlag := accountCmd.String("peer-inactivity-expiration", "", "Peer inactivity timeout (e.g., 30d)")
@@ -58,11 +61,11 @@ func (s *Service) HandleAccountsCommand(args []string) error {
 
 	// Handle the flags
 	if *listFlag {
-		return s.listAccounts()
+		return s.listAccounts(*outputFlag)
 	}
 
 	if *inspectFlag != "" {
-		return s.inspectAccount(*inspectFlag)
+		return s.inspectAccount(*inspectFlag, *outputFlag)
 	}
 
 	if *updateFlag != "" {
@@ -92,7 +95,7 @@ func (s *Service) HandleAccountsCommand(args []string) error {
 }
 
 // listAccounts lists all accounts (returns single account)
-func (s *Service) listAccounts() error {
+func (s *Service) listAccounts(outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/accounts", nil)
 	if err != nil {
 		return err
@@ -106,6 +109,16 @@ func (s *Service) listAccounts() error {
 
 	if len(accounts) == 0 {
 		fmt.Println("No accounts found")
+		return nil
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(accounts, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
 		return nil
 	}
 
@@ -154,7 +167,7 @@ func (s *Service) listAccounts() error {
 }
 
 // inspectAccount shows detailed information about an account
-func (s *Service) inspectAccount(accountID string) error {
+func (s *Service) inspectAccount(accountID string, outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/accounts/"+accountID, nil)
 	if err != nil {
 		return err
@@ -164,6 +177,16 @@ func (s *Service) inspectAccount(accountID string) error {
 	var account models.Account
 	if err := json.NewDecoder(resp.Body).Decode(&account); err != nil {
 		return fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(account, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
 	}
 
 	// Display account details
@@ -383,4 +406,3 @@ func formatSeconds(seconds int) string {
 
 	return duration.String()
 }
-

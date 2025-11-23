@@ -18,15 +18,15 @@ import (
 
 // MigrateOptions holds the configuration for a migration operation
 type MigrateOptions struct {
-	SourceToken string
-	SourceURL   string
-	DestToken   string
-	DestURL     string
-	PeerID      string
-	GroupName   string
+	SourceToken  string
+	SourceURL    string
+	DestToken    string
+	DestURL      string
+	PeerID       string
+	GroupName    string
 	CreateGroups bool
-	KeyExpiry   string
-	Cleanup     bool
+	KeyExpiry    string
+	Cleanup      bool
 }
 
 // HandleMigrateCommand handles the migrate command for peer migration between accounts

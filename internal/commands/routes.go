@@ -59,6 +59,9 @@ func (s *Service) HandleRoutesCommand(args []string) error {
 	enableFlag := routeCmd.String("enable", "", "Enable a route by ID")
 	disableFlag := routeCmd.String("disable", "", "Disable a route by ID")
 
+	// Output flags
+	outputFlag := routeCmd.String("output", "table", "Output format: table or json")
+
 	// If no flags provided, show usage
 	if len(args) == 1 {
 		PrintRouteUsage()
@@ -139,7 +142,7 @@ func (s *Service) HandleRoutesCommand(args []string) error {
 
 	// Inspect route
 	if *inspectFlag != "" {
-		return s.inspectRoute(*inspectFlag)
+		return s.inspectRoute(*inspectFlag, *outputFlag)
 	}
 
 	// List routes
@@ -150,7 +153,7 @@ func (s *Service) HandleRoutesCommand(args []string) error {
 			EnabledOnly:    *enabledOnlyFlag,
 			DisabledOnly:   *disabledOnlyFlag,
 		}
-		return s.listRoutes(filters)
+		return s.listRoutes(filters, *outputFlag)
 	}
 
 	// If no known flag was used
@@ -160,7 +163,7 @@ func (s *Service) HandleRoutesCommand(args []string) error {
 }
 
 // listRoutes implements the "route --list" command
-func (s *Service) listRoutes(filters *RouteFilters) error {
+func (s *Service) listRoutes(filters *RouteFilters, outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/routes", nil)
 	if err != nil {
 		return err
@@ -198,6 +201,16 @@ func (s *Service) listRoutes(filters *RouteFilters) error {
 
 	if len(filtered) == 0 {
 		fmt.Println("No routes found.")
+		return nil
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(filtered, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
 		return nil
 	}
 
@@ -239,7 +252,7 @@ func (s *Service) listRoutes(filters *RouteFilters) error {
 }
 
 // inspectRoute implements the "route --inspect" command
-func (s *Service) inspectRoute(routeID string) error {
+func (s *Service) inspectRoute(routeID string, outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/routes/"+routeID, nil)
 	if err != nil {
 		return err
@@ -249,6 +262,16 @@ func (s *Service) inspectRoute(routeID string) error {
 	var route models.Route
 	if err := json.NewDecoder(resp.Body).Decode(&route); err != nil {
 		return fmt.Errorf("failed to decode route response: %v", err)
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(route, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
 	}
 
 	// Print detailed route information

@@ -24,6 +24,7 @@ func (s *Service) HandleUsersCommand(args []string) error {
 	meFlag := userCmd.Bool("me", false, "Get current user information")
 	serviceUserFilter := userCmd.Bool("service-users", false, "List only service users")
 	regularUserFilter := userCmd.Bool("regular-users", false, "List only regular users")
+	outputFlag := userCmd.String("output", "table", "Output format: table or json")
 
 	// Create/Invite flags
 	inviteFlag := userCmd.Bool("invite", false, "Invite a new user")
@@ -50,7 +51,7 @@ func (s *Service) HandleUsersCommand(args []string) error {
 
 	// Handle commands
 	if *meFlag {
-		return s.getCurrentUser()
+		return s.getCurrentUser(*outputFlag)
 	}
 
 	if *listFlag || *serviceUserFilter || *regularUserFilter {
@@ -60,7 +61,7 @@ func (s *Service) HandleUsersCommand(args []string) error {
 		} else if *regularUserFilter {
 			filterType = "regular"
 		}
-		return s.listUsers(filterType)
+		return s.listUsers(filterType, *outputFlag)
 	}
 
 	if *inviteFlag {
@@ -113,7 +114,7 @@ func (s *Service) HandleUsersCommand(args []string) error {
 }
 
 // listUsers lists all users in the account
-func (s *Service) listUsers(filterType string) error {
+func (s *Service) listUsers(filterType string, outputFormat string) error {
 	endpoint := "/users"
 	if filterType == "service" {
 		endpoint += "?service_user=true"
@@ -134,6 +135,16 @@ func (s *Service) listUsers(filterType string) error {
 
 	if len(users) == 0 {
 		fmt.Println("No users found")
+		return nil
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(users, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
 		return nil
 	}
 
@@ -172,7 +183,7 @@ func (s *Service) listUsers(filterType string) error {
 }
 
 // getCurrentUser retrieves the current authenticated user's information
-func (s *Service) getCurrentUser() error {
+func (s *Service) getCurrentUser(outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/users/current", nil)
 	if err != nil {
 		// Check if it's a 403 error (service token)
@@ -186,6 +197,16 @@ func (s *Service) getCurrentUser() error {
 	var user models.User
 	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
 		return fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(user, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
 	}
 
 	fmt.Printf("Current User Information:\n")

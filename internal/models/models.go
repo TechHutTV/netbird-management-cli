@@ -314,30 +314,36 @@ type TokenCreateResponse struct {
 
 // Route represents a network route
 type Route struct {
-	ID          string   `json:"id"`
-	NetworkID   string   `json:"network_id"`
-	Network     string   `json:"network"`      // CIDR notation (e.g., "10.0.0.0/16")
-	NetworkType string   `json:"network_type"` // "IPv4" or "IPv6"
-	Peer        string   `json:"peer,omitempty"`
-	PeerGroups  []string `json:"peer_groups,omitempty"`
-	Metric      int      `json:"metric"`
-	Masquerade  bool     `json:"masquerade"`
-	Enabled     bool     `json:"enabled"`
-	Groups      []string `json:"groups"`
-	Description string   `json:"description,omitempty"`
+	ID                  string   `json:"id"`
+	NetworkID           string   `json:"network_id"`
+	Network             string   `json:"network"`      // CIDR notation (e.g., "10.0.0.0/16")
+	NetworkType         string   `json:"network_type"` // "IPv4", "IPv6", or "Domain"
+	Domains             []string `json:"domains,omitempty"`
+	Peer                string   `json:"peer,omitempty"`
+	PeerGroups          []string `json:"peer_groups,omitempty"`
+	Metric              int      `json:"metric"`
+	Masquerade          bool     `json:"masquerade"`
+	Enabled             bool     `json:"enabled"`
+	Groups              []string `json:"groups"`
+	AccessControlGroups []string `json:"access_control_groups,omitempty"`
+	Description         string   `json:"description,omitempty"`
+	KeepRoute           bool     `json:"keep_route"`
 }
 
 // RouteRequest represents the request body for creating/updating a route
 type RouteRequest struct {
-	Description string   `json:"description,omitempty"`
-	NetworkID   string   `json:"network_id"`
-	Network     string   `json:"network"` // CIDR
-	Peer        string   `json:"peer,omitempty"`
-	PeerGroups  []string `json:"peer_groups,omitempty"`
-	Metric      int      `json:"metric"`
-	Masquerade  bool     `json:"masquerade"`
-	Enabled     bool     `json:"enabled"`
-	Groups      []string `json:"groups"`
+	Description         string   `json:"description,omitempty"`
+	NetworkID           string   `json:"network_id"`
+	Network             string   `json:"network,omitempty"` // CIDR (use Network OR Domains)
+	Domains             []string `json:"domains,omitempty"` // Domain-based routing (use OR Network)
+	Peer                string   `json:"peer,omitempty"`
+	PeerGroups          []string `json:"peer_groups,omitempty"`
+	Metric              int      `json:"metric"`
+	Masquerade          bool     `json:"masquerade"`
+	Enabled             bool     `json:"enabled"`
+	Groups              []string `json:"groups"`
+	AccessControlGroups []string `json:"access_control_groups,omitempty"`
+	KeepRoute           bool     `json:"keep_route"`
 }
 
 // DNSNameserverGroup represents a DNS nameserver group

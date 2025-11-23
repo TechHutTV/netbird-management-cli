@@ -29,6 +29,7 @@ func (s *Service) HandleSetupKeysCommand(args []string) error {
 	filterNameFlag := setupKeyCmd.String("filter-name", "", "Filter by name pattern (use with --list)")
 	filterTypeFlag := setupKeyCmd.String("filter-type", "", "Filter by type: one-off or reusable (use with --list)")
 	validOnlyFlag := setupKeyCmd.Bool("valid-only", false, "Show only valid keys (use with --list)")
+	outputFlag := setupKeyCmd.String("output", "table", "Output format: table or json")
 
 	// Create flags
 	createFlag := setupKeyCmd.String("create", "", "Create a new setup key with the given name")
@@ -66,11 +67,11 @@ func (s *Service) HandleSetupKeysCommand(args []string) error {
 
 	// Handle the flags
 	if *listFlag {
-		return s.listSetupKeys(*filterNameFlag, *filterTypeFlag, *validOnlyFlag)
+		return s.listSetupKeys(*filterNameFlag, *filterTypeFlag, *validOnlyFlag, *outputFlag)
 	}
 
 	if *inspectFlag != "" {
-		return s.inspectSetupKey(*inspectFlag)
+		return s.inspectSetupKey(*inspectFlag, *outputFlag)
 	}
 
 	if *createFlag != "" {
@@ -130,7 +131,6 @@ func (s *Service) HandleSetupKeysCommand(args []string) error {
 	PrintSetupKeyUsage()
 	return nil
 }
-
 
 // formatDuration converts seconds to human-readable duration
 func formatDuration(seconds int) string {
@@ -224,7 +224,7 @@ func formatState(state string, valid, revoked bool) string {
 }
 
 // listSetupKeys lists all setup keys with optional filters
-func (s *Service) listSetupKeys(filterName, filterType string, validOnly bool) error {
+func (s *Service) listSetupKeys(filterName, filterType string, validOnly bool, outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/setup-keys", nil)
 	if err != nil {
 		return err
@@ -259,6 +259,16 @@ func (s *Service) listSetupKeys(filterName, filterType string, validOnly bool) e
 
 	if len(filtered) == 0 {
 		fmt.Println("No setup keys found.")
+		return nil
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(filtered, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
 		return nil
 	}
 
@@ -297,7 +307,7 @@ func (s *Service) listSetupKeys(filterName, filterType string, validOnly bool) e
 }
 
 // inspectSetupKey shows detailed information about a setup key
-func (s *Service) inspectSetupKey(keyID string) error {
+func (s *Service) inspectSetupKey(keyID string, outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/setup-keys/"+keyID, nil)
 	if err != nil {
 		return err
@@ -307,6 +317,16 @@ func (s *Service) inspectSetupKey(keyID string) error {
 	var key models.SetupKey
 	if err := json.NewDecoder(resp.Body).Decode(&key); err != nil {
 		return fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(key, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
 	}
 
 	// Display key details
