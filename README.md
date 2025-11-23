@@ -4,6 +4,36 @@ netbird-manage is an unofficial command-line tool written in Go for interacting 
 
 ![](https://github.com/TechHutTV/netbird-management-cli/blob/main/demo.png)
 
+## Table of Contents
+
+- [Setup & Installation](#setup--installation)
+- [Safety Features](#safety-features)
+  - [Confirmation Prompts](#confirmation-prompts)
+  - [Automation Mode](#automation-mode)
+- [Quality of Life Features](#quality-of-life-features)
+  - [Debug Mode](#debug-mode)
+  - [Batch Operations](#batch-operations)
+- [Current Commands & Functionality](#current-commands--functionality)
+  - [Connect](#connect)
+  - [Peer](#peer)
+  - [Setup Key](#setup-key)
+  - [User](#user)
+  - [Token](#token)
+  - [Group](#group)
+  - [Network](#network)
+  - [Policy](#policy)
+  - [Route](#route)
+  - [DNS](#dns)
+  - [Posture Check](#posture-check)
+  - [Event](#event)
+  - [Geo-Location](#geo-location)
+  - [Account](#account)
+  - [Ingress Port](#ingress-port)
+  - [Export](#export)
+  - [Import](#import)
+  - [Migrate](#migrate)
+- [Roadmap](#-roadmap)
+
 ## Setup & Installation
 
 You must have the [Go toolchain](https://go.dev/doc/install) (version 1.18 or later) installed on your system. Clone this repository and build the binary:
