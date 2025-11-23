@@ -7,11 +7,11 @@ This document provides comprehensive guidance for AI assistants working on the N
 **NetBird Management CLI** (`netbird-manage`) is an unofficial command-line tool written in Go that provides terminal-based management for NetBird networks. It interfaces with the NetBird REST API to manage peers, groups, networks, and access control policies.
 
 **Key Characteristics:**
-- **Language:** Go 1.25.4+ (requires minimum 1.18)
-- **Dependencies:** Zero external dependencies (stdlib only)
-- **Architecture:** Single-binary CLI with flat file structure
+- **Language:** Go 1.23+ (requires minimum 1.18)
+- **Dependencies:** One external dependency (`gopkg.in/yaml.v3` for YAML export/import)
+- **Architecture:** Single-binary CLI with organized package structure (`cmd/`, `internal/`)
 - **API:** RESTful HTTP client with Bearer token authentication
-- **Lines of Code:** ~942 lines across 9 Go files
+- **Lines of Code:** ~12,100 lines across 24 Go files
 
 **Project Links:**
 - NetBird API Documentation: https://docs.netbird.io/api
@@ -34,64 +34,77 @@ This document provides comprehensive guidance for AI assistants working on the N
 
 ```
 netbird-management-cli/
-├── netbird-manage.go    # Main entry point and command router (~270 lines)
-├── client.go            # HTTP API client with authentication and debug logging (~160 lines)
-├── config.go            # Configuration file management (98 lines)
-├── models.go            # Data type definitions (88 lines)
-├── colors.go            # ANSI color output with TTY detection (~140 lines) **NEW**
-├── helpers.go           # Utility functions and formatters (~425 lines)
-├── peers.go             # Peer command handlers (~365 lines)
-├── groups.go            # Group command handlers (~400 lines)
-├── networks.go          # Network command handlers (61 lines)
-├── policies.go          # Policy command handlers (83 lines)
-├── setup-keys.go        # Setup key command handlers (~725 lines)
-├── users.go             # User management handlers
-├── tokens.go            # Token management handlers
-├── routes.go            # Route management handlers
-├── dns.go               # DNS management handlers
-├── posture-checks.go    # Posture check handlers
-├── events.go            # Event/audit log handlers
-├── geo-locations.go     # Geographic location data handlers
-├── accounts.go          # Account management handlers
-├── ingress-ports.go     # Ingress port handlers (Cloud-only)
-├── ingress-peers.go     # Ingress peer handlers (Cloud-only)
-├── migrate.go           # Peer migration between accounts (~450 lines)
-├── go.mod               # Go module definition
-├── README.md            # User-facing documentation
-├── API_REFERENCE.md     # Quick API navigation and reference
-├── LICENSE              # MIT/Apache dual license
-├── CLAUDE.md            # This file - AI assistant guide
+├── cmd/
+│   └── netbird-manage/
+│       └── main.go              # Entry point and command router (~294 lines)
+├── internal/
+│   ├── client/
+│   │   └── client.go            # HTTP API client with debug logging (~154 lines)
+│   ├── config/
+│   │   └── config.go            # Configuration management (~103 lines)
+│   ├── helpers/
+│   │   └── helpers.go           # Utilities, validation, confirmations (~362 lines)
+│   ├── models/
+│   │   └── models.go            # Data type definitions (~626 lines)
+│   └── commands/
+│       ├── service.go           # Service wrapper for Client (~16 lines)
+│       ├── usage.go             # Command usage/help text (~504 lines)
+│       ├── peers.go             # Peer operations (~492 lines)
+│       ├── groups.go            # Group operations (~715 lines)
+│       ├── networks.go          # Network/resource/router operations (~963 lines)
+│       ├── policies.go          # Policy and rule operations (~916 lines)
+│       ├── setup_keys.go        # Setup key operations (~694 lines)
+│       ├── users.go             # User management (~339 lines)
+│       ├── tokens.go            # Token management (~251 lines)
+│       ├── routes.go            # Route management (~525 lines)
+│       ├── dns.go               # DNS nameserver management (~620 lines)
+│       ├── posture_checks.go    # Posture check management (~592 lines)
+│       ├── events.go            # Audit log and traffic events (~298 lines)
+│       ├── geo_locations.go     # Geographic location data (~130 lines)
+│       ├── accounts.go          # Account management (~386 lines)
+│       ├── ingress_ports.go     # Ingress ports/peers (Cloud-only) (~522 lines)
+│       ├── migrate.go           # Peer migration between accounts (~623 lines)
+│       ├── export.go            # YAML export functionality (~603 lines)
+│       └── import.go            # YAML import functionality (~1380 lines)
+├── go.mod                       # Go module definition
+├── go.sum                       # Dependency checksums
+├── README.md                    # User-facing documentation
+├── API_REFERENCE.md             # Quick API navigation and reference
+├── LICENSE                      # MIT/Apache dual license
+├── CLAUDE.md                    # This file - AI assistant guide
 ├── docs/
-│   └── api/             # Complete NetBird API documentation
-│       ├── README.md    # API documentation index
+│   └── api/                     # Complete NetBird API documentation
+│       ├── README.md            # API documentation index
 │       ├── introduction.md
 │       ├── guides/
 │       │   ├── authentication.md
 │       │   ├── quickstart.md
 │       │   └── errors.md
-│       └── resources/   # Per-resource endpoint documentation
+│       └── resources/           # Per-resource endpoint documentation
 │           └── README.md
 └── .claude/
     └── commands/
-        └── api-docs.md  # Slash command for fetching API docs
+        └── api-docs.md          # Slash command for fetching API docs
 ```
 
 ### Module Responsibilities
 
-| File | Purpose | Key Functions |
-|------|---------|---------------|
-| `netbird-manage.go` | Entry point, command routing, global flags | `main()`, `printUsage()`, `handleConnectCommand()`, `debugMode`, `skipConfirmation` |
-| `client.go` | HTTP client, API requests, debug logging | `NewClient()`, `makeRequest()` (with debug mode support) |
-| `config.go` | Config persistence, loading | `loadConfig()`, `testAndSaveConfig()`, `getConfigPath()` |
-| `models.go` | Data structures | `Peer`, `Group`, `Network`, `Policy`, `Config` |
-| `colors.go` | ANSI color output, TTY detection | `colorize()`, `header()`, `success()`, `failure()`, `statusConnected()`, `isTTY()` |
-| `helpers.go` | Formatting, utilities, confirmations | `formatOS()`, `confirmSingleDeletion()`, `confirmBulkDeletion()`, `splitCommaList()` |
-| `peers.go` | Peer operations | `handlePeersCommand()`, `listPeers()`, `modifyPeerGroup()`, `removePeersBatch()` |
-| `groups.go` | Group operations | `handleGroupsCommand()`, `listGroups()`, `getGroupByName()`, `deleteGroupsBatch()` |
-| `setup-keys.go` | Setup key operations | `handleSetupKeysCommand()`, `listSetupKeys()`, `deleteSetupKeysBatch()` |
-| `networks.go` | Network operations | `handleNetworksCommand()`, `listNetworks()` |
-| `policies.go` | Policy operations | `handlePoliciesCommand()`, `listPolicies()` |
-| `migrate.go` | Peer migration between accounts | `HandleMigrateCommand()`, `migrateSinglePeer()`, `migrateGroupPeers()`, `createMigrationSetupKey()` |
+| Package/File | Purpose | Key Exports |
+|--------------|---------|-------------|
+| `cmd/netbird-manage/main.go` | Entry point, command routing, global flags | `main()`, `handleConnectCommand()`, `debugMode`, `skipConfirmation` |
+| `internal/client/client.go` | HTTP client, API requests, debug logging | `Client`, `New()`, `MakeRequest()` |
+| `internal/config/config.go` | Config persistence, loading | `LoadConfig()`, `TestAndSaveConfig()`, `GetConfigPath()` |
+| `internal/models/models.go` | Data structures for all API resources | `Peer`, `GroupDetail`, `Network`, `Policy`, `SetupKey`, etc. |
+| `internal/helpers/helpers.go` | Validation, utilities, confirmations, duration parsing | `FormatOS()`, `ConfirmSingleDeletion()`, `ConfirmBulkDeletion()`, `ParseDuration()` |
+| `internal/commands/service.go` | Service wrapper encapsulating Client | `Service`, `NewService()` |
+| `internal/commands/peers.go` | Peer operations | `HandlePeersCommand()`, `listPeers()`, `modifyPeerGroup()` |
+| `internal/commands/groups.go` | Group operations | `HandleGroupsCommand()`, `listGroups()`, `deleteGroupsBatch()` |
+| `internal/commands/networks.go` | Network, resource, router operations | `HandleNetworksCommand()`, `listNetworks()`, `addResource()` |
+| `internal/commands/policies.go` | Policy and rule operations | `HandlePoliciesCommand()`, `listPolicies()`, `addRule()` |
+| `internal/commands/setup_keys.go` | Setup key operations | `HandleSetupKeysCommand()`, `listSetupKeys()`, `createSetupKey()` |
+| `internal/commands/migrate.go` | Peer migration between accounts | `HandleMigrateCommand()`, `migrateSinglePeer()`, `migrateGroupPeers()` |
+| `internal/commands/export.go` | YAML export functionality | `HandleExportCommand()`, `exportFull()`, `exportSplit()` |
+| `internal/commands/import.go` | YAML import functionality | `HandleImportCommand()`, `parseYAML()`, `importResources()` |
 
 ---
 
@@ -102,17 +115,19 @@ netbird-management-cli/
 ```
 User Input (CLI args)
     ↓
-main() - Command Router
+main() - Command Router (cmd/netbird-manage/main.go)
     ↓
 [Special Case: connect command - no config required]
     ↓
-loadConfig() - Load credentials
+config.LoadConfig() - Load credentials
     ↓
-NewClient() - Create HTTP client with token
+client.New() - Create HTTP client with token
     ↓
-Command Handler (handlePeersCommand, handleGroupsCommand, etc.)
+commands.NewService(client) - Wrap client in Service
     ↓
-Client.makeRequest() - HTTP API call with Bearer auth
+Command Handler (service.HandlePeersCommand(), etc.)
+    ↓
+client.MakeRequest() - HTTP API call with Bearer auth
     ↓
 JSON Response → Model Deserialization
     ↓
@@ -123,29 +138,42 @@ Formatted Output (tabwriter for tables)
 
 **1. Client Pattern**
 ```go
+// internal/client/client.go
 type Client struct {
     Token         string
     ManagementURL string
     HTTPClient    *http.Client
+    Debug         bool
 }
 
-client := NewClient(config.Token, config.ManagementURL)
+c := client.New(config.Token, config.ManagementURL)
 ```
 
-**2. Command Handler Pattern**
-Each domain has a dedicated handler function:
-- `handlePeersCommand(client, args)`
-- `handleGroupsCommand(client, args)`
-- `handleNetworksCommand(client, args)`
-- `handlePoliciesCommand(client, args)`
+**2. Service Pattern**
+```go
+// internal/commands/service.go
+type Service struct {
+    Client *client.Client
+}
 
-**3. Repository Pattern**
-Methods on Client act as repositories:
-- `client.getPeerByID(id)`
-- `client.getGroupByName(name)`
-- `client.listPeers()`
+s := commands.NewService(c)
+s.HandlePeersCommand(args)
+```
 
-**4. Configuration Fallback Pattern**
+**3. Command Handler Pattern**
+Each domain has a dedicated handler method on Service:
+- `s.HandlePeersCommand(args)`
+- `s.HandleGroupsCommand(args)`
+- `s.HandleNetworksCommand(args)`
+- `s.HandlePoliciesCommand(args)`
+
+**4. Repository Pattern**
+Methods on Service act as repositories:
+- `s.getPeerByID(id)`
+- `s.getGroupByName(name)`
+- `s.listPeers()`
+
+**5. Configuration Fallback Pattern**
 ```
 1. Try: $HOME/.netbird-manage.json
 2. Fallback: NETBIRD_API_TOKEN env var
@@ -547,16 +575,17 @@ req.Header.Set("Authorization", "Token "+c.Token)
 
 **Pattern:**
 ```go
-func (c *Client) exampleMethod() error {
+// internal/commands/example.go
+func (s *Service) exampleMethod() error {
     // 1. Make request
-    resp, err := c.makeRequest("GET", "/endpoint", nil)
+    resp, err := s.Client.MakeRequest("GET", "/endpoint", nil)
     if err != nil {
         return err
     }
     defer resp.Body.Close()
 
     // 2. Decode response
-    var result []Model
+    var result []models.Model
     if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
         return fmt.Errorf("failed to decode response: %v", err)
     }
@@ -572,14 +601,14 @@ func (c *Client) exampleMethod() error {
 
 **PUT Request Example:**
 ```go
-reqBody := GroupPutRequest{
+reqBody := models.GroupPutRequest{
     Name:      group.Name,
     Peers:     updatedPeerIDs,
     Resources: resources,
 }
 
 bodyBytes, _ := json.Marshal(reqBody)
-resp, err := c.makeRequest("PUT", "/groups/"+groupID, bytes.NewReader(bodyBytes))
+resp, err := s.Client.MakeRequest("PUT", "/groups/"+groupID, bytes.NewReader(bodyBytes))
 ```
 
 ### Management URL Configuration
@@ -600,10 +629,31 @@ netbird-manage connect --token "token" --management-url "https://your-server.com
 
 ### Adding a New Command
 
-**1. Define the command handler function:**
+**1. Add model if needed (internal/models/models.go):**
 ```go
-// In new file: example.go
-func handleExampleCommand(client *Client, args []string) error {
+type Example struct {
+    ID     string `json:"id"`
+    Name   string `json:"name"`
+    Status string `json:"status"`
+}
+```
+
+**2. Create command handler file (internal/commands/example.go):**
+```go
+package commands
+
+import (
+    "encoding/json"
+    "flag"
+    "fmt"
+    "os"
+    "text/tabwriter"
+
+    "netbird-manage/internal/models"
+)
+
+// HandleExampleCommand routes example-related commands
+func (s *Service) HandleExampleCommand(args []string) error {
     exampleCmd := flag.NewFlagSet("example", flag.ContinueOnError)
     exampleCmd.SetOutput(os.Stderr)
 
@@ -614,24 +664,21 @@ func handleExampleCommand(client *Client, args []string) error {
     }
 
     if *listFlag {
-        return client.listExamples()
+        return s.listExamples()
     }
 
-    exampleCmd.Usage()
+    PrintExampleUsage()
     return nil
 }
-```
 
-**2. Add Client method:**
-```go
-func (c *Client) listExamples() error {
-    resp, err := c.makeRequest("GET", "/examples", nil)
+func (s *Service) listExamples() error {
+    resp, err := s.Client.MakeRequest("GET", "/examples", nil)
     if err != nil {
         return err
     }
     defer resp.Body.Close()
 
-    var examples []Example
+    var examples []models.Example
     if err := json.NewDecoder(resp.Body).Decode(&examples); err != nil {
         return fmt.Errorf("failed to decode response: %v", err)
     }
@@ -649,11 +696,20 @@ func (c *Client) listExamples() error {
 }
 ```
 
-**3. Register in main router (netbird-manage.go):**
+**3. Add usage function (internal/commands/usage.go):**
+```go
+func PrintExampleUsage() {
+    fmt.Println("Usage: netbird-manage example [options]")
+    fmt.Println("\nOptions:")
+    fmt.Println("  --list    List all examples")
+}
+```
+
+**4. Register in main router (cmd/netbird-manage/main.go):**
 ```go
 switch command {
 case "example":
-    if err := handleExampleCommand(client, args); err != nil {
+    if err := service.HandleExampleCommand(args); err != nil {
         fmt.Fprintf(os.Stderr, "Error: %v\n", err)
         os.Exit(1)
     }
@@ -661,7 +717,7 @@ case "example":
 }
 ```
 
-**4. Update printUsage():**
+**5. Update main usage function (cmd/netbird-manage/main.go):**
 ```go
 func printUsage() {
     fmt.Println("Usage: netbird-manage <command> [options]")
@@ -672,22 +728,13 @@ func printUsage() {
 }
 ```
 
-**5. Add model if needed (models.go):**
-```go
-type Example struct {
-    ID     string `json:"id"`
-    Name   string `json:"name"`
-    Status string `json:"status"`
-}
-```
-
 ### Adding a New Flag to Existing Command
 
 **Example: Add `--name` filter to peer list**
 
-**In peers.go:**
+**In internal/commands/peers.go:**
 ```go
-func handlePeersCommand(client *Client, args []string) error {
+func (s *Service) HandlePeersCommand(args []string) error {
     peerCmd := flag.NewFlagSet("peer", flag.ContinueOnError)
 
     listFlag := peerCmd.Bool("list", false, "List all peers")
@@ -696,14 +743,14 @@ func handlePeersCommand(client *Client, args []string) error {
     // ... parse flags
 
     if *listFlag {
-        return client.listPeers(*nameFilter) // Pass filter
+        return s.listPeers(*nameFilter) // Pass filter
     }
 }
 ```
 
-**Update Client method:**
+**Update Service method:**
 ```go
-func (c *Client) listPeers(nameFilter string) error {
+func (s *Service) listPeers(nameFilter string) error {
     // ... fetch peers
 
     for _, peer := range peers {
@@ -1130,15 +1177,14 @@ This section tracks the implementation status of CLI features and planned enhanc
    - Zero external dependencies
 
 18. ✅ Colorized output - Improve readability with ANSI color coding
-   - Implemented in `colors.go` with automatic TTY detection
    - Color scheme: Headers (bold cyan), IDs (dim), Status (green/red), Success/Error/Warning indicators
    - Applied to peer and group list outputs
    - Pipe-friendly: Auto-disables when output is not a TTY
    - Zero external dependencies (pure ANSI escape codes)
 
 19. ✅ Debug mode - Verbose HTTP request/response logging
-   - Global `--debug` or `-d` flag (netbird-manage.go)
-   - Client.Debug field enables logging in makeRequest (client.go)
+   - Global `--debug` or `-d` flag (cmd/netbird-manage/main.go)
+   - Client.Debug field enables logging in MakeRequest (internal/client/client.go)
    - Shows: HTTP method, URL, headers (token redacted), request/response bodies (pretty-printed JSON)
    - All debug output to stderr (keeps stdout clean for scripting)
    - Color-coded status codes
@@ -1146,7 +1192,7 @@ This section tracks the implementation status of CLI features and planned enhanc
 
 **✅ Phase 7: Migration Tools (COMPLETED)**
 20. ✅ Peer migration - Migrate peers between NetBird accounts
-   - Implemented in `migrate.go` with dual-client support
+   - Implemented in `internal/commands/migrate.go` with dual-client support
    - Single peer migration: `--peer <peer-id>`
    - Batch migration by group: `--group <group-name>`
    - Cross-instance support: `--source-url` and `--dest-url` flags
@@ -1160,10 +1206,10 @@ This section tracks the implementation status of CLI features and planned enhanc
 
 ### Implementation Notes
 
-**Maintaining Zero Dependencies:**
-- Current implementation uses only Go stdlib
-- Zero external dependencies maintained throughout all phases
-- All features implemented using pure Go standard library
+**Dependencies:**
+- Core implementation uses Go stdlib only
+- One external dependency: `gopkg.in/yaml.v3` for YAML export/import functionality
+- All other features implemented using pure Go standard library
 
 **API Coverage Status:**
 - ✅ **100% Coverage:** All 14 NetBird API resource types fully implemented
@@ -1172,10 +1218,10 @@ This section tracks the implementation status of CLI features and planned enhanc
   - Accounts, Ingress Ports (Cloud-only)
 
 **Code Architecture:**
-- Each resource type gets its own file (`{resource}.go`)
+- Each resource type gets its own file in `internal/commands/`
 - Follow existing patterns in `policies.go`, `groups.go`, `networks.go`
 - Use flag-based command parsing (consistent with current implementation)
-- Keep HTTP client methods on `Client` struct
+- HTTP client methods on `Service` struct (wrapping `Client`)
 - Maintain table output with `tabwriter` for consistency
 
 ---
@@ -1373,6 +1419,6 @@ If you encounter unclear requirements:
 
 ---
 
-**Last Updated:** 2025-11-15
-**Document Version:** 1.0
-**Codebase Version:** ~942 lines of Go code across 9 files
+**Last Updated:** 2025-11-23
+**Document Version:** 2.0
+**Codebase Version:** ~12,100 lines of Go code across 24 files

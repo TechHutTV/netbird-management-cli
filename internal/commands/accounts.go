@@ -217,14 +217,14 @@ func (s *Service) updateAccountFromFlags(accountID string,
 
 	// Update only the fields that were provided
 	if peerLoginExp != "" {
-		seconds, err := parseAccountDuration(peerLoginExp)
+		seconds, err := helpers.ParseDuration(peerLoginExp, nil)
 		if err != nil {
 			return fmt.Errorf("invalid peer-login-expiration: %v", err)
 		}
 		account.Settings.PeerLoginExpiration = seconds
 	}
 	if peerInactivityExp != "" {
-		seconds, err := parseAccountDuration(peerInactivityExp)
+		seconds, err := helpers.ParseDuration(peerInactivityExp, nil)
 		if err != nil {
 			return fmt.Errorf("invalid peer-inactivity-expiration: %v", err)
 		}
@@ -384,48 +384,3 @@ func formatSeconds(seconds int) string {
 	return duration.String()
 }
 
-// parseAccountDuration converts human-readable duration to seconds for account settings
-func parseAccountDuration(duration string) (int, error) {
-	duration = strings.TrimSpace(strings.ToLower(duration))
-
-	// Extract number and unit
-	var num string
-	var unit string
-
-	for i, char := range duration {
-		if char >= '0' && char <= '9' {
-			num += string(char)
-		} else {
-			unit = duration[i:]
-			break
-		}
-	}
-
-	if num == "" {
-		return 0, fmt.Errorf("no numeric value found in duration: %s", duration)
-	}
-
-	value, err := strconv.Atoi(num)
-	if err != nil {
-		return 0, fmt.Errorf("invalid numeric value: %s", num)
-	}
-
-	// Convert to seconds based on unit
-	var seconds int
-	switch unit {
-	case "s", "sec", "second", "seconds":
-		seconds = value
-	case "m", "min", "minute", "minutes":
-		seconds = value * 60
-	case "h", "hour", "hours":
-		seconds = value * 3600
-	case "d", "day", "days":
-		seconds = value * 24 * 3600
-	case "w", "week", "weeks":
-		seconds = value * 7 * 24 * 3600
-	default:
-		return 0, fmt.Errorf("unknown duration unit: %s (use s, m, h, d, or w)", unit)
-	}
-
-	return seconds, nil
-}
