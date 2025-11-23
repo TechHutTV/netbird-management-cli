@@ -11,7 +11,7 @@ This document provides comprehensive guidance for AI assistants working on the N
 - **Dependencies:** One external dependency (`gopkg.in/yaml.v3` for YAML export/import)
 - **Architecture:** Single-binary CLI with organized package structure (`cmd/`, `internal/`)
 - **API:** RESTful HTTP client with Bearer token authentication
-- **Lines of Code:** ~12,100 lines across 24 Go files
+- **Lines of Code:** ~14,000 lines across 24 Go files
 
 **Project Links:**
 - NetBird API Documentation: https://docs.netbird.io/api
@@ -63,7 +63,7 @@ netbird-management-cli/
 │       ├── geo_locations.go     # Geographic location data (~130 lines)
 │       ├── accounts.go          # Account management (~386 lines)
 │       ├── ingress_ports.go     # Ingress ports/peers (Cloud-only) (~522 lines)
-│       ├── migrate.go           # Peer migration between accounts (~623 lines)
+│       ├── migrate.go           # Full migration between accounts (~2100 lines)
 │       ├── export.go            # YAML/JSON export functionality (~603 lines)
 │       └── import.go            # YAML import functionality (~1380 lines)
 ├── go.mod                       # Go module definition
@@ -102,7 +102,7 @@ netbird-management-cli/
 | `internal/commands/networks.go` | Network, resource, router operations | `HandleNetworksCommand()`, `listNetworks()`, `addResource()` |
 | `internal/commands/policies.go` | Policy and rule operations | `HandlePoliciesCommand()`, `listPolicies()`, `addRule()` |
 | `internal/commands/setup_keys.go` | Setup key operations | `HandleSetupKeysCommand()`, `listSetupKeys()`, `createSetupKey()` |
-| `internal/commands/migrate.go` | Peer migration between accounts | `HandleMigrateCommand()`, `migrateSinglePeer()`, `migrateGroupPeers()` |
+| `internal/commands/migrate.go` | Full migration between accounts | `HandleMigrateCommand()`, `migrateConfiguration()`, `migrateSinglePeer()`, `migrateGroupPeers()`, `migrateAllPeers()` |
 | `internal/commands/export.go` | YAML/JSON export functionality | `HandleExportCommand()`, `exportFullSingleFile()`, `exportSplitFiles()` |
 | `internal/commands/import.go` | YAML import functionality | `HandleImportCommand()`, `parseYAML()`, `importResources()` |
 
@@ -1208,14 +1208,28 @@ This section tracks the implementation status of CLI features and planned enhanc
    - Zero external dependencies
 
 **✅ Phase 7: Migration Tools (COMPLETED)**
-19. ✅ Peer migration - Migrate peers between NetBird accounts
-   - Implemented in `internal/commands/migrate.go` with dual-client support
-   - Single peer migration: `--peer <peer-id>`
-   - Batch migration by group: `--group <group-name>`
-   - Cross-instance support: `--source-url` and `--dest-url` flags
-   - Auto group creation in destination: `--create-groups` flag
-   - Configurable setup key expiry: `--key-expiry` flag
-   - Generates `netbird up` commands with proper hostname and management URL
+19. ✅ Full migration between NetBird accounts
+   - Implemented in `internal/commands/migrate.go` with dual-client support (~2100 lines)
+   - **Peer Migration:**
+     - Single peer migration: `--peer <peer-id>`
+     - Batch migration by group: `--group <group-name>`
+     - Migrate all peers: `--all` (generates commands for all peers)
+     - Auto group creation in destination: `--create-groups` flag
+     - Configurable setup key expiry: `--key-expiry` flag
+     - Generates `netbird up` commands with proper hostname and management URL
+   - **Configuration Migration:**
+     - Full config: `--config` (groups, policies, networks, routes, DNS, posture checks, setup keys)
+     - Selective migration: `--groups`, `--policies`, `--networks`, `--routes`, `--dns`, `--posture-checks`, `--setup-keys`
+     - Conflict handling: `--skip-existing`, `--update`
+     - Preview mode: `--dry-run`
+     - Detailed output: `--verbose`
+   - **Complete Migration:** `--all` (config + peer migration commands)
+   - **Features:**
+     - Peer dependency checking: warns when resources reference peers not in destination
+     - Dependency-ordered migration (groups → posture checks → policies → routes → DNS → networks → setup keys)
+     - Name-to-ID resolution for groups, posture checks
+     - Cross-instance support: `--source-url` and `--dest-url` flags
+     - Migration summary with created/updated/skipped/failed counts
    - Zero external dependencies
 
 **✅ Phase 8: Output & Filtering Improvements (COMPLETED)**
