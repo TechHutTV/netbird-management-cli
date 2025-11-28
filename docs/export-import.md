@@ -86,6 +86,113 @@ policies:
         destinations: ["production-servers"]
 ```
 
+### Sample JSON Structure
+
+```json
+{
+  "metadata": {
+    "version": "1.0",
+    "exported_at": "2025-01-15T10:30:00Z",
+    "management_url": "https://api.netbird.io/api",
+    "_important_note": "PEERS CANNOT BE IMPORTED - Use 'netbird-manage migrate' to migrate peers"
+  },
+  "groups": {
+    "developers": {
+      "description": "Group with 2 peers",
+      "peers": ["alice-laptop", "bob-workstation"],
+      "_peers_note": "These peers are for reference only and will NOT be imported"
+    },
+    "production-servers": {
+      "description": "Group with 3 peers"
+    }
+  },
+  "policies": {
+    "allow-devs-to-prod": {
+      "description": "SSH access for developers",
+      "enabled": true,
+      "rules": {
+        "ssh-access": {
+          "description": "Allow SSH",
+          "enabled": true,
+          "action": "accept",
+          "bidirectional": false,
+          "protocol": "tcp",
+          "ports": ["22"],
+          "sources": ["developers"],
+          "destinations": ["production-servers"]
+        }
+      }
+    }
+  },
+  "networks": {
+    "office-network": {
+      "description": "Main office network",
+      "resources": {
+        "internal-services": {
+          "type": "subnet",
+          "address": "10.0.0.0/24",
+          "enabled": true,
+          "description": "Internal service subnet",
+          "groups": ["developers"]
+        }
+      },
+      "routers": {
+        "router-1": {
+          "metric": 100,
+          "masquerade": true,
+          "enabled": true,
+          "peer_groups": ["gateway-peers"]
+        }
+      }
+    }
+  },
+  "routes": {
+    "external-access": {
+      "description": "Route to external services",
+      "network": "192.168.1.0/24",
+      "metric": 100,
+      "masquerade": true,
+      "enabled": true,
+      "groups": ["developers"],
+      "peer_groups": ["gateway-peers"]
+    }
+  },
+  "dns": {
+    "internal-dns": {
+      "description": "Internal DNS servers",
+      "nameservers": [
+        {"ip": "10.0.0.53", "ns_type": "udp", "port": 53}
+      ],
+      "groups": ["developers"],
+      "domains": ["internal.company.com"],
+      "search_domains_enabled": true,
+      "primary": false,
+      "enabled": true
+    }
+  },
+  "posture_checks": {
+    "require-latest-version": {
+      "description": "Require minimum NetBird version",
+      "checks": {
+        "nb_version_check": {
+          "min_version": "0.28.0"
+        }
+      }
+    }
+  },
+  "setup_keys": {
+    "onboarding-key": {
+      "description": "Type: reusable, State: valid",
+      "type": "reusable",
+      "expires_in": 30,
+      "auto_groups": ["developers"],
+      "usage_limit": 0,
+      "ephemeral": false
+    }
+  }
+}
+```
+
 ---
 
 ## Import
