@@ -4,6 +4,9 @@
 
 ---
 
+> [!WARNING]
+> This is experimental and still requires manual intervention.
+
 Migrate peers and/or complete configuration between NetBird accounts. Running `netbird-manage migrate` by itself will display the help menu.
 
 ## Use Cases
