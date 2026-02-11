@@ -64,10 +64,29 @@ netbird-manage account --update d10vfhbl0ubs73e6p8ig \
   --jwt-allow-groups "engineering,ops,security"
 ```
 
+## Account Settings
+
+The account settings are organized into core settings and extra (Cloud-only) settings:
+
+**Core Settings:**
+- Peer login expiration (enabled/disabled + duration)
+- Peer inactivity expiration (enabled/disabled + duration)
+- DNS domain and network range
+- JWT groups configuration
+- Routing peer DNS resolution
+- Lazy connection mode
+- Embedded IdP
+
+**Extra Settings (Cloud-only):**
+- Peer approval enabled
+- User approval required
+- Network traffic logs (enabled + target groups)
+- Network traffic packet counter
+
 ## Notes
 
 - Duration format: `24h` (hours), `7d` (days), `30d` (days)
-- Some settings like `peer-approval-enabled` and `traffic-logging` are Cloud-only
+- Cloud-only settings (peer approval, traffic logging) are nested under `extra` in the API response
 - Deleting an account is permanent and removes ALL associated resources
 
 ---
@@ -90,6 +109,10 @@ netbird-manage account --update d10vfhbl0ubs73e6p8ig \
 | [Events](events.md) | Audit logs and traffic monitoring |
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |
+| [DNS Zones](dns-zones.md) | Custom DNS zones and records |
+| [Identity Providers](identity-providers.md) | OIDC/OAuth2 identity provider management |
+| [Instance](instance.md) | Self-hosted instance setup |
+| [Jobs](jobs.md) | Peer bundle collection and debugging |
 | [Export & Import](export-import.md) | YAML/JSON configuration management |
 | [Migrate](migrate.md) | Migration between NetBird accounts |
 

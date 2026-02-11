@@ -35,6 +35,11 @@ netbird-manage peer --update <peer-id>         # Update peer settings
   --inactivity-expiration <true|false>         # Enable/disable inactivity expiration
   --approval-required <true|false>             # Require approval (cloud-only)
   --ip <ip-address>                            # Set IP (must be in 100.64.0.0/10 range)
+
+netbird-manage peer --temp-access <peer-id>   # Create a temporary access peer
+  --temp-name <name>                           # Name for the temp peer (required)
+  --wg-pub-key <key>                           # WireGuard public key (required)
+  --rules <id1,id2,...>                        # Comma-separated rule IDs (required)
 ```
 
 ## Examples
@@ -57,6 +62,12 @@ netbird-manage peer --accessible-peers d3mjakrl0ubs738ajj00
 
 # Remove multiple peers at once
 netbird-manage peer --remove-batch abc123,def456,ghi789
+
+# Create a temporary access peer
+netbird-manage peer --temp-access d3mjakrl0ubs738ajj00 \
+  --temp-name "temp-laptop" \
+  --wg-pub-key "wg_public_key_here" \
+  --rules "rule-id-1,rule-id-2"
 ```
 
 ---
@@ -79,6 +90,10 @@ netbird-manage peer --remove-batch abc123,def456,ghi789
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
 | [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |
+| [DNS Zones](dns-zones.md) | Custom DNS zones and records |
+| [Identity Providers](identity-providers.md) | OIDC/OAuth2 identity provider management |
+| [Instance](instance.md) | Self-hosted instance setup |
+| [Jobs](jobs.md) | Peer bundle collection and debugging |
 | [Export & Import](export-import.md) | YAML/JSON configuration management |
 | [Migrate](migrate.md) | Migration between NetBird accounts |
 

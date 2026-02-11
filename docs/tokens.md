@@ -105,6 +105,10 @@ netbird-manage token --revoke tok-abc123xyz --user-id ef3799d6-3891-4769-9690-e6
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
 | [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |
+| [DNS Zones](dns-zones.md) | Custom DNS zones and records |
+| [Identity Providers](identity-providers.md) | OIDC/OAuth2 identity provider management |
+| [Instance](instance.md) | Self-hosted instance setup |
+| [Jobs](jobs.md) | Peer bundle collection and debugging |
 | [Export & Import](export-import.md) | YAML/JSON configuration management |
 | [Migrate](migrate.md) | Migration between NetBird accounts |
 

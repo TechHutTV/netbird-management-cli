@@ -141,7 +141,9 @@ func (s *Service) listAccounts(outputFormat string) error {
 	// Show detailed settings for each account
 	for _, account := range accounts {
 		fmt.Println("\nAccount Settings:")
+		fmt.Printf("  Peer Login Expiration Enabled: %t\n", account.Settings.PeerLoginExpirationEnabled)
 		fmt.Printf("  Peer Login Expiration:        %s\n", formatSeconds(account.Settings.PeerLoginExpiration))
+		fmt.Printf("  Peer Inactivity Exp Enabled:  %t\n", account.Settings.PeerInactivityExpirationEnabled)
 		fmt.Printf("  Peer Inactivity Expiration:   %s\n", formatSeconds(account.Settings.PeerInactivityExpiration))
 		fmt.Printf("  DNS Domain:                   %s\n", account.Settings.DNSDomain)
 		fmt.Printf("  Network Range:                %s\n", account.Settings.NetworkRange)
@@ -149,17 +151,32 @@ func (s *Service) listAccounts(outputFormat string) error {
 		fmt.Printf("  JWT Groups Claim:             %s\n", account.Settings.JWTGroupsClaim)
 		fmt.Printf("  Groups Propagation Enabled:   %t\n", account.Settings.GroupsPropagationEnabled)
 		fmt.Printf("  Regular Users View Blocked:   %t\n", account.Settings.RegularUsersViewBlocked)
-		fmt.Printf("  Peer Approval Enabled:        %t\n", account.Settings.PeerApprovalEnabled)
-		fmt.Printf("  Traffic Logging:              %t\n", account.Settings.TrafficLogging)
+		fmt.Printf("  Routing Peer DNS Resolution:  %t\n", account.Settings.RoutingPeerDNSResolutionEnabled)
+		fmt.Printf("  Lazy Connection Enabled:      %t\n", account.Settings.LazyConnectionEnabled)
+		if account.Settings.AutoUpdateVersion != "" {
+			fmt.Printf("  Auto Update Version:          %s\n", account.Settings.AutoUpdateVersion)
+		}
+		fmt.Printf("  Embedded IdP Enabled:         %t\n", account.Settings.EmbeddedIdPEnabled)
+
+		if account.Settings.Extra != nil {
+			fmt.Printf("  Peer Approval Enabled:        %t\n", account.Settings.Extra.PeerApprovalEnabled)
+			fmt.Printf("  User Approval Required:       %t\n", account.Settings.Extra.UserApprovalRequired)
+			fmt.Printf("  Traffic Logging:              %t\n", account.Settings.Extra.NetworkTrafficLogsEnabled)
+			fmt.Printf("  Packet Counter:               %t\n", account.Settings.Extra.NetworkTrafficPacketCounterEnabled)
+		}
 
 		if len(account.Settings.JWTAllowGroups) > 0 {
 			fmt.Printf("  JWT Allow Groups:             %s\n", strings.Join(account.Settings.JWTAllowGroups, ", "))
 		}
 
+		if account.DomainCategory != "" {
+			fmt.Printf("  Domain Category:              %s\n", account.DomainCategory)
+		}
+
 		if account.Onboarding != nil {
 			fmt.Println("\nOnboarding Status:")
-			fmt.Printf("  Signup Form Completed:        %t\n", account.Onboarding.SignupFormCompleted)
-			fmt.Printf("  Flow Completed:               %t\n", account.Onboarding.FlowCompleted)
+			fmt.Printf("  Signup Form Pending:          %t\n", account.Onboarding.SignupFormPending)
+			fmt.Printf("  Onboarding Flow Pending:      %t\n", account.Onboarding.OnboardingFlowPending)
 		}
 	}
 
@@ -192,11 +209,16 @@ func (s *Service) inspectAccount(accountID string, outputFormat string) error {
 	// Display account details
 	fmt.Printf("Account ID:     %s\n", account.ID)
 	fmt.Printf("Domain:         %s\n", account.Domain)
+	if account.DomainCategory != "" {
+		fmt.Printf("Domain Category: %s\n", account.DomainCategory)
+	}
 	fmt.Printf("Created By:     %s\n", account.CreatedBy)
 	fmt.Printf("Created At:     %s\n", account.CreatedAt)
 
 	fmt.Println("\nSettings:")
+	fmt.Printf("  Peer Login Expiration Enabled: %t\n", account.Settings.PeerLoginExpirationEnabled)
 	fmt.Printf("  Peer Login Expiration:        %s\n", formatSeconds(account.Settings.PeerLoginExpiration))
+	fmt.Printf("  Peer Inactivity Exp Enabled:  %t\n", account.Settings.PeerInactivityExpirationEnabled)
 	fmt.Printf("  Peer Inactivity Expiration:   %s\n", formatSeconds(account.Settings.PeerInactivityExpiration))
 	fmt.Printf("  DNS Domain:                   %s\n", account.Settings.DNSDomain)
 	fmt.Printf("  Network Range:                %s\n", account.Settings.NetworkRange)
@@ -204,8 +226,19 @@ func (s *Service) inspectAccount(accountID string, outputFormat string) error {
 	fmt.Printf("  JWT Groups Claim:             %s\n", account.Settings.JWTGroupsClaim)
 	fmt.Printf("  Groups Propagation Enabled:   %t\n", account.Settings.GroupsPropagationEnabled)
 	fmt.Printf("  Regular Users View Blocked:   %t\n", account.Settings.RegularUsersViewBlocked)
-	fmt.Printf("  Peer Approval Enabled:        %t\n", account.Settings.PeerApprovalEnabled)
-	fmt.Printf("  Traffic Logging:              %t\n", account.Settings.TrafficLogging)
+	fmt.Printf("  Routing Peer DNS Resolution:  %t\n", account.Settings.RoutingPeerDNSResolutionEnabled)
+	fmt.Printf("  Lazy Connection Enabled:      %t\n", account.Settings.LazyConnectionEnabled)
+	if account.Settings.AutoUpdateVersion != "" {
+		fmt.Printf("  Auto Update Version:          %s\n", account.Settings.AutoUpdateVersion)
+	}
+	fmt.Printf("  Embedded IdP Enabled:         %t\n", account.Settings.EmbeddedIdPEnabled)
+
+	if account.Settings.Extra != nil {
+		fmt.Printf("  Peer Approval Enabled:        %t\n", account.Settings.Extra.PeerApprovalEnabled)
+		fmt.Printf("  User Approval Required:       %t\n", account.Settings.Extra.UserApprovalRequired)
+		fmt.Printf("  Traffic Logging:              %t\n", account.Settings.Extra.NetworkTrafficLogsEnabled)
+		fmt.Printf("  Packet Counter:               %t\n", account.Settings.Extra.NetworkTrafficPacketCounterEnabled)
+	}
 
 	if len(account.Settings.JWTAllowGroups) > 0 {
 		fmt.Printf("  JWT Allow Groups:             %s\n", strings.Join(account.Settings.JWTAllowGroups, ", "))
@@ -213,8 +246,8 @@ func (s *Service) inspectAccount(accountID string, outputFormat string) error {
 
 	if account.Onboarding != nil {
 		fmt.Println("\nOnboarding:")
-		fmt.Printf("  Signup Form Completed:        %t\n", account.Onboarding.SignupFormCompleted)
-		fmt.Printf("  Flow Completed:               %t\n", account.Onboarding.FlowCompleted)
+		fmt.Printf("  Signup Form Pending:          %t\n", account.Onboarding.SignupFormPending)
+		fmt.Printf("  Onboarding Flow Pending:      %t\n", account.Onboarding.OnboardingFlowPending)
 	}
 
 	return nil
@@ -291,14 +324,20 @@ func (s *Service) updateAccountFromFlags(accountID string,
 		if err != nil {
 			return fmt.Errorf("invalid value for peer-approval-enabled: %v", err)
 		}
-		account.Settings.PeerApprovalEnabled = enabled
+		if account.Settings.Extra == nil {
+			account.Settings.Extra = &models.AccountSettingsExtra{}
+		}
+		account.Settings.Extra.PeerApprovalEnabled = enabled
 	}
 	if trafficLogging != "" {
 		enabled, err := strconv.ParseBool(trafficLogging)
 		if err != nil {
 			return fmt.Errorf("invalid value for traffic-logging: %v", err)
 		}
-		account.Settings.TrafficLogging = enabled
+		if account.Settings.Extra == nil {
+			account.Settings.Extra = &models.AccountSettingsExtra{}
+		}
+		account.Settings.Extra.NetworkTrafficLogsEnabled = enabled
 	}
 
 	// Build update request

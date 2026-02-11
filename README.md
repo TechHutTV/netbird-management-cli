@@ -68,29 +68,37 @@ netbird-manage --help         # Shows all available commands
 | [Geo-Locations](docs/geo-locations.md) | Geographic location data |
 | [Accounts](docs/accounts.md) | Account settings and configuration |
 | [Ingress Ports](docs/ingress-ports.md) | Port forwarding (Cloud-only) |
+| [DNS Zones](docs/dns-zones.md) | Custom DNS zones and records |
+| [Identity Providers](docs/identity-providers.md) | OIDC/OAuth2 identity provider management |
+| [Instance](docs/instance.md) | Self-hosted instance setup (no auth required) |
+| [Jobs](docs/jobs.md) | Peer bundle collection and debugging |
 | [Export & Import](docs/export-import.md) | YAML/JSON configuration management |
 | [Migrate](docs/migrate.md) | Migration between NetBird accounts |
 
 ## API Coverage
 
-**14/14 NetBird API resource types fully implemented (100%)**
+**18/18 NetBird API resource types fully implemented (100%)**
 
 | Resource | Status |
 |----------|--------|
-| Peers | Full CRUD |
+| Peers | Full CRUD + temporary access |
 | Groups | Full CRUD |
 | Networks | Full CRUD |
 | Policies | Full CRUD |
 | Setup Keys | Full CRUD |
-| Users | Full CRUD |
+| Users | Full CRUD + approve/reject/password |
 | Tokens | Full CRUD |
 | Routes | Full CRUD |
-| DNS | Full CRUD |
+| DNS Nameservers | Full CRUD |
+| DNS Zones | Full CRUD + records |
 | Posture Checks | Full CRUD |
 | Events | Read |
 | Geo-Locations | Read |
 | Accounts | Full CRUD |
 | Ingress Ports | Full CRUD (Cloud-only) |
+| Identity Providers | Full CRUD |
+| Instance | Status + setup (no auth) |
+| Jobs | Read + create (peer-scoped) |
 
 ## Roadmap
 

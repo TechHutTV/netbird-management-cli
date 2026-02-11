@@ -86,6 +86,7 @@ netbird-manage dns --delete <group-id>
 - Primary DNS group is used when no domain-specific match is found
 - Search domains append the domain to short hostnames
 - Only one primary DNS group should be active at a time
+- For custom DNS zones with A/AAAA/CNAME records, see [DNS Zones](dns-zones.md)
 
 ---
 
@@ -107,9 +108,13 @@ netbird-manage dns --delete <group-id>
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
 | [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |
+| [DNS Zones](dns-zones.md) | Custom DNS zones and records |
+| [Identity Providers](identity-providers.md) | OIDC/OAuth2 identity provider management |
+| [Instance](instance.md) | Self-hosted instance setup |
+| [Jobs](jobs.md) | Peer bundle collection and debugging |
 | [Export & Import](export-import.md) | YAML/JSON configuration management |
 | [Migrate](migrate.md) | Migration between NetBird accounts |
 
 ---
 
-[Home](../README.md) | [Routes](routes.md) | **DNS** | [Posture Checks](posture-checks.md) | [Events](events.md) | [Accounts](accounts.md)
+[Home](../README.md) | [Routes](routes.md) | **DNS** | [DNS Zones](dns-zones.md) | [Posture Checks](posture-checks.md) | [Events](events.md)

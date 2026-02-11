@@ -45,6 +45,15 @@ func (s *Service) HandleUsersCommand(args []string) error {
 	// Resend invite flag
 	resendInviteFlag := userCmd.String("resend-invite", "", "Resend invitation to user by ID")
 
+	// Approval flags
+	approveFlag := userCmd.String("approve", "", "Approve a pending user by ID")
+	rejectFlag := userCmd.String("reject", "", "Reject a pending user by ID")
+
+	// Password flag
+	changePasswordFlag := userCmd.String("change-password", "", "Change password for user by ID (embedded IdP only)")
+	oldPasswordFlag := userCmd.String("old-password", "", "Current password (use with --change-password)")
+	newPasswordFlag := userCmd.String("new-password", "", "New password (use with --change-password)")
+
 	if err := userCmd.Parse(args[1:]); err != nil {
 		return err
 	}
@@ -107,6 +116,21 @@ func (s *Service) HandleUsersCommand(args []string) error {
 
 	if *resendInviteFlag != "" {
 		return s.resendUserInvite(*resendInviteFlag)
+	}
+
+	if *approveFlag != "" {
+		return s.approveUser(*approveFlag)
+	}
+
+	if *rejectFlag != "" {
+		return s.rejectUser(*rejectFlag)
+	}
+
+	if *changePasswordFlag != "" {
+		if *oldPasswordFlag == "" || *newPasswordFlag == "" {
+			return fmt.Errorf("--old-password and --new-password are required with --change-password")
+		}
+		return s.changeUserPassword(*changePasswordFlag, *oldPasswordFlag, *newPasswordFlag)
 	}
 
 	userCmd.Usage()
@@ -217,10 +241,24 @@ func (s *Service) getCurrentUser(outputFormat string) error {
 	fmt.Printf("  Status:         %s\n", user.Status)
 	fmt.Printf("  Service User:   %t\n", user.IsServiceUser)
 	fmt.Printf("  Blocked:        %t\n", user.IsBlocked)
+	fmt.Printf("  Current:        %t\n", user.IsCurrent)
+	if user.PendingApproval {
+		fmt.Printf("  Pending Approval: %t\n", user.PendingApproval)
+	}
+	if user.Issued != "" {
+		fmt.Printf("  Issued:         %s\n", user.Issued)
+	}
+	if user.IdpID != "" {
+		fmt.Printf("  IdP ID:         %s\n", user.IdpID)
+	}
 	fmt.Printf("  Last Login:     %s\n", user.LastLogin)
 
 	if len(user.AutoGroups) > 0 {
 		fmt.Printf("  Auto Groups:    %s\n", strings.Join(user.AutoGroups, ", "))
+	}
+
+	if user.Permissions.IsRestricted {
+		fmt.Printf("  Restricted:     %t\n", user.Permissions.IsRestricted)
 	}
 
 	return nil
@@ -356,5 +394,60 @@ func (s *Service) resendUserInvite(userID string) error {
 	defer resp.Body.Close()
 
 	fmt.Printf("✓ Invitation resent successfully to user: %s\n", userID)
+	return nil
+}
+
+// approveUser approves a user that is pending approval
+func (s *Service) approveUser(userID string) error {
+	resp, err := s.Client.MakeRequest("POST", "/users/"+userID+"/approve", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var user models.User
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	fmt.Printf("✓ User approved successfully!\n")
+	fmt.Printf("  User ID:   %s\n", user.ID)
+	fmt.Printf("  Email:     %s\n", user.Email)
+	fmt.Printf("  Name:      %s\n", user.Name)
+	fmt.Printf("  Status:    %s\n", user.Status)
+	return nil
+}
+
+// rejectUser rejects a user that is pending approval
+func (s *Service) rejectUser(userID string) error {
+	resp, err := s.Client.MakeRequest("DELETE", "/users/"+userID+"/reject", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("✓ User rejected successfully: %s\n", userID)
+	return nil
+}
+
+// changeUserPassword changes a user's password (embedded IdP only)
+func (s *Service) changeUserPassword(userID, oldPassword, newPassword string) error {
+	req := models.UserPasswordChangeRequest{
+		OldPassword: oldPassword,
+		NewPassword: newPassword,
+	}
+
+	bodyBytes, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %v", err)
+	}
+
+	resp, err := s.Client.MakeRequest("PUT", "/users/"+userID+"/password", bytes.NewReader(bodyBytes))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("✓ Password changed successfully for user: %s\n", userID)
 	return nil
 }

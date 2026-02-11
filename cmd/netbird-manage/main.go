@@ -55,6 +55,15 @@ func main() {
 		os.Exit(0)
 	}
 
+	// The 'instance' command is special: it doesn't require authentication.
+	if command == "instance" {
+		if err := commands.HandleInstanceCommand(args, ""); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	// The 'migrate' command is special: it uses its own tokens, not the saved config.
 	if command == "migrate" {
 		if err := commands.HandleMigrateCommand(args, debugMode); err != nil {
@@ -111,6 +120,18 @@ func main() {
 			os.Exit(0)
 		case "ingress-peer":
 			commands.PrintIngressPeerUsage()
+			os.Exit(0)
+		case "dns-zone":
+			commands.PrintDNSZoneUsage()
+			os.Exit(0)
+		case "idp":
+			commands.PrintIdentityProviderUsage()
+			os.Exit(0)
+		case "instance":
+			commands.PrintInstanceUsage()
+			os.Exit(0)
+		case "job":
+			commands.PrintJobUsage()
 			os.Exit(0)
 		case "export":
 			commands.PrintExportUsage()
@@ -225,6 +246,21 @@ func main() {
 		}
 	case "import":
 		if err := svc.HandleImportCommand(args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "dns-zone":
+		if err := svc.HandleDNSZonesCommand(args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "idp":
+		if err := svc.HandleIdentityProvidersCommand(args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "job":
+		if err := svc.HandleJobsCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

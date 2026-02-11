@@ -99,6 +99,10 @@ netbird-manage ingress-peer --update ing-001 --enabled false
 | [Events](events.md) | Audit logs and traffic monitoring |
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
+| [DNS Zones](dns-zones.md) | Custom DNS zones and records |
+| [Identity Providers](identity-providers.md) | OIDC/OAuth2 identity provider management |
+| [Instance](instance.md) | Self-hosted instance setup |
+| [Jobs](jobs.md) | Peer bundle collection and debugging |
 | [Export & Import](export-import.md) | YAML/JSON configuration management |
 | [Migrate](migrate.md) | Migration between NetBird accounts |
 

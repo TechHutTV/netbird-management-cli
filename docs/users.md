@@ -67,6 +67,25 @@ netbird-manage user --update <user-id> --unblocked
 netbird-manage user --update <user-id> --role user --blocked
 ```
 
+## Approval Operations
+
+```bash
+# Approve a pending user
+netbird-manage user --approve <user-id>
+
+# Reject a pending user
+netbird-manage user --reject <user-id>
+```
+
+## Password Operations
+
+```bash
+# Change password for a user (embedded IdP only)
+netbird-manage user --change-password <user-id> \
+  --old-password "current_password" \
+  --new-password "new_secure_password"
+```
+
 ## Delete Operations
 
 ```bash
@@ -90,6 +109,8 @@ netbird-manage user --resend-invite <user-id>
 - Service users are designed for API access and automation
 - Blocked users cannot access the system but their configuration is preserved
 - Auto-groups automatically assign new peers to specified groups
+- User approval/rejection is only available when peer/user approval is enabled in account settings
+- Password changes via `--change-password` only work with the embedded identity provider
 
 ---
 
@@ -111,6 +132,10 @@ netbird-manage user --resend-invite <user-id>
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
 | [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |
+| [DNS Zones](dns-zones.md) | Custom DNS zones and records |
+| [Identity Providers](identity-providers.md) | OIDC/OAuth2 identity provider management |
+| [Instance](instance.md) | Self-hosted instance setup |
+| [Jobs](jobs.md) | Peer bundle collection and debugging |
 | [Export & Import](export-import.md) | YAML/JSON configuration management |
 | [Migrate](migrate.md) | Migration between NetBird accounts |
 

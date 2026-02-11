@@ -38,6 +38,12 @@ func (s *Service) HandlePeersCommand(args []string) error {
 	ipFlag := peerCmd.String("ip", "", "Set peer IP address (requires --update)")
 
 	accessiblePeersFlag := peerCmd.String("accessible-peers", "", "List peers accessible from the specified peer ID")
+
+	// Temporary access peer flags
+	tempAccessFlag := peerCmd.String("temp-access", "", "Create a temporary access peer (peer ID)")
+	tempNameFlag := peerCmd.String("temp-name", "", "Name for the temporary access peer (requires --temp-access)")
+	wgPubKeyFlag := peerCmd.String("wg-pub-key", "", "WireGuard public key (requires --temp-access)")
+	rulesFlag := peerCmd.String("rules", "", "Comma-separated rule IDs (requires --temp-access)")
 	filterNameFlag := peerCmd.String("filter-name", "", "Filter peers by name pattern (use with --list)")
 	filterIPFlag := peerCmd.String("filter-ip", "", "Filter peers by IP pattern (use with --list)")
 	outputFlag := peerCmd.String("output", "table", "Output format: table or json")
@@ -84,6 +90,23 @@ func (s *Service) HandlePeersCommand(args []string) error {
 
 	if *updateFlag != "" {
 		return s.handlePeerUpdate(*updateFlag, *renameFlag, *sshFlag, *loginExpFlag, *inactivityExpFlag, *approvalFlag, *ipFlag)
+	}
+
+	if *tempAccessFlag != "" {
+		if *tempNameFlag == "" {
+			return fmt.Errorf("--temp-name is required with --temp-access")
+		}
+		if *wgPubKeyFlag == "" {
+			return fmt.Errorf("--wg-pub-key is required with --temp-access")
+		}
+		if *rulesFlag == "" {
+			return fmt.Errorf("--rules is required with --temp-access")
+		}
+		rules := strings.Split(*rulesFlag, ",")
+		for i := range rules {
+			rules[i] = strings.TrimSpace(rules[i])
+		}
+		return s.createTemporaryAccessPeer(*tempAccessFlag, *tempNameFlag, *wgPubKeyFlag, rules)
 	}
 
 	fmt.Fprintln(os.Stderr, "Error: Invalid or missing flags for 'peer' command.")
@@ -227,22 +250,31 @@ func (s *Service) listPeers(filterName, filterIP, outputFormat string) error {
 
 	// Table output (default)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tIP\tCONNECTED\tOS\tVERSION\tHOSTNAME")
-	fmt.Fprintln(w, "--\t----\t--\t---------\t--\t-------\t--------")
+	fmt.Fprintln(w, "ID\tNAME\tIP\tCONNECTED\tOS\tVERSION\tDNS LABEL\tCOUNTRY")
+	fmt.Fprintln(w, "--\t----\t--\t---------\t--\t-------\t---------\t-------")
 
 	for _, peer := range filteredPeers {
 		connectedStatus := "Offline"
 		if peer.Connected {
 			connectedStatus = "Online"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		dnsLabel := peer.DNSLabel
+		if dnsLabel == "" {
+			dnsLabel = peer.Hostname
+		}
+		country := peer.CountryCode
+		if country == "" {
+			country = "-"
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			peer.ID,
 			peer.Name,
 			peer.IP,
 			connectedStatus,
 			helpers.FormatOS(peer.OS),
 			peer.Version,
-			peer.Hostname,
+			dnsLabel,
+			country,
 		)
 	}
 	w.Flush()
@@ -377,11 +409,43 @@ func (s *Service) inspectPeer(peerID, outputFormat string) error {
 	fmt.Printf("Inspecting Peer: %s (%s)\n", peer.Name, peer.ID)
 	fmt.Println("---------------------------------")
 	fmt.Printf("  IP:          %s\n", peer.IP)
+	if peer.ConnectionIP != "" {
+		fmt.Printf("  Connection IP: %s\n", peer.ConnectionIP)
+	}
 	fmt.Printf("  Hostname:    %s\n", peer.Hostname)
+	if peer.DNSLabel != "" {
+		fmt.Printf("  DNS Label:   %s\n", peer.DNSLabel)
+	}
 	fmt.Printf("  OS:          %s\n", helpers.FormatOS(peer.OS))
+	if peer.KernelVersion != "" {
+		fmt.Printf("  Kernel:      %s\n", peer.KernelVersion)
+	}
 	fmt.Printf("  Version:     %s\n", peer.Version)
+	if peer.UIVersion != "" {
+		fmt.Printf("  UI Version:  %s\n", peer.UIVersion)
+	}
 	fmt.Printf("  Connected:   %t\n", peer.Connected)
 	fmt.Printf("  Last Seen:   %s\n", peer.LastSeen)
+	if peer.LastLogin != "" {
+		fmt.Printf("  Last Login:  %s\n", peer.LastLogin)
+	}
+	fmt.Printf("  Login Expired: %t\n", peer.LoginExpired)
+	fmt.Printf("  Ephemeral:   %t\n", peer.Ephemeral)
+	if peer.CountryCode != "" {
+		fmt.Printf("  Country:     %s\n", peer.CountryCode)
+	}
+	if peer.CityName != "" {
+		fmt.Printf("  City:        %s\n", peer.CityName)
+	}
+	if peer.SerialNumber != "" {
+		fmt.Printf("  Serial:      %s\n", peer.SerialNumber)
+	}
+	if peer.UserID != "" {
+		fmt.Printf("  User ID:     %s\n", peer.UserID)
+	}
+	if peer.AccessiblePeersCount > 0 {
+		fmt.Printf("  Accessible Peers: %d\n", peer.AccessiblePeersCount)
+	}
 
 	if len(peer.Groups) > 0 {
 		fmt.Println("  Groups:")
@@ -391,6 +455,16 @@ func (s *Service) inspectPeer(peerID, outputFormat string) error {
 	} else {
 		fmt.Println("  Groups:      None")
 	}
+
+	if peer.LocalFlags != nil {
+		fmt.Println("  Local Flags:")
+		fmt.Printf("    Rosenpass Enabled:      %t\n", peer.LocalFlags.RosenpassEnabled)
+		fmt.Printf("    Server SSH Allowed:     %t\n", peer.LocalFlags.ServerSSHAllowed)
+		fmt.Printf("    Block LAN Access:       %t\n", peer.LocalFlags.BlockLANAccess)
+		fmt.Printf("    Block Inbound:          %t\n", peer.LocalFlags.BlockInbound)
+		fmt.Printf("    Lazy Connection:        %t\n", peer.LocalFlags.LazyConnectionEnabled)
+	}
+
 	return nil
 }
 
@@ -542,5 +616,39 @@ func (s *Service) getAccessiblePeers(peerID, outputFormat string) error {
 		)
 	}
 	w.Flush()
+	return nil
+}
+
+// createTemporaryAccessPeer creates a temporary access peer for a given peer
+func (s *Service) createTemporaryAccessPeer(peerID, name, wgPubKey string, rules []string) error {
+	req := models.TemporaryAccessPeerRequest{
+		Name:     name,
+		WgPubKey: wgPubKey,
+		Rules:    rules,
+	}
+
+	bodyBytes, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %v", err)
+	}
+
+	resp, err := s.Client.MakeRequest("POST", "/peers/"+peerID+"/temporary-access", bytes.NewReader(bodyBytes))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var result models.TemporaryAccessPeerResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	fmt.Printf("✓ Temporary access peer created successfully!\n")
+	fmt.Printf("  ID:    %s\n", result.ID)
+	fmt.Printf("  Name:  %s\n", result.Name)
+	if len(result.Rules) > 0 {
+		fmt.Printf("  Rules: %s\n", strings.Join(result.Rules, ", "))
+	}
+
 	return nil
 }
