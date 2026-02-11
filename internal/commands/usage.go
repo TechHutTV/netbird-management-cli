@@ -595,7 +595,7 @@ func PrintIdentityProviderUsage() {
 	fmt.Println("    --type <type>                  New provider type")
 	fmt.Println("    --issuer <url>                 New issuer URL")
 	fmt.Println("    --client-id <id>               New client ID")
-	fmt.Println("    --client-secret <secret>       New client secret")
+	fmt.Println("    --client-secret <secret>       Client secret (required - API does not return secrets)")
 	fmt.Println()
 	fmt.Println("  --delete <idp-id>                Delete an identity provider")
 }

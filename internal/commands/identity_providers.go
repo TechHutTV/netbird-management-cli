@@ -60,7 +60,19 @@ func (s *Service) HandleIdentityProvidersCommand(args []string) error {
 	}
 
 	if *updateFlag != "" {
-		return s.updateIdentityProvider(*updateFlag, *nameFlag, *typeFlag, *issuerFlag, *clientIDFlag, *clientSecretFlag)
+		if *clientSecretFlag == "" {
+			return fmt.Errorf("--client-secret is required when updating (the API does not return secrets, so it must be re-provided)")
+		}
+		// Track which flags were explicitly set
+		setFlags := make(map[string]bool)
+		cmd.Visit(func(f *flag.Flag) {
+			setFlags[f.Name] = true
+		})
+		typeVal := ""
+		if setFlags["type"] {
+			typeVal = *typeFlag
+		}
+		return s.updateIdentityProvider(*updateFlag, *nameFlag, typeVal, *issuerFlag, *clientIDFlag, *clientSecretFlag)
 	}
 
 	if *deleteFlag != "" {
@@ -204,7 +216,7 @@ func (s *Service) updateIdentityProvider(idpID, name, providerType, issuer, clie
 	if name != "" {
 		req.Name = name
 	}
-	if providerType != "oidc" {
+	if providerType != "" {
 		req.Type = providerType
 	}
 	if issuer != "" {

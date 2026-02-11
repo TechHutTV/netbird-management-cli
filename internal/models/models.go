@@ -516,29 +516,29 @@ type AuditEvent struct {
 	InitiatorName  string                 `json:"initiator_name"`
 	InitiatorEmail string                 `json:"initiator_email"`
 	TargetID       string                 `json:"target_id"`
-	Meta           map[string]interface{} `json:"meta"`
+	Meta           map[string]any `json:"meta"`
 }
 
 // TrafficEvent represents a network traffic event
 type TrafficEvent struct {
-	ID              string                 `json:"id"`
-	Timestamp       string                 `json:"timestamp"`
-	UserID          string                 `json:"user_id"`
-	UserEmail       string                 `json:"user_email"`
-	ReporterID      string                 `json:"reporter_id"`
-	ReporterName    string                 `json:"reporter_name"`
-	Protocol        int                    `json:"protocol"`
-	Type            string                 `json:"type"`
-	ConnectionType  string                 `json:"connection_type"`
-	Direction       string                 `json:"direction"`
-	SourceIP        string                 `json:"source_ip"`
-	DestinationIP   string                 `json:"destination_ip"`
-	BytesSent       int64                  `json:"bytes_sent"`
-	BytesReceived   int64                  `json:"bytes_received"`
-	PacketsSent     int64                  `json:"packets_sent"`
-	PacketsReceived int64                  `json:"packets_received"`
-	PolicyID        string                 `json:"policy_id,omitempty"`
-	Meta            map[string]interface{} `json:"meta,omitempty"`
+	ID              string         `json:"id"`
+	Timestamp       string         `json:"timestamp"`
+	UserID          string         `json:"user_id"`
+	UserEmail       string         `json:"user_email"`
+	ReporterID      string         `json:"reporter_id"`
+	ReporterName    string         `json:"reporter_name"`
+	Protocol        int            `json:"protocol"`
+	Type            string         `json:"type"`
+	ConnectionType  string         `json:"connection_type"`
+	Direction       string         `json:"direction"`
+	SourceIP        string         `json:"source_ip"`
+	DestinationIP   string         `json:"destination_ip"`
+	BytesSent       int64          `json:"bytes_sent"`
+	BytesReceived   int64          `json:"bytes_received"`
+	PacketsSent     int64          `json:"packets_sent"`
+	PacketsReceived int64          `json:"packets_received"`
+	PolicyID        string         `json:"policy_id,omitempty"`
+	Meta            map[string]any `json:"meta,omitempty"`
 }
 
 // AuditEventFilters for filtering audit events
@@ -791,9 +791,9 @@ type Job struct {
 
 // JobWorkload represents the workload details of a job
 type JobWorkload struct {
-	Type       string                 `json:"type"` // bundle
-	Parameters map[string]interface{} `json:"parameters,omitempty"`
-	Result     map[string]interface{} `json:"result,omitempty"`
+	Type       string         `json:"type"` // bundle
+	Parameters map[string]any `json:"parameters,omitempty"`
+	Result     map[string]any `json:"result,omitempty"`
 }
 
 // JobCreateRequest represents the request body for creating a job
@@ -803,6 +803,6 @@ type JobCreateRequest struct {
 
 // JobWorkloadRequest represents the workload in a create request
 type JobWorkloadRequest struct {
-	Type       string                 `json:"type"`
-	Parameters map[string]interface{} `json:"parameters"`
+	Type       string         `json:"type"`
+	Parameters map[string]any `json:"parameters"`
 }

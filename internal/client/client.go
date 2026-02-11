@@ -55,7 +55,9 @@ func (c *Client) MakeRequest(method, endpoint string, body io.Reader) (*http.Res
 	}
 
 	// Set authentication and content type headers
-	req.Header.Set("Authorization", "Token "+c.Token)
+	if c.Token != "" {
+		req.Header.Set("Authorization", "Token "+c.Token)
+	}
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")

@@ -57,7 +57,12 @@ func main() {
 
 	// The 'instance' command is special: it doesn't require authentication.
 	if command == "instance" {
-		if err := commands.HandleInstanceCommand(args, ""); err != nil {
+		// Try to load management URL from config as a fallback
+		mgmtURL := ""
+		if cfg, err := config.Load(); err == nil {
+			mgmtURL = cfg.ManagementURL
+		}
+		if err := commands.HandleInstanceCommand(args, mgmtURL); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -126,9 +131,6 @@ func main() {
 			os.Exit(0)
 		case "idp":
 			commands.PrintIdentityProviderUsage()
-			os.Exit(0)
-		case "instance":
-			commands.PrintInstanceUsage()
 			os.Exit(0)
 		case "job":
 			commands.PrintJobUsage()

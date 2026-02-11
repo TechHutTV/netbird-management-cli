@@ -60,6 +60,12 @@ func (s *Service) HandleDNSZonesCommand(args []string) error {
 		return nil
 	}
 
+	// Track which flags were explicitly set (used by update operations)
+	setFlags := make(map[string]bool)
+	cmd.Visit(func(f *flag.Flag) {
+		setFlags[f.Name] = true
+	})
+
 	// Zone operations
 	if *listFlag {
 		return s.listDNSZones(*outputFlag)
@@ -88,8 +94,16 @@ func (s *Service) HandleDNSZonesCommand(args []string) error {
 		if *groupsFlag != "" {
 			groups = helpers.SplitCommaList(*groupsFlag)
 		}
-		enabled := *enabledFlag && !*disabledFlag
-		return s.updateDNSZone(*updateFlag, *nameFlag, *domainFlag, groups, *searchDomainFlag, enabled)
+		var enabledPtr *bool
+		if setFlags["enabled"] || setFlags["disabled"] {
+			val := *enabledFlag && !*disabledFlag
+			enabledPtr = &val
+		}
+		var searchDomainPtr *bool
+		if setFlags["search-domain"] {
+			searchDomainPtr = searchDomainFlag
+		}
+		return s.updateDNSZone(*updateFlag, *nameFlag, *domainFlag, groups, searchDomainPtr, enabledPtr)
 	}
 
 	if *deleteFlag != "" {
@@ -119,7 +133,7 @@ func (s *Service) HandleDNSZonesCommand(args []string) error {
 		if *zoneIDFlag == "" || *recordIDFlag == "" {
 			return fmt.Errorf("--zone-id and --record-id are required for --update-record")
 		}
-		return s.updateDNSRecord(*zoneIDFlag, *recordIDFlag, *nameFlag, *typeFlag, *contentFlag, *ttlFlag)
+		return s.updateDNSRecord(*zoneIDFlag, *recordIDFlag, *nameFlag, *typeFlag, *contentFlag, *ttlFlag, setFlags)
 	}
 
 	if *deleteRecordFlag {
@@ -265,7 +279,7 @@ func (s *Service) createDNSZone(name, domain string, groups []string, searchDoma
 }
 
 // updateDNSZone updates an existing DNS zone
-func (s *Service) updateDNSZone(zoneID, name, domain string, groups []string, searchDomain, enabled bool) error {
+func (s *Service) updateDNSZone(zoneID, name, domain string, groups []string, searchDomain, enabled *bool) error {
 	// Fetch current zone to preserve values
 	resp, err := s.Client.MakeRequest("GET", "/dns/zones/"+zoneID, nil)
 	if err != nil {
@@ -281,8 +295,8 @@ func (s *Service) updateDNSZone(zoneID, name, domain string, groups []string, se
 	req := models.DNSZoneRequest{
 		Name:               currentZone.Name,
 		Domain:             currentZone.Domain,
-		Enabled:            enabled,
-		EnableSearchDomain: searchDomain,
+		Enabled:            currentZone.Enabled,
+		EnableSearchDomain: currentZone.EnableSearchDomain,
 		DistributionGroups: currentZone.DistributionGroups,
 	}
 
@@ -294,6 +308,12 @@ func (s *Service) updateDNSZone(zoneID, name, domain string, groups []string, se
 	}
 	if groups != nil {
 		req.DistributionGroups = groups
+	}
+	if enabled != nil {
+		req.Enabled = *enabled
+	}
+	if searchDomain != nil {
+		req.EnableSearchDomain = *searchDomain
 	}
 
 	bodyBytes, err := json.Marshal(req)
@@ -462,7 +482,7 @@ func (s *Service) inspectDNSRecord(zoneID, recordID, outputFormat string) error 
 }
 
 // updateDNSRecord updates an existing DNS record
-func (s *Service) updateDNSRecord(zoneID, recordID, name, recordType, content string, ttl int) error {
+func (s *Service) updateDNSRecord(zoneID, recordID, name, recordType, content string, ttl int, setFlags map[string]bool) error {
 	// Fetch current record
 	resp, err := s.Client.MakeRequest("GET", "/dns/zones/"+zoneID+"/records/"+recordID, nil)
 	if err != nil {
@@ -482,16 +502,16 @@ func (s *Service) updateDNSRecord(zoneID, recordID, name, recordType, content st
 		TTL:     current.TTL,
 	}
 
-	if name != "" {
+	if setFlags["name"] {
 		req.Name = name
 	}
-	if recordType != "" {
+	if setFlags["type"] {
 		req.Type = recordType
 	}
-	if content != "" {
+	if setFlags["content"] {
 		req.Content = content
 	}
-	if ttl != 300 {
+	if setFlags["ttl"] {
 		req.TTL = ttl
 	}
 

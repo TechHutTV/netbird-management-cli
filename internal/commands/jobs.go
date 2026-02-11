@@ -54,9 +54,13 @@ func (s *Service) HandleJobsCommand(args []string) error {
 	}
 
 	if *createFlag != "" {
-		params := make(map[string]interface{})
+		params := make(map[string]any)
 		if *bundleForTimeFlag != "" {
-			params["bundle_for_time"] = *bundleForTimeFlag
+			bundleForTime, err := strconv.Atoi(*bundleForTimeFlag)
+			if err != nil {
+				return fmt.Errorf("invalid --bundle-for-time value: %s", *bundleForTimeFlag)
+			}
+			params["bundle_for_time"] = bundleForTime
 		}
 		if *logFileCountFlag != "" {
 			count, err := strconv.Atoi(*logFileCountFlag)
@@ -182,7 +186,12 @@ func (s *Service) inspectJob(peerID, jobID, outputFormat string) error {
 }
 
 // createJob creates a new bundle collection job for a peer
-func (s *Service) createJob(peerID string, params map[string]interface{}) error {
+func (s *Service) createJob(peerID string, params map[string]any) error {
+	// Ensure bundle_for is set for bundle jobs
+	if _, ok := params["bundle_for"]; !ok {
+		params["bundle_for"] = true
+	}
+
 	req := models.JobCreateRequest{
 		Workload: models.JobWorkloadRequest{
 			Type:       "bundle",
