@@ -422,6 +422,16 @@ func submitNetworkCreate(c *client.Client, data networkFormData) tea.Cmd {
 	}
 }
 
+// ─── Network Edit (submit only, reuses newNetworkCreateForm) ──────────────────
+
+func submitNetworkEdit(c *client.Client, networkID string, data networkFormData) tea.Cmd {
+	req := models.NetworkUpdateRequest{
+		Name:        data.name,
+		Description: data.description,
+	}
+	return UpdateNetwork(c, networkID, req)
+}
+
 // ─── Network Resource Add ───────────────────────────────────────────
 
 type networkResourceFormData struct {

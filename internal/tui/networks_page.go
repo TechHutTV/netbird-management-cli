@@ -25,6 +25,8 @@ const (
 	networksViewConfirm
 	networksViewConfirmResource
 	networksViewConfirmRouter
+	networksViewEdit
+	networksViewEditConfirm
 )
 
 // NetworksPage manages networks list and detail views with resources and routers
@@ -41,6 +43,9 @@ type NetworksPage struct {
 	formData       networkFormData
 	resFormData    networkResourceFormData
 	routerFormData networkRouterFormData
+	editForm        *huh.Form
+	editData        networkFormData
+	editNetworkID   string
 	groupNames     map[string]string
 	focused        bool
 	search         string
@@ -138,6 +143,42 @@ func (n *NetworksPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 		return n, nil
 	}
 
+	if n.state == networksViewEditConfirm {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
+			switch keyMsg.String() {
+			case "y":
+				n.state = networksViewDetail
+				return n, submitNetworkEdit(c, n.editNetworkID, n.editData)
+			case "n", "esc":
+				n.state = networksViewDetail
+			}
+		}
+		return n, nil
+	}
+
+	// Delegate to edit form when active
+	if n.state == networksViewEdit && n.editForm != nil {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" {
+			n.state = networksViewDetail
+			n.editForm = nil
+			return n, nil
+		}
+		m, cmd := n.editForm.Update(msg)
+		if f, ok := m.(*huh.Form); ok {
+			n.editForm = f
+		}
+		if n.editForm.State == huh.StateCompleted {
+			n.state = networksViewEditConfirm
+			n.editForm = nil
+			return n, nil
+		}
+		if n.editForm.State == huh.StateAborted {
+			n.state = networksViewDetail
+			n.editForm = nil
+		}
+		return n, cmd
+	}
+
 	// Delegate to form when active
 	// Form delegation for create network, add resource, add router
 	if (n.state == networksViewForm || n.state == networksViewAddResource || n.state == networksViewAddRouter) && n.form != nil {
@@ -206,6 +247,13 @@ func (n *NetworksPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 	case formCompleteMsg:
 		return n, n.Init(c)
 
+	case NetworkUpdatedMsg:
+		if msg.Err != nil {
+			n.err = msg.Err
+			return n, nil
+		}
+		return n, n.Init(c)
+
 	case ToastMsg:
 		return n, n.Init(c)
 
@@ -249,6 +297,15 @@ func (n *NetworksPage) View(width, height int) string {
 			{Label: "Masquerade", Value: fmt.Sprintf("%v", n.routerFormData.masquerade)},
 		})
 	}
+	if n.state == networksViewEdit && n.editForm != nil {
+		return pageTitleStyle.Render("Edit Network") + "\n\n" + n.editForm.View()
+	}
+	if n.state == networksViewEditConfirm {
+		return RenderConfirm("Confirm: Edit Network", []ConfirmField{
+			{Label: "Name", Value: n.editData.name},
+			{Label: "Description", Value: n.editData.description},
+		})
+	}
 	if n.state == networksViewForm && n.form != nil {
 		return pageTitleStyle.Render("Create Network") + "\n\n" + n.form.View()
 	}
@@ -288,6 +345,16 @@ func (n *NetworksPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, t
 			n.state = networksViewList
 			n.resources = nil
 			n.routers = nil
+		case "e":
+			// Edit network
+			if len(n.filtered) > 0 {
+				net := n.filtered[n.cursor]
+				n.editData = networkFormData{name: net.Name, description: net.Description}
+				n.editNetworkID = net.ID
+				n.editForm = newNetworkCreateForm(&n.editData)
+				n.state = networksViewEdit
+				return n, n.editForm.Init()
+			}
 		case "s":
 			// Add resource
 			if len(n.filtered) > 0 {
@@ -501,7 +568,7 @@ func (n *NetworksPage) viewDetail(width int) string {
 		}
 	}
 
-	b.WriteString("\n" + dimHintStyle.Render("  esc: back  s: add resource  p: add routing peer  d: delete  r: refresh"))
+	b.WriteString("\n" + dimHintStyle.Render("  esc: back  e: edit  s: add resource  p: add routing peer  d: delete  r: refresh"))
 
 	return b.String()
 }
