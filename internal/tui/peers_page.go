@@ -38,10 +38,17 @@ type PeersPage struct {
 	editForm        *huh.Form
 	editData        peerEditFormData
 	editPeerID      string
+	daemon          *DaemonClient
+	connections     map[string]PeerConnectionInfo
 }
 
 func NewPeersPage() *PeersPage {
 	return &PeersPage{loading: true}
+}
+
+// SetDaemon sets the daemon client for peer connection info
+func (p *PeersPage) SetDaemon(d *DaemonClient) {
+	p.daemon = d
 }
 
 func (p *PeersPage) Title() string { return "Peers" }
@@ -108,6 +115,12 @@ func (p *PeersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 		}
 		p.peers = msg.Peers
 		p.applyFilter()
+		return p, nil
+
+	case PeerConnectionMsg:
+		if msg.Err == nil {
+			p.connections = msg.Connections
+		}
 		return p, nil
 
 	case accessiblePeersLoadedMsg:
@@ -229,6 +242,9 @@ func (p *PeersPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea.
 	case "enter":
 		if len(p.filtered) > 0 {
 			p.state = peersViewDetail
+			if p.daemon != nil {
+				return p, FetchPeerConnections(p.daemon)
+			}
 		}
 	case "r":
 		return p, p.Init(c)
@@ -479,6 +495,38 @@ func (p *PeersPage) viewDetail(width int) string {
 				detailValueStyle.Render(g.Name),
 				dimHintStyle.Render(g.ID)))
 		}
+	}
+
+	// Connection detail from local daemon
+	if conn, ok := p.connections[peer.IP]; ok {
+		b.WriteString("\n" + sectionHeaderStyle.Render("  Connection Detail") + "\n")
+		connFields := []struct{ label, value string }{
+			{"Type", conn.ConnType},
+			{"Remote Endpoint", conn.RemoteEndpoint},
+			{"Local ICE", conn.LocalICEType},
+			{"Remote ICE", conn.RemoteICEType},
+			{"Latency", conn.Latency},
+			{"Sent", formatBytes(conn.BytesSent)},
+			{"Received", formatBytes(conn.BytesReceived)},
+			{"Last Handshake", conn.LastHandshake},
+		}
+		for _, f := range connFields {
+			if f.value == "" {
+				continue
+			}
+			label := detailLabelStyle.Render(f.label)
+			value := detailValueStyle.Render(f.value)
+			b.WriteString(fmt.Sprintf("%s  %s\n", label, value))
+		}
+		if conn.RelayAddress != "" {
+			label := detailLabelStyle.Render("Relay")
+			value := detailValueStyle.Render(conn.RelayAddress)
+			b.WriteString(fmt.Sprintf("%s  %s\n", label, value))
+		}
+	} else if p.daemon != nil {
+		b.WriteString("\n" + dimHintStyle.Render("  Peer not connected locally") + "\n")
+	} else {
+		b.WriteString("\n" + dimHintStyle.Render("  Connect to NetBird daemon for connection details") + "\n")
 	}
 
 	b.WriteString("\n" + dimHintStyle.Render("  esc: back  e: edit  d: delete  r: refresh"))
