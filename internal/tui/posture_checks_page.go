@@ -360,7 +360,7 @@ func (pc *PostureChecksPage) viewList(width, height int) string {
 		})
 
 	b.WriteString(t.Render() + "\n")
-	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  c: create", pc.cursor+1, len(pc.filtered))))
+	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  /: search  c: create  d: delete  r: refresh", pc.cursor+1, len(pc.filtered))))
 
 	return b.String()
 }

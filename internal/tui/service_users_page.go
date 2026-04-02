@@ -320,7 +320,7 @@ func (s *ServiceUsersPage) viewList(width, height int) string {
 		})
 
 	b.WriteString(t.Render() + "\n")
-	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  c: create  b: block/unblock  d: delete  r: refresh", s.cursor+1, len(s.filtered))))
+	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  /: search  c: create  b: block/unblock  d: delete  r: refresh", s.cursor+1, len(s.filtered))))
 
 	return b.String()
 }

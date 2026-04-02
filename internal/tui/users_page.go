@@ -382,7 +382,7 @@ func (u *UsersPage) viewList(width, height int) string {
 		})
 
 	b.WriteString(t.Render() + "\n")
-	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  c: create  b: block/unblock  r: refresh", u.cursor+1, len(u.filtered))))
+	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  /: search  c: invite  b: block/unblock  r: refresh", u.cursor+1, len(u.filtered))))
 
 	return b.String()
 }

@@ -443,7 +443,7 @@ func (r *RoutesPage) viewList(width, height int) string {
 		})
 
 	b.WriteString(t.Render() + "\n")
-	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  c: create  t: toggle  d: delete  r: refresh", r.cursor+1, len(r.filtered))))
+	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  /: search  c: create  t: toggle  d: delete  r: refresh", r.cursor+1, len(r.filtered))))
 
 	return b.String()
 }

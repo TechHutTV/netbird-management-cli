@@ -547,7 +547,7 @@ func (p *PeersPage) viewList(width, height int) string {
 	if p.search != "" {
 		hints += "  esc: clear filter"
 	}
-	hints += "  a: accessible  d: delete  g: bulk groups  r: refresh"
+	hints += "  c: create  d: delete  a: accessible  g: bulk groups  p: pause  r: refresh"
 	b.WriteString(dimHintStyle.Render(hints) + "\n")
 
 	if p.autoRefresh && !p.lastRefresh.IsZero() {
@@ -696,7 +696,7 @@ func (p *PeersPage) viewDetail(width int) string {
 		b.WriteString("\n" + dimHintStyle.Render("  Connect to NetBird daemon for connection details") + "\n")
 	}
 
-	b.WriteString("\n" + dimHintStyle.Render("  esc: back  e: edit  d: delete  r: refresh"))
+	b.WriteString("\n" + dimHintStyle.Render("  e: edit  d: delete  a: accessible  r: refresh  esc: back"))
 
 	return b.String()
 }

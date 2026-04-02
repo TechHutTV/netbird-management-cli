@@ -234,7 +234,7 @@ func (e *EventsPage) viewList(width, height int) string {
 		})
 
 	b.WriteString(t.Render() + "\n")
-	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  r: refresh", e.cursor+1, len(e.filtered))) + "\n")
+	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  /: search  p: pause  r: refresh", e.cursor+1, len(e.filtered))) + "\n")
 
 	if e.autoRefresh && !e.lastRefresh.IsZero() {
 		ago := time.Since(e.lastRefresh).Truncate(time.Second)

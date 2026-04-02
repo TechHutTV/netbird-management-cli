@@ -327,7 +327,7 @@ func (s *SetupKeysPage) viewList(width, height int) string {
 		})
 
 	b.WriteString(t.Render() + "\n")
-	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  c: create  v: revoke  d: delete  r: refresh", s.cursor+1, len(s.filtered))))
+	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  /: search  c: create  v: revoke  d: delete  r: refresh", s.cursor+1, len(s.filtered))))
 
 	return b.String()
 }

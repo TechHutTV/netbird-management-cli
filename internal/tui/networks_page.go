@@ -503,7 +503,7 @@ func (n *NetworksPage) viewList(width, height int) string {
 		})
 
 	b.WriteString(t.Render() + "\n")
-	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  c: create", n.cursor+1, len(n.filtered))))
+	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  /: search  c: create  d: delete  r: refresh", n.cursor+1, len(n.filtered))))
 
 	return b.String()
 }

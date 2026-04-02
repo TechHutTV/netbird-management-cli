@@ -466,7 +466,7 @@ func (d *DNSPage) viewList(width, height int) string {
 		})
 
 	b.WriteString(t.Render() + "\n")
-	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  c: create  t: toggle  d: delete  r: refresh", d.cursor+1, len(d.filtered))))
+	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  /: search  c: create  t: toggle  d: delete  r: refresh", d.cursor+1, len(d.filtered))))
 
 	return b.String()
 }

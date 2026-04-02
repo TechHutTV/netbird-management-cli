@@ -243,7 +243,7 @@ func (ip *IngressPage) viewList(width, height int) string {
 		})
 
 	b.WriteString(t.Render() + "\n")
-	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  ", ip.cursor+1, len(ip.filtered))))
+	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  /: search  r: refresh", ip.cursor+1, len(ip.filtered))))
 
 	return b.String()
 }

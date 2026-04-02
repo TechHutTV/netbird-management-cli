@@ -436,7 +436,7 @@ func (p *PoliciesPage) viewList(width, height int) string {
 		})
 
 	b.WriteString(t.Render() + "\n")
-	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  c: create  t: toggle  d: delete  r: refresh", p.cursor+1, len(p.filtered))))
+	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  /: search  c: create  t: toggle  d: delete  r: refresh", p.cursor+1, len(p.filtered))))
 
 	return b.String()
 }

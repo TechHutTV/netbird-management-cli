@@ -356,7 +356,7 @@ func (g *GroupsPage) viewList(width, height int) string {
 		})
 
 	b.WriteString(t.Render() + "\n")
-	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  c: create", g.cursor+1, len(g.filtered))))
+	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  /: search  c: create  d: delete  r: refresh", g.cursor+1, len(g.filtered))))
 	return b.String()
 }
 
