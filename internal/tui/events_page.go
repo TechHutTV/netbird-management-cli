@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -16,16 +17,18 @@ import (
 type EventsPage struct {
 	events    []models.AuditEvent
 	filtered  []models.AuditEvent
-	cursor    int
-	loading   bool
-	err       error
-	focused   bool
-	search    string
-	searching bool
+	cursor      int
+	loading     bool
+	err         error
+	focused     bool
+	search      string
+	searching   bool
+	autoRefresh bool
+	lastRefresh time.Time
 }
 
 func NewEventsPage() *EventsPage {
-	return &EventsPage{loading: true}
+	return &EventsPage{loading: true, autoRefresh: true}
 }
 
 func (e *EventsPage) Title() string { return "Events" }
@@ -35,11 +38,25 @@ func (e *EventsPage) SetFocused(focused bool) { e.focused = focused }
 func (e *EventsPage) Init(c *client.Client) tea.Cmd {
 	e.loading = true
 	e.err = nil
-	return FetchEvents(c)
+	cmds := []tea.Cmd{FetchEvents(c)}
+	if e.autoRefresh {
+		cmds = append(cmds, eventsTickCmd())
+	}
+	return tea.Batch(cmds...)
 }
 
 func (e *EventsPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 	switch msg := msg.(type) {
+	case EventsTickMsg:
+		if e.focused && e.autoRefresh {
+			e.lastRefresh = time.Now()
+			return e, tea.Batch(FetchEvents(c), eventsTickCmd())
+		}
+		if e.autoRefresh {
+			return e, eventsTickCmd() // keep ticking, refresh when focused
+		}
+		return e, nil
+
 	case EventsLoadedMsg:
 		e.loading = false
 		if msg.Err != nil {
@@ -47,6 +64,7 @@ func (e *EventsPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 			return e, nil
 		}
 		e.events = msg.Events
+		e.lastRefresh = time.Now()
 		e.applyFilter()
 		return e, nil
 
@@ -120,6 +138,11 @@ func (e *EventsPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea
 			e.search = ""
 			e.cursor = 0
 			e.applyFilter()
+		}
+	case "p":
+		e.autoRefresh = !e.autoRefresh
+		if e.autoRefresh {
+			return e, eventsTickCmd()
 		}
 	}
 
@@ -211,7 +234,14 @@ func (e *EventsPage) viewList(width, height int) string {
 		})
 
 	b.WriteString(t.Render() + "\n")
-	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  r: refresh", e.cursor+1, len(e.filtered))))
+	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  r: refresh", e.cursor+1, len(e.filtered))) + "\n")
+
+	if e.autoRefresh && !e.lastRefresh.IsZero() {
+		ago := time.Since(e.lastRefresh).Truncate(time.Second)
+		b.WriteString(dimHintStyle.Render(fmt.Sprintf("  auto-refresh: %s ago  (p to pause)", ago)))
+	} else if !e.autoRefresh {
+		b.WriteString(dimHintStyle.Render("  auto-refresh paused  (p to resume)"))
+	}
 
 	return b.String()
 }
