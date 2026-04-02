@@ -210,6 +210,50 @@ func FetchAccounts(c *client.Client) tea.Cmd {
 	}
 }
 
+// FetchSettings returns a tea.Cmd that loads the first account (settings)
+func FetchSettings(c *client.Client) tea.Cmd {
+	return func() tea.Msg {
+		resp, err := c.MakeRequest("GET", "/accounts", nil)
+		if err != nil {
+			return SettingsLoadedMsg{Err: err}
+		}
+		defer resp.Body.Close()
+
+		var accounts []models.Account
+		if err := json.NewDecoder(resp.Body).Decode(&accounts); err != nil {
+			return SettingsLoadedMsg{Err: fmt.Errorf("decode accounts: %w", err)}
+		}
+		if len(accounts) == 0 {
+			return SettingsLoadedMsg{Err: fmt.Errorf("no accounts found")}
+		}
+		return SettingsLoadedMsg{Account: accounts[0]}
+	}
+}
+
+// SaveSettings returns a tea.Cmd that PUTs updated account settings
+func SaveSettings(c *client.Client, accountID string, settings models.AccountSettings) tea.Cmd {
+	return func() tea.Msg {
+		req := models.AccountUpdateRequest{
+			Settings: settings,
+		}
+		body, err := json.Marshal(req)
+		if err != nil {
+			return SettingsSavedMsg{Err: fmt.Errorf("marshal settings: %w", err)}
+		}
+		resp, err := c.MakeRequest("PUT", "/accounts/"+url.PathEscape(accountID), bytes.NewReader(body))
+		if err != nil {
+			return SettingsSavedMsg{Err: err}
+		}
+		defer resp.Body.Close()
+
+		var account models.Account
+		if err := json.NewDecoder(resp.Body).Decode(&account); err != nil {
+			return SettingsSavedMsg{Err: fmt.Errorf("decode response: %w", err)}
+		}
+		return SettingsSavedMsg{Account: account}
+	}
+}
+
 // BulkAssignGroup adds or removes peers from a group via full PUT
 func BulkAssignGroup(c *client.Client, group models.PolicyGroup, peerIDs []string, action string) tea.Cmd {
 	return func() tea.Msg {

@@ -81,6 +81,18 @@ type AccountsLoadedMsg struct {
 	Err      error
 }
 
+// SettingsLoadedMsg carries the result of fetching account settings
+type SettingsLoadedMsg struct {
+	Account models.Account
+	Err     error
+}
+
+// SettingsSavedMsg carries the result of saving account settings
+type SettingsSavedMsg struct {
+	Account models.Account
+	Err     error
+}
+
 // APIErrorMsg is a generic API error
 type APIErrorMsg struct {
 	Err     error
