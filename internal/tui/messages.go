@@ -103,6 +103,15 @@ type DaemonStatusMsg struct {
 // DaemonTickMsg triggers a daemon status refresh
 type DaemonTickMsg struct{}
 
+// PeersTickMsg triggers an auto-refresh of the peers list
+type PeersTickMsg struct{}
+
+// EventsTickMsg triggers an auto-refresh of the events list
+type EventsTickMsg struct{}
+
+// ConnectionTickMsg triggers an auto-refresh of peer connection detail
+type ConnectionTickMsg struct{}
+
 // PeerConnectionInfo holds daemon-reported connection details for a single peer
 type PeerConnectionInfo struct {
 	ConnType       string // "P2P", "Relayed", or "Disconnected"
