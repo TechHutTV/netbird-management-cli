@@ -210,6 +210,73 @@ func FetchAccounts(c *client.Client) tea.Cmd {
 	}
 }
 
+// BulkAssignGroup adds or removes peers from a group via full PUT
+func BulkAssignGroup(c *client.Client, group models.PolicyGroup, peerIDs []string, action string) tea.Cmd {
+	return func() tea.Msg {
+		// Fetch full group to get current peers
+		resp, err := c.MakeRequest("GET", "/groups/"+url.PathEscape(group.ID), nil)
+		if err != nil {
+			return BulkGroupAssignMsg{Err: fmt.Errorf("fetch group: %w", err)}
+		}
+		defer resp.Body.Close()
+
+		var detail struct {
+			ID    string `json:"id"`
+			Name  string `json:"name"`
+			Peers []struct {
+				ID string `json:"id"`
+			} `json:"peers"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&detail); err != nil {
+			return BulkGroupAssignMsg{Err: fmt.Errorf("decode group: %w", err)}
+		}
+
+		// Build updated peer list
+		existingIDs := make(map[string]bool)
+		for _, p := range detail.Peers {
+			existingIDs[p.ID] = true
+		}
+
+		if action == "add" {
+			for _, id := range peerIDs {
+				existingIDs[id] = true
+			}
+		} else {
+			for _, id := range peerIDs {
+				delete(existingIDs, id)
+			}
+		}
+
+		type peerRef struct {
+			ID string `json:"id"`
+		}
+		updatedPeers := make([]peerRef, 0, len(existingIDs))
+		for id := range existingIDs {
+			updatedPeers = append(updatedPeers, peerRef{ID: id})
+		}
+
+		updateReq := struct {
+			Name  string    `json:"name"`
+			Peers []peerRef `json:"peers"`
+		}{
+			Name:  detail.Name,
+			Peers: updatedPeers,
+		}
+
+		body, err := json.Marshal(updateReq)
+		if err != nil {
+			return BulkGroupAssignMsg{Err: fmt.Errorf("marshal update: %w", err)}
+		}
+		resp2, err := c.MakeRequest("PUT", "/groups/"+url.PathEscape(group.ID), bytes.NewReader(body))
+		if err != nil {
+			return BulkGroupAssignMsg{Err: err}
+		}
+		defer resp2.Body.Close()
+
+		return BulkGroupAssignMsg{}
+	}
+}
+
 // deletePeer returns a tea.Cmd that deletes a peer
 func DeletePeer(c *client.Client, peerID string) tea.Cmd {
 	return func() tea.Msg {

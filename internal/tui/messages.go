@@ -179,6 +179,11 @@ type PostureCheckDeletedMsg struct {
 	Err error
 }
 
+// BulkGroupAssignMsg carries the result of bulk group assignment
+type BulkGroupAssignMsg struct {
+	Err error
+}
+
 // DashboardCountsMsg carries management API counts for the dashboard
 type DashboardCountsMsg struct {
 	PeersOnline int

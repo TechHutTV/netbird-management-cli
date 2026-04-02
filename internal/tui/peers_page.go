@@ -22,6 +22,10 @@ const (
 	peersViewAccessible
 	peersViewEdit
 	peersViewEditConfirm
+	peersViewBulkSelect
+	peersViewBulkAction
+	peersViewBulkGroup
+	peersViewBulkConfirm
 )
 
 // PeersPage manages the peers list and detail views
@@ -43,6 +47,11 @@ type PeersPage struct {
 	connections     map[string]PeerConnectionInfo
 	autoRefresh     bool
 	lastRefresh     time.Time
+	bulk            *bulkState
+	bulkAction      string // "add" or "remove"
+	bulkGroups      []models.PolicyGroup
+	bulkGroupIdx    int
+	bulkTargetGrp   models.PolicyGroup
 }
 
 func NewPeersPage() *PeersPage {
@@ -156,6 +165,25 @@ func (p *PeersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 		p.state = peersViewAccessible
 		return p, nil
 
+	case GroupsLoadedMsg:
+		if p.state == peersViewBulkGroup {
+			if msg.Err != nil {
+				p.err = msg.Err
+				p.state = peersViewBulkSelect
+				return p, nil
+			}
+			p.bulkGroups = msg.Groups
+			p.bulkGroupIdx = 0
+		}
+		return p, nil
+
+	case BulkGroupAssignMsg:
+		if msg.Err != nil {
+			p.err = msg.Err
+			return p, nil
+		}
+		return p, p.Init(c)
+
 	case ToastMsg:
 		return p, p.Init(c)
 
@@ -179,6 +207,14 @@ func (p *PeersPage) View(width, height int) string {
 	}
 
 	switch p.state {
+	case peersViewBulkSelect:
+		return p.viewBulkSelect(width, height)
+	case peersViewBulkAction:
+		return p.viewBulkAction()
+	case peersViewBulkGroup:
+		return p.viewBulkGroupPicker(width, height)
+	case peersViewBulkConfirm:
+		return p.viewBulkConfirm()
 	case peersViewEditConfirm:
 		return RenderConfirm("Confirm: Edit Peer", []ConfirmField{
 			{Label: "Name", Value: p.editData.name},
@@ -210,6 +246,92 @@ func (p *PeersPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea.
 		p.searching = still
 		if changed || !still {
 			p.applyFilter()
+		}
+		return p, nil
+	}
+
+	// Bulk confirm
+	if p.state == peersViewBulkConfirm {
+		switch key {
+		case "y":
+			peerIDs := make([]string, 0, p.bulk.count())
+			for _, idx := range p.bulk.selectedIndices() {
+				if idx < len(p.filtered) {
+					peerIDs = append(peerIDs, p.filtered[idx].ID)
+				}
+			}
+			targetGrp := p.bulkTargetGrp
+			action := p.bulkAction
+			p.state = peersViewList
+			p.bulk = nil
+			return p, BulkAssignGroup(c, targetGrp, peerIDs, action)
+		case "n", "esc":
+			p.state = peersViewBulkSelect
+		}
+		return p, nil
+	}
+
+	// Bulk group picker
+	if p.state == peersViewBulkGroup {
+		switch key {
+		case "up", "k":
+			if p.bulkGroupIdx > 0 {
+				p.bulkGroupIdx--
+			}
+		case "down", "j":
+			if p.bulkGroupIdx < len(p.bulkGroups)-1 {
+				p.bulkGroupIdx++
+			}
+		case "enter":
+			if len(p.bulkGroups) > 0 {
+				p.bulkTargetGrp = p.bulkGroups[p.bulkGroupIdx]
+				p.state = peersViewBulkConfirm
+			}
+		case "esc":
+			p.state = peersViewBulkAction
+		}
+		return p, nil
+	}
+
+	// Bulk action picker
+	if p.state == peersViewBulkAction {
+		switch key {
+		case "1":
+			p.bulkAction = "add"
+			p.state = peersViewBulkGroup
+			return p, FetchGroups(c)
+		case "2":
+			p.bulkAction = "remove"
+			p.state = peersViewBulkGroup
+			return p, FetchGroups(c)
+		case "esc":
+			p.state = peersViewBulkSelect
+		}
+		return p, nil
+	}
+
+	// Bulk select mode
+	if p.state == peersViewBulkSelect {
+		switch key {
+		case "space":
+			p.bulk.toggle(p.cursor)
+		case "a":
+			p.bulk.selectAll()
+		case "enter":
+			if p.bulk.count() > 0 {
+				p.state = peersViewBulkAction
+			}
+		case "esc":
+			p.bulk = nil
+			p.state = peersViewList
+		case "up", "k":
+			if p.cursor > 0 {
+				p.cursor--
+			}
+		case "down", "j":
+			if p.cursor < len(p.filtered)-1 {
+				p.cursor++
+			}
 		}
 		return p, nil
 	}
@@ -293,6 +415,11 @@ func (p *PeersPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea.
 		p.autoRefresh = !p.autoRefresh
 		if p.autoRefresh {
 			return p, peersTickCmd()
+		}
+	case "g":
+		if len(p.filtered) > 0 {
+			p.bulk = newBulkState(len(p.filtered))
+			p.state = peersViewBulkSelect
 		}
 	}
 
@@ -420,7 +547,7 @@ func (p *PeersPage) viewList(width, height int) string {
 	if p.search != "" {
 		hints += "  esc: clear filter"
 	}
-	hints += "  a: accessible  d: delete  r: refresh"
+	hints += "  a: accessible  d: delete  g: bulk groups  r: refresh"
 	b.WriteString(dimHintStyle.Render(hints) + "\n")
 
 	if p.autoRefresh && !p.lastRefresh.IsZero() {
@@ -571,5 +698,165 @@ func (p *PeersPage) viewDetail(width int) string {
 
 	b.WriteString("\n" + dimHintStyle.Render("  esc: back  e: edit  d: delete  r: refresh"))
 
+	return b.String()
+}
+
+func (p *PeersPage) viewBulkSelect(width, height int) string {
+	var b strings.Builder
+
+	selected := 0
+	if p.bulk != nil {
+		selected = p.bulk.count()
+	}
+	b.WriteString(pageTitleStyle.Render(fmt.Sprintf("Bulk Select  %s",
+		sectionHeaderStyle.Render(fmt.Sprintf("%d selected", selected)))) + "\n")
+
+	if len(p.filtered) == 0 {
+		b.WriteString("\n" + dimHintStyle.Render("  No peers found."))
+		return b.String()
+	}
+
+	maxRows := height - 5
+	if maxRows < 1 {
+		maxRows = 1
+	}
+
+	offset := 0
+	if p.cursor >= maxRows {
+		offset = p.cursor - maxRows + 1
+	}
+	end := offset + maxRows
+	if end > len(p.filtered) {
+		end = len(p.filtered)
+	}
+
+	rows := make([][]string, 0, end-offset)
+	for i := offset; i < end; i++ {
+		peer := p.filtered[i]
+		marker := "[ ]"
+		if p.bulk != nil && p.bulk.isSelected(i) {
+			marker = "[x]"
+		}
+		status := "Offline"
+		if peer.Connected {
+			status = "Online"
+		}
+		rows = append(rows, []string{marker, peer.Name, peer.IP, status, peer.OS})
+	}
+
+	tableWidth := width
+	if tableWidth > 100 {
+		tableWidth = 100
+	}
+
+	t := table.New().
+		Border(lipgloss.RoundedBorder()).
+		BorderStyle(tableBorderStyle).
+		Headers("SEL", "NAME", "IP", "STATUS", "OS").
+		Rows(rows...).
+		Width(tableWidth).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == table.HeaderRow {
+				return tableHeaderStyle
+			}
+			dataIdx := row + offset
+			base := tableCellStyle
+			if row%2 == 0 {
+				base = tableDimCellStyle
+			}
+			if dataIdx == p.cursor && p.focused {
+				base = tableSelectedStyle
+			}
+			if col == 3 && row >= 0 && row < len(rows) {
+				if rows[row][3] == "Online" {
+					return base.Foreground(colorSuccess)
+				}
+				return base.Foreground(colorDanger)
+			}
+			return base
+		})
+
+	b.WriteString(t.Render() + "\n")
+	b.WriteString(dimHintStyle.Render("  space: toggle  a: all  enter: assign  esc: cancel"))
+	return b.String()
+}
+
+func (p *PeersPage) viewBulkAction() string {
+	var b strings.Builder
+	selected := 0
+	if p.bulk != nil {
+		selected = p.bulk.count()
+	}
+	b.WriteString(pageTitleStyle.Render(fmt.Sprintf("Bulk Action (%d peers selected)", selected)) + "\n\n")
+	b.WriteString("  1) Add to group\n")
+	b.WriteString("  2) Remove from group\n\n")
+	b.WriteString(dimHintStyle.Render("  esc: back"))
+	return b.String()
+}
+
+func (p *PeersPage) viewBulkGroupPicker(width, height int) string {
+	var b strings.Builder
+
+	actionLabel := "Add to"
+	if p.bulkAction == "remove" {
+		actionLabel = "Remove from"
+	}
+	b.WriteString(pageTitleStyle.Render(fmt.Sprintf("%s Group", actionLabel)) + "\n")
+
+	if len(p.bulkGroups) == 0 {
+		b.WriteString("\n" + dimHintStyle.Render("  Loading groups..."))
+		return b.String()
+	}
+
+	maxRows := height - 4
+	if maxRows < 1 {
+		maxRows = 1
+	}
+
+	offset := 0
+	if p.bulkGroupIdx >= maxRows {
+		offset = p.bulkGroupIdx - maxRows + 1
+	}
+	end := offset + maxRows
+	if end > len(p.bulkGroups) {
+		end = len(p.bulkGroups)
+	}
+
+	for i := offset; i < end; i++ {
+		g := p.bulkGroups[i]
+		cursor := "  "
+		if i == p.bulkGroupIdx && p.focused {
+			cursor = "> "
+		}
+		line := fmt.Sprintf("%s%s  %s", cursor, g.Name, dimHintStyle.Render(g.ID))
+		if i == p.bulkGroupIdx && p.focused {
+			line = tableSelectedStyle.Render(line)
+		}
+		b.WriteString(line + "\n")
+	}
+
+	b.WriteString("\n" + dimHintStyle.Render(fmt.Sprintf("  %d/%d  enter: select  esc: back", p.bulkGroupIdx+1, len(p.bulkGroups))))
+	return b.String()
+}
+
+func (p *PeersPage) viewBulkConfirm() string {
+	var b strings.Builder
+
+	action := "Add"
+	prep := "to"
+	if p.bulkAction == "remove" {
+		action = "Remove"
+		prep = "from"
+	}
+
+	selected := 0
+	if p.bulk != nil {
+		selected = p.bulk.count()
+	}
+
+	b.WriteString(pageTitleStyle.Render("Confirm Bulk Action") + "\n\n")
+	b.WriteString(fmt.Sprintf("  %s %d peers %s group '%s'?\n\n",
+		action, selected, prep, p.bulkTargetGrp.Name))
+	b.WriteString("  y: confirm  n: cancel\n")
 	return b.String()
 }
