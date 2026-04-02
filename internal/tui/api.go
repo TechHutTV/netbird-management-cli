@@ -12,6 +12,17 @@ import (
 	"netbird-manage/internal/models"
 )
 
+// FetchPeerConnections returns a tea.Cmd that loads per-peer connection info from the local daemon
+func FetchPeerConnections(daemon *DaemonClient) tea.Cmd {
+	return func() tea.Msg {
+		if daemon == nil {
+			return PeerConnectionMsg{Err: fmt.Errorf("daemon not connected")}
+		}
+		conns, err := daemon.PeerConnections()
+		return PeerConnectionMsg{Connections: conns, Err: err}
+	}
+}
+
 // fetchPeers returns a tea.Cmd that loads all peers
 func FetchPeers(c *client.Client) tea.Cmd {
 	return func() tea.Msg {

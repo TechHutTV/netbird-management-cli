@@ -103,6 +103,25 @@ type DaemonStatusMsg struct {
 // DaemonTickMsg triggers a daemon status refresh
 type DaemonTickMsg struct{}
 
+// PeerConnectionInfo holds daemon-reported connection details for a single peer
+type PeerConnectionInfo struct {
+	ConnType       string // "P2P", "Relayed", or "Disconnected"
+	RemoteEndpoint string
+	LocalICEType   string
+	RemoteICEType  string
+	Latency        string
+	BytesSent      int64
+	BytesReceived  int64
+	LastHandshake  string
+	RelayAddress   string
+}
+
+// PeerConnectionMsg carries per-peer connection info from the local daemon
+type PeerConnectionMsg struct {
+	Connections map[string]PeerConnectionInfo // keyed by NetBird IP
+	Err         error
+}
+
 // Edit/update result messages
 
 // PeerUpdatedMsg carries the result of updating a peer
