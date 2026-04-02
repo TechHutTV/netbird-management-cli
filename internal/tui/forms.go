@@ -717,6 +717,230 @@ func submitUserInvite(c *client.Client, data userInviteFormData) tea.Cmd {
 	}
 }
 
+// ─── Policy Edit ───────────────────────────────────────────────────
+
+func newPolicyEditForm(data *policyFormData, availableGroups map[string]string) *huh.Form {
+	options := make([]huh.Option[string], 0, len(availableGroups))
+	for id, name := range availableGroups {
+		options = append(options, huh.NewOption(name, id))
+	}
+
+	return huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Policy Name").
+				Value(&data.name),
+			huh.NewInput().
+				Title("Description").
+				Value(&data.description),
+			huh.NewSelect[string]().
+				Title("Protocol").
+				Options(
+					huh.NewOption("All", "all"),
+					huh.NewOption("TCP", "tcp"),
+					huh.NewOption("UDP", "udp"),
+					huh.NewOption("ICMP", "icmp"),
+				).
+				Value(&data.protocol),
+			huh.NewSelect[string]().
+				Title("Action").
+				Options(
+					huh.NewOption("Accept", "accept"),
+					huh.NewOption("Drop", "drop"),
+				).
+				Value(&data.action),
+			huh.NewInput().
+				Title("Ports").
+				Description("Comma-separated, e.g. 80,443 (leave empty for all)").
+				Value(&data.ports),
+			huh.NewMultiSelect[string]().
+				Title("Source Groups").
+				Options(options...).
+				Value(&data.selectedSrc),
+			huh.NewMultiSelect[string]().
+				Title("Destination Groups").
+				Options(options...).
+				Value(&data.selectedDst),
+		),
+	)
+}
+
+func submitPolicyEdit(c *client.Client, policyID string, data policyFormData) tea.Cmd {
+	var ports []string
+	if data.ports != "" {
+		ports = splitTrim(data.ports)
+	}
+
+	rules := []models.PolicyRuleForWrite{{
+		Name:          data.name + "-rule",
+		Enabled:       true,
+		Action:        data.action,
+		Bidirectional: true,
+		Protocol:      data.protocol,
+		Ports:         ports,
+		Sources:       data.selectedSrc,
+		Destinations:  data.selectedDst,
+	}}
+	req := models.PolicyUpdateRequest{
+		Name:        data.name,
+		Description: data.description,
+		Enabled:     true,
+		Rules:       rules,
+	}
+	return UpdatePolicy(c, policyID, req)
+}
+
+// ─── Route Edit ────────────────────────────────────────────────────
+
+func newRouteEditForm(data *routeFormData, availableGroups map[string]string) *huh.Form {
+	options := make([]huh.Option[string], 0, len(availableGroups))
+	for id, name := range availableGroups {
+		options = append(options, huh.NewOption(name, id))
+	}
+
+	return huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Network ID").
+				Description("Route identifier").
+				Value(&data.networkID),
+			huh.NewInput().
+				Title("Network CIDR").
+				Value(&data.network),
+			huh.NewInput().
+				Title("Description").
+				Value(&data.description),
+			huh.NewMultiSelect[string]().
+				Title("Routing Peer Groups").
+				Description("Peers that will route traffic").
+				Options(options...).
+				Value(&data.selectedPeerGrps),
+			huh.NewMultiSelect[string]().
+				Title("Distribution Groups").
+				Description("Peers that will use this route").
+				Options(options...).
+				Value(&data.selectedDistGrps),
+			huh.NewInput().
+				Title("Metric").
+				Description("1-9999, lower = higher priority").
+				Value(&data.metric),
+			huh.NewConfirm().
+				Title("Masquerade (NAT)").
+				Value(&data.masquerade),
+			huh.NewConfirm().
+				Title("Enabled").
+				Value(&data.enabled),
+		),
+	)
+}
+
+func submitRouteEdit(c *client.Client, route models.Route, data routeFormData) tea.Cmd {
+	metric := 9999
+	if m, err := strconv.Atoi(data.metric); err == nil {
+		metric = m
+	}
+	req := models.RouteRequest{
+		Description:         data.description,
+		NetworkID:           data.networkID,
+		Network:             data.network,
+		Domains:             route.Domains,
+		Peer:                route.Peer,
+		PeerGroups:          data.selectedPeerGrps,
+		Metric:              metric,
+		Masquerade:          data.masquerade,
+		Enabled:             data.enabled,
+		Groups:              data.selectedDistGrps,
+		AccessControlGroups: route.AccessControlGroups,
+		KeepRoute:           route.KeepRoute,
+	}
+	return UpdateRoute(c, route.ID, req)
+}
+
+// ─── DNS Edit ──────────────────────────────────────────────────────
+
+func newDNSEditForm(data *dnsFormData, availableGroups map[string]string) *huh.Form {
+	options := make([]huh.Option[string], 0, len(availableGroups))
+	for id, name := range availableGroups {
+		options = append(options, huh.NewOption(name+" ("+id+")", id))
+	}
+
+	return huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Name").
+				Value(&data.name),
+			huh.NewInput().
+				Title("Nameservers").
+				Description("Comma-separated IPs (port 53 default)").
+				Value(&data.nameservers),
+			huh.NewMultiSelect[string]().
+				Title("Distribution Groups").
+				Description("Select groups to distribute this nameserver to (space to toggle)").
+				Options(options...).
+				Value(&data.selectedGroups),
+			huh.NewInput().
+				Title("Match Domains").
+				Description("Comma-separated, leave empty for all").
+				Value(&data.domains),
+			huh.NewInput().
+				Title("Description").
+				Value(&data.description),
+			huh.NewConfirm().
+				Title("Primary DNS").
+				Value(&data.primary),
+		),
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Search Domains Enabled").
+				Description("Adds match domains to the OS search domain list").
+				Value(&data.searchDomain),
+		).WithHideFunc(func() bool {
+			return strings.TrimSpace(data.domains) == ""
+		}),
+	)
+}
+
+func submitDNSEdit(c *client.Client, groupID string, data dnsFormData) tea.Cmd {
+	var domains []string
+	if data.domains != "" {
+		domains = splitTrim(data.domains)
+	}
+
+	req := models.DNSNameserverGroupRequest{
+		Name:                 data.name,
+		Description:          data.description,
+		Nameservers:          buildNameservers(data.nameservers),
+		Groups:               data.selectedGroups,
+		Domains:              domains,
+		SearchDomainsEnabled: data.searchDomain,
+		Primary:              data.primary,
+		Enabled:              true,
+	}
+	return UpdateDNSGroup(c, groupID, req)
+}
+
+// formatNameservers converts a slice of Nameserver to a comma-separated IP string
+func formatNameservers(servers []models.Nameserver) string {
+	parts := make([]string, 0, len(servers))
+	for _, ns := range servers {
+		if ns.Port != 53 {
+			parts = append(parts, fmt.Sprintf("%s:%d", ns.IP, ns.Port))
+		} else {
+			parts = append(parts, ns.IP)
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+// extractGroupIDs extracts IDs from a slice of PolicyGroup
+func extractGroupIDs(groups []models.PolicyGroup) []string {
+	ids := make([]string, len(groups))
+	for i, g := range groups {
+		ids[i] = g.ID
+	}
+	return ids
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────
 
 func splitTrim(s string) []string {

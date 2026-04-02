@@ -21,6 +21,8 @@ const (
 	policiesViewDetail
 	policiesViewForm
 	policiesViewConfirm
+	policiesViewEdit
+	policiesViewEditConfirm
 )
 
 // PoliciesPage manages policies list and detail views with rules
@@ -37,6 +39,9 @@ type PoliciesPage struct {
 	focused    bool
 	search     string
 	searching  bool
+	editForm   *huh.Form
+	editData   policyFormData
+	editID     string
 }
 
 func NewPoliciesPage() *PoliciesPage {
@@ -92,7 +97,44 @@ func (p *PoliciesPage) Init(c *client.Client) tea.Cmd {
 }
 
 func (p *PoliciesPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
-	// Handle confirm screen
+	// Handle edit confirm screen
+	if p.state == policiesViewEditConfirm {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
+			switch keyMsg.String() {
+			case "y":
+				p.state = policiesViewList
+				return p, submitPolicyEdit(c, p.editID, p.editData)
+			case "n", "esc":
+				p.state = policiesViewDetail
+			}
+		}
+		return p, nil
+	}
+
+	// Delegate to edit form when active
+	if p.state == policiesViewEdit && p.editForm != nil {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" {
+			p.state = policiesViewDetail
+			p.editForm = nil
+			return p, nil
+		}
+		m, cmd := p.editForm.Update(msg)
+		if f, ok := m.(*huh.Form); ok {
+			p.editForm = f
+		}
+		if p.editForm.State == huh.StateCompleted {
+			p.state = policiesViewEditConfirm
+			p.editForm = nil
+			return p, nil
+		}
+		if p.editForm.State == huh.StateAborted {
+			p.state = policiesViewDetail
+			p.editForm = nil
+		}
+		return p, cmd
+	}
+
+	// Handle create confirm screen
 	if p.state == policiesViewConfirm {
 		if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
 			switch keyMsg.String() {
@@ -106,7 +148,7 @@ func (p *PoliciesPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 		return p, nil
 	}
 
-	// Delegate to form when active
+	// Delegate to create form when active
 	if p.state == policiesViewForm && p.form != nil {
 		if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" {
 			p.state = policiesViewList
@@ -130,6 +172,13 @@ func (p *PoliciesPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case PolicyUpdatedMsg:
+		if msg.Err != nil {
+			p.err = msg.Err
+			return p, nil
+		}
+		return p, p.Init(c)
+
 	case policiesDataLoadedMsg:
 		p.loading = false
 		if msg.err != nil {
@@ -166,6 +215,20 @@ func (p *PoliciesPage) View(width, height int) string {
 		return errorStyle.Render("  Error: " + p.err.Error())
 	}
 
+	if p.state == policiesViewEditConfirm {
+		return RenderConfirm("Confirm: Edit Policy", []ConfirmField{
+			{Label: "Name", Value: p.editData.name},
+			{Label: "Description", Value: p.editData.description},
+			{Label: "Protocol", Value: p.editData.protocol},
+			{Label: "Action", Value: p.editData.action},
+			{Label: "Ports", Value: p.editData.ports},
+			{Label: "Source Groups", Value: p.resolveGroupNames(p.editData.selectedSrc)},
+			{Label: "Dest Groups", Value: p.resolveGroupNames(p.editData.selectedDst)},
+		})
+	}
+	if p.state == policiesViewEdit && p.editForm != nil {
+		return pageTitleStyle.Render("Edit Policy") + "\n\n" + p.editForm.View()
+	}
 	if p.state == policiesViewConfirm {
 		return RenderConfirm("Confirm: Create Policy", []ConfirmField{
 			{Label: "Name", Value: p.formData.name},
@@ -205,8 +268,30 @@ func (p *PoliciesPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, t
 	key := msg.String()
 
 	if p.state == policiesViewDetail {
-		if key == "esc" || key == "backspace" || key == "q" {
+		switch key {
+		case "esc", "backspace", "q":
 			p.state = policiesViewList
+		case "e":
+			if p.cursor < len(p.filtered) {
+				policy := p.filtered[p.cursor]
+				p.editID = policy.ID
+				p.editData = policyFormData{
+					name:        policy.Name,
+					description: policy.Description,
+				}
+				// Extract from first rule if available
+				if len(policy.Rules) > 0 {
+					rule := policy.Rules[0]
+					p.editData.protocol = rule.Protocol
+					p.editData.action = rule.Action
+					p.editData.ports = strings.Join(rule.Ports, ", ")
+					p.editData.selectedSrc = extractGroupIDs(rule.Sources)
+					p.editData.selectedDst = extractGroupIDs(rule.Destinations)
+				}
+				p.editForm = newPolicyEditForm(&p.editData, p.groupNames)
+				p.state = policiesViewEdit
+				return p, p.editForm.Init()
+			}
 		}
 		return p, nil
 	}
@@ -430,7 +515,7 @@ func (p *PoliciesPage) viewDetail(width int) string {
 		}
 	}
 
-	b.WriteString("\n" + dimHintStyle.Render("  esc: back  d: delete  r: refresh"))
+	b.WriteString("\n" + dimHintStyle.Render("  esc: back  e: edit  d: delete  r: refresh"))
 
 	return b.String()
 }

@@ -21,6 +21,8 @@ const (
 	routesViewDetail
 	routesViewForm
 	routesViewConfirm
+	routesViewEdit
+	routesViewEditConfirm
 )
 
 // RoutesPage manages routes list and detail views
@@ -37,6 +39,9 @@ type RoutesPage struct {
 	focused    bool
 	search     string
 	searching  bool
+	editForm   *huh.Form
+	editData   routeFormData
+	editRoute  models.Route
 }
 
 type routesDataLoadedMsg struct {
@@ -90,7 +95,44 @@ func (r *RoutesPage) Init(c *client.Client) tea.Cmd {
 }
 
 func (r *RoutesPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
-	// Handle confirm screen
+	// Handle edit confirm screen
+	if r.state == routesViewEditConfirm {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
+			switch keyMsg.String() {
+			case "y":
+				r.state = routesViewList
+				return r, submitRouteEdit(c, r.editRoute, r.editData)
+			case "n", "esc":
+				r.state = routesViewDetail
+			}
+		}
+		return r, nil
+	}
+
+	// Delegate to edit form when active
+	if r.state == routesViewEdit && r.editForm != nil {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" {
+			r.state = routesViewDetail
+			r.editForm = nil
+			return r, nil
+		}
+		m, cmd := r.editForm.Update(msg)
+		if f, ok := m.(*huh.Form); ok {
+			r.editForm = f
+		}
+		if r.editForm.State == huh.StateCompleted {
+			r.state = routesViewEditConfirm
+			r.editForm = nil
+			return r, nil
+		}
+		if r.editForm.State == huh.StateAborted {
+			r.state = routesViewDetail
+			r.editForm = nil
+		}
+		return r, cmd
+	}
+
+	// Handle create confirm screen
 	if r.state == routesViewConfirm {
 		if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
 			switch keyMsg.String() {
@@ -104,7 +146,7 @@ func (r *RoutesPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 		return r, nil
 	}
 
-	// Delegate to form when active
+	// Delegate to create form when active
 	if r.state == routesViewForm && r.form != nil {
 		if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" {
 			r.state = routesViewList
@@ -128,6 +170,13 @@ func (r *RoutesPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case RouteUpdatedMsg:
+		if msg.Err != nil {
+			r.err = msg.Err
+			return r, nil
+		}
+		return r, r.Init(c)
+
 	case routesDataLoadedMsg:
 		r.loading = false
 		if msg.err != nil {
@@ -164,6 +213,21 @@ func (r *RoutesPage) View(width, height int) string {
 		return errorStyle.Render("  Error: " + r.err.Error())
 	}
 
+	if r.state == routesViewEditConfirm {
+		return RenderConfirm("Confirm: Edit Route", []ConfirmField{
+			{Label: "Network ID", Value: r.editData.networkID},
+			{Label: "Network CIDR", Value: r.editData.network},
+			{Label: "Description", Value: r.editData.description},
+			{Label: "Peer Groups", Value: r.resolveGroupNames(r.editData.selectedPeerGrps)},
+			{Label: "Dist Groups", Value: r.resolveGroupNames(r.editData.selectedDistGrps)},
+			{Label: "Metric", Value: r.editData.metric},
+			{Label: "Masquerade", Value: fmt.Sprintf("%v", r.editData.masquerade)},
+			{Label: "Enabled", Value: fmt.Sprintf("%v", r.editData.enabled)},
+		})
+	}
+	if r.state == routesViewEdit && r.editForm != nil {
+		return pageTitleStyle.Render("Edit Route") + "\n\n" + r.editForm.View()
+	}
 	if r.state == routesViewConfirm {
 		return RenderConfirm("Confirm: Create Route", []ConfirmField{
 			{Label: "Network ID", Value: r.formData.networkID},
@@ -204,8 +268,27 @@ func (r *RoutesPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea
 	key := msg.String()
 
 	if r.state == routesViewDetail {
-		if key == "esc" || key == "backspace" || key == "q" {
+		switch key {
+		case "esc", "backspace", "q":
 			r.state = routesViewList
+		case "e":
+			if r.cursor < len(r.filtered) {
+				route := r.filtered[r.cursor]
+				r.editRoute = route
+				r.editData = routeFormData{
+					networkID:        route.NetworkID,
+					network:          route.Network,
+					description:      route.Description,
+					metric:           fmt.Sprintf("%d", route.Metric),
+					masquerade:       route.Masquerade,
+					enabled:          route.Enabled,
+					selectedPeerGrps: route.PeerGroups,
+					selectedDistGrps: route.Groups,
+				}
+				r.editForm = newRouteEditForm(&r.editData, r.groupNames)
+				r.state = routesViewEdit
+				return r, r.editForm.Init()
+			}
 		}
 		return r, nil
 	}
@@ -416,7 +499,7 @@ func (r *RoutesPage) viewDetail(width int) string {
 		b.WriteString(fmt.Sprintf("%s  %s\n", label, value))
 	}
 
-	b.WriteString("\n" + dimHintStyle.Render("  esc: back  d: delete  r: refresh"))
+	b.WriteString("\n" + dimHintStyle.Render("  esc: back  e: edit  d: delete  r: refresh"))
 
 	return b.String()
 }
