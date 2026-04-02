@@ -20,21 +20,26 @@ const (
 	usersViewDetail
 	usersViewForm
 	usersViewConfirm
+	usersViewEdit
+	usersViewEditConfirm
 )
 
 // UsersPage manages the users list and detail views
 type UsersPage struct {
-	users     []models.User
-	filtered  []models.User
-	cursor    int
-	loading   bool
-	err       error
-	state     usersViewState
-	form      *huh.Form
-	formData  userInviteFormData
-	focused   bool
-	search    string
-	searching bool
+	users      []models.User
+	filtered   []models.User
+	cursor     int
+	loading    bool
+	err        error
+	state      usersViewState
+	form       *huh.Form
+	formData   userInviteFormData
+	focused    bool
+	search     string
+	searching  bool
+	editForm   *huh.Form
+	editData   userEditFormData
+	editUserID string
 }
 
 func NewUsersPage() *UsersPage {
@@ -52,6 +57,43 @@ func (u *UsersPage) Init(c *client.Client) tea.Cmd {
 }
 
 func (u *UsersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
+	// Handle edit confirm screen
+	if u.state == usersViewEditConfirm {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
+			switch keyMsg.String() {
+			case "y":
+				u.state = usersViewList
+				return u, submitUserEdit(c, u.editUserID, u.editData)
+			case "n", "esc":
+				u.state = usersViewDetail
+			}
+		}
+		return u, nil
+	}
+
+	// Delegate to edit form when active
+	if u.state == usersViewEdit && u.editForm != nil {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" {
+			u.state = usersViewDetail
+			u.editForm = nil
+			return u, nil
+		}
+		m, cmd := u.editForm.Update(msg)
+		if f, ok := m.(*huh.Form); ok {
+			u.editForm = f
+		}
+		if u.editForm.State == huh.StateCompleted {
+			u.state = usersViewEditConfirm
+			u.editForm = nil
+			return u, nil
+		}
+		if u.editForm.State == huh.StateAborted {
+			u.state = usersViewDetail
+			u.editForm = nil
+		}
+		return u, cmd
+	}
+
 	// Handle confirm screen
 	if u.state == usersViewConfirm {
 		if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
@@ -107,6 +149,13 @@ func (u *UsersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 		u.applyFilter()
 		return u, nil
 
+	case UserUpdatedMsg:
+		if msg.Err != nil {
+			u.err = msg.Err
+			return u, nil
+		}
+		return u, u.Init(c)
+
 	case formCompleteMsg:
 		return u, u.Init(c)
 
@@ -132,6 +181,15 @@ func (u *UsersPage) View(width, height int) string {
 		return errorStyle.Render("  Error: " + u.err.Error())
 	}
 
+	if u.state == usersViewEditConfirm {
+		return RenderConfirm("Confirm: Edit User", []ConfirmField{
+			{Label: "Role", Value: u.editData.role},
+			{Label: "Auto Groups", Value: u.editData.autoGroups},
+		})
+	}
+	if u.state == usersViewEdit && u.editForm != nil {
+		return pageTitleStyle.Render("Edit User") + "\n\n" + u.editForm.View()
+	}
 	if u.state == usersViewConfirm {
 		return RenderConfirm("Confirm: Invite User", []ConfirmField{
 			{Label: "Name", Value: u.formData.name},
@@ -169,8 +227,21 @@ func (u *UsersPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea.
 	key := msg.String()
 
 	if u.state == usersViewDetail {
-		if key == "esc" || key == "backspace" || key == "q" {
+		switch key {
+		case "esc", "backspace", "q":
 			u.state = usersViewList
+		case "e":
+			if len(u.filtered) > 0 {
+				user := u.filtered[u.cursor]
+				u.editData = userEditFormData{
+					role:       user.Role,
+					autoGroups: strings.Join(user.AutoGroups, ", "),
+				}
+				u.editForm = newUserEditForm(&u.editData)
+				u.editUserID = user.ID
+				u.state = usersViewEdit
+				return u, u.editForm.Init()
+			}
 		}
 		return u, nil
 	}
@@ -349,7 +420,7 @@ func (u *UsersPage) viewDetail(width int) string {
 		b.WriteString(fmt.Sprintf("%s  %s\n", label, value))
 	}
 
-	b.WriteString("\n" + dimHintStyle.Render("  esc: back  r: refresh"))
+	b.WriteString("\n" + dimHintStyle.Render("  esc: back  e: edit  r: refresh"))
 
 	return b.String()
 }

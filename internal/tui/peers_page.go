@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 
@@ -18,6 +19,8 @@ const (
 	peersViewList peersViewState = iota
 	peersViewDetail
 	peersViewAccessible
+	peersViewEdit
+	peersViewEditConfirm
 )
 
 // PeersPage manages the peers list and detail views
@@ -32,6 +35,9 @@ type PeersPage struct {
 	searching       bool
 	accessiblePeers []models.Peer
 	focused         bool
+	editForm        *huh.Form
+	editData        peerEditFormData
+	editPeerID      string
 }
 
 func NewPeersPage() *PeersPage {
@@ -49,7 +55,51 @@ func (p *PeersPage) Init(c *client.Client) tea.Cmd {
 }
 
 func (p *PeersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
+	// Handle edit confirm screen
+	if p.state == peersViewEditConfirm {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
+			switch keyMsg.String() {
+			case "y":
+				p.state = peersViewList
+				return p, submitPeerEdit(c, p.editPeerID, p.editData)
+			case "n", "esc":
+				p.state = peersViewDetail
+			}
+		}
+		return p, nil
+	}
+
+	// Delegate to edit form when active
+	if p.state == peersViewEdit && p.editForm != nil {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" {
+			p.state = peersViewDetail
+			p.editForm = nil
+			return p, nil
+		}
+		m, cmd := p.editForm.Update(msg)
+		if f, ok := m.(*huh.Form); ok {
+			p.editForm = f
+		}
+		if p.editForm.State == huh.StateCompleted {
+			p.state = peersViewEditConfirm
+			p.editForm = nil
+			return p, nil
+		}
+		if p.editForm.State == huh.StateAborted {
+			p.state = peersViewDetail
+			p.editForm = nil
+		}
+		return p, cmd
+	}
+
 	switch msg := msg.(type) {
+	case PeerUpdatedMsg:
+		if msg.Err != nil {
+			p.err = msg.Err
+			return p, nil
+		}
+		return p, p.Init(c)
+
 	case PeersLoadedMsg:
 		p.loading = false
 		if msg.Err != nil {
@@ -92,6 +142,18 @@ func (p *PeersPage) View(width, height int) string {
 	}
 
 	switch p.state {
+	case peersViewEditConfirm:
+		return RenderConfirm("Confirm: Edit Peer", []ConfirmField{
+			{Label: "Name", Value: p.editData.name},
+			{Label: "SSH Enabled", Value: fmt.Sprintf("%v", p.editData.sshEnabled)},
+			{Label: "Login Expiration", Value: fmt.Sprintf("%v", p.editData.loginExpirationEnabled)},
+			{Label: "Inactivity Expiration", Value: fmt.Sprintf("%v", p.editData.inactivityExpirationEnabled)},
+		})
+	case peersViewEdit:
+		if p.editForm != nil {
+			return pageTitleStyle.Render("Edit Peer") + "\n\n" + p.editForm.View()
+		}
+		return p.viewDetail(width)
 	case peersViewDetail:
 		return p.viewDetail(width)
 	case peersViewAccessible:
@@ -115,8 +177,31 @@ func (p *PeersPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea.
 		return p, nil
 	}
 
-	// Detail/accessible views — esc to go back
-	if p.state == peersViewDetail || p.state == peersViewAccessible {
+	// Detail view — e to edit, esc to go back
+	if p.state == peersViewDetail {
+		switch key {
+		case "esc", "backspace", "q":
+			p.state = peersViewList
+		case "e":
+			if len(p.filtered) > 0 {
+				peer := p.filtered[p.cursor]
+				p.editData = peerEditFormData{
+					name:                        peer.Name,
+					sshEnabled:                  peer.SSHEnabled,
+					loginExpirationEnabled:      peer.LoginExpirationEnabled,
+					inactivityExpirationEnabled: peer.InactivityExpirationEnabled,
+				}
+				p.editForm = newPeerEditForm(&p.editData)
+				p.editPeerID = peer.ID
+				p.state = peersViewEdit
+				return p, p.editForm.Init()
+			}
+		}
+		return p, nil
+	}
+
+	// Accessible view — esc to go back
+	if p.state == peersViewAccessible {
 		if key == "esc" || key == "backspace" || key == "q" {
 			p.state = peersViewList
 			p.accessiblePeers = nil
@@ -396,7 +481,7 @@ func (p *PeersPage) viewDetail(width int) string {
 		}
 	}
 
-	b.WriteString("\n" + dimHintStyle.Render("  esc: back  d: delete  r: refresh"))
+	b.WriteString("\n" + dimHintStyle.Render("  esc: back  e: edit  d: delete  r: refresh"))
 
 	return b.String()
 }

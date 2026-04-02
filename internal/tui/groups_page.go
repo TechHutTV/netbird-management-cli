@@ -21,21 +21,26 @@ const (
 	groupsViewDetail
 	groupsViewForm
 	groupsViewConfirm
+	groupsViewEdit
+	groupsViewEditConfirm
 )
 
 type GroupsPage struct {
-	groups    []models.PolicyGroup
-	filtered  []models.PolicyGroup
-	cursor    int
-	loading   bool
-	err       error
-	state     groupsViewState
-	detail    *models.GroupDetail
-	form      *huh.Form
-	formData  groupFormData
-	focused   bool
-	search    string
-	searching bool
+	groups      []models.PolicyGroup
+	filtered    []models.PolicyGroup
+	cursor      int
+	loading     bool
+	err         error
+	state       groupsViewState
+	detail      *models.GroupDetail
+	form        *huh.Form
+	formData    groupFormData
+	focused     bool
+	search      string
+	searching   bool
+	editForm    *huh.Form
+	editData    groupFormData
+	editGroupID string
 }
 
 func NewGroupsPage() *GroupsPage {
@@ -53,6 +58,43 @@ func (g *GroupsPage) Init(c *client.Client) tea.Cmd {
 }
 
 func (g *GroupsPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
+	// Handle edit confirm screen
+	if g.state == groupsViewEditConfirm {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
+			switch keyMsg.String() {
+			case "y":
+				g.state = groupsViewList
+				return g, submitGroupEdit(c, g.editGroupID, g.editData)
+			case "n", "esc":
+				g.state = groupsViewDetail
+			}
+		}
+		return g, nil
+	}
+
+	// Delegate to edit form when active
+	if g.state == groupsViewEdit && g.editForm != nil {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" {
+			g.state = groupsViewDetail
+			g.editForm = nil
+			return g, nil
+		}
+		m, cmd := g.editForm.Update(msg)
+		if f, ok := m.(*huh.Form); ok {
+			g.editForm = f
+		}
+		if g.editForm.State == huh.StateCompleted {
+			g.state = groupsViewEditConfirm
+			g.editForm = nil
+			return g, nil
+		}
+		if g.editForm.State == huh.StateAborted {
+			g.state = groupsViewDetail
+			g.editForm = nil
+		}
+		return g, cmd
+	}
+
 	// Handle confirm screen
 	if g.state == groupsViewConfirm {
 		if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
@@ -110,6 +152,13 @@ func (g *GroupsPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 		g.state = groupsViewDetail
 		return g, nil
 
+	case GroupUpdatedMsg:
+		if msg.Err != nil {
+			g.err = msg.Err
+			return g, nil
+		}
+		return g, g.Init(c)
+
 	case formCompleteMsg:
 		return g, g.Init(c)
 
@@ -135,6 +184,14 @@ func (g *GroupsPage) View(width, height int) string {
 		return errorStyle.Render("  Error: " + g.err.Error())
 	}
 
+	if g.state == groupsViewEditConfirm {
+		return RenderConfirm("Confirm: Edit Group", []ConfirmField{
+			{Label: "Name", Value: g.editData.name},
+		})
+	}
+	if g.state == groupsViewEdit && g.editForm != nil {
+		return pageTitleStyle.Render("Edit Group") + "\n\n" + g.editForm.View()
+	}
 	if g.state == groupsViewConfirm {
 		return RenderConfirm("Confirm: Create Group", []ConfirmField{
 			{Label: "Name", Value: g.formData.name},
@@ -168,9 +225,18 @@ func (g *GroupsPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea
 	key := msg.String()
 
 	if g.state == groupsViewDetail {
-		if key == "esc" || key == "backspace" || key == "q" {
+		switch key {
+		case "esc", "backspace", "q":
 			g.state = groupsViewList
 			g.detail = nil
+		case "e":
+			if g.detail != nil {
+				g.editData = groupFormData{name: g.detail.Name}
+				g.editForm = newGroupCreateForm(&g.editData)
+				g.editGroupID = g.detail.ID
+				g.state = groupsViewEdit
+				return g, g.editForm.Init()
+			}
 		}
 		return g, nil
 	}
@@ -324,7 +390,7 @@ func (g *GroupsPage) viewDetail(width int) string {
 		}
 	}
 
-	b.WriteString("\n" + dimHintStyle.Render("  esc: back  d: delete"))
+	b.WriteString("\n" + dimHintStyle.Render("  esc: back  e: edit  d: delete"))
 	return b.String()
 }
 
