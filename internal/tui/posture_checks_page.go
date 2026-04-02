@@ -2,10 +2,10 @@ package tui
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 
@@ -18,27 +18,36 @@ type postureViewState int
 const (
 	postureViewList postureViewState = iota
 	postureViewDetail
+	postureViewForm
+	postureViewConfirm
+	postureViewEdit
+	postureViewEditConfirm
 )
 
 // PostureChecksPage manages posture checks list and detail views
 type PostureChecksPage struct {
-	checks    []models.PostureCheck
-	filtered  []models.PostureCheck
-	cursor    int
-	loading   bool
-	err       error
-	state     postureViewState
-	focused   bool
-	search    string
-	searching bool
+	checks      []models.PostureCheck
+	filtered    []models.PostureCheck
+	cursor      int
+	loading     bool
+	err         error
+	state       postureViewState
+	focused     bool
+	search      string
+	searching   bool
+	form        *huh.Form
+	formData    postureCheckFormData
+	editForm    *huh.Form
+	editData    postureCheckFormData
+	editCheckID string
 }
 
 func NewPostureChecksPage() *PostureChecksPage {
 	return &PostureChecksPage{loading: true}
 }
 
-func (pc *PostureChecksPage) Title() string { return "Posture Checks" }
-func (pc *PostureChecksPage) CursorPosition() int { return pc.cursor }
+func (pc *PostureChecksPage) Title() string        { return "Posture Checks" }
+func (pc *PostureChecksPage) CursorPosition() int  { return pc.cursor }
 func (pc *PostureChecksPage) SetFocused(focused bool) { pc.focused = focused }
 
 func (pc *PostureChecksPage) Init(c *client.Client) tea.Cmd {
@@ -48,6 +57,80 @@ func (pc *PostureChecksPage) Init(c *client.Client) tea.Cmd {
 }
 
 func (pc *PostureChecksPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
+	// Handle edit confirm screen
+	if pc.state == postureViewEditConfirm {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
+			switch keyMsg.String() {
+			case "y":
+				pc.state = postureViewList
+				return pc, submitPostureCheckEdit(c, pc.editCheckID, pc.editData)
+			case "n", "esc":
+				pc.state = postureViewDetail
+			}
+		}
+		return pc, nil
+	}
+
+	// Delegate to edit form when active
+	if pc.state == postureViewEdit && pc.editForm != nil {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" {
+			pc.state = postureViewDetail
+			pc.editForm = nil
+			return pc, nil
+		}
+		m, cmd := pc.editForm.Update(msg)
+		if f, ok := m.(*huh.Form); ok {
+			pc.editForm = f
+		}
+		if pc.editForm.State == huh.StateCompleted {
+			pc.state = postureViewEditConfirm
+			pc.editForm = nil
+			return pc, nil
+		}
+		if pc.editForm.State == huh.StateAborted {
+			pc.state = postureViewDetail
+			pc.editForm = nil
+		}
+		return pc, cmd
+	}
+
+	// Handle create confirm screen
+	if pc.state == postureViewConfirm {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
+			switch keyMsg.String() {
+			case "y":
+				pc.state = postureViewList
+				return pc, submitPostureCheckCreate(c, pc.formData)
+			case "n", "esc":
+				pc.state = postureViewList
+			}
+		}
+		return pc, nil
+	}
+
+	// Delegate to create form when active
+	if pc.state == postureViewForm && pc.form != nil {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" {
+			pc.state = postureViewList
+			pc.form = nil
+			return pc, nil
+		}
+		m, cmd := pc.form.Update(msg)
+		if f, ok := m.(*huh.Form); ok {
+			pc.form = f
+		}
+		if pc.form.State == huh.StateCompleted {
+			pc.state = postureViewConfirm
+			pc.form = nil
+			return pc, nil
+		}
+		if pc.form.State == huh.StateAborted {
+			pc.state = postureViewList
+			pc.form = nil
+		}
+		return pc, cmd
+	}
+
 	switch msg := msg.(type) {
 	case PostureChecksLoadedMsg:
 		pc.loading = false
@@ -58,6 +141,24 @@ func (pc *PostureChecksPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cm
 		pc.checks = msg.Checks
 		pc.applyFilter()
 		return pc, nil
+
+	case PostureCheckUpdatedMsg:
+		if msg.Err != nil {
+			pc.err = msg.Err
+			return pc, nil
+		}
+		return pc, pc.Init(c)
+
+	case PostureCheckDeletedMsg:
+		if msg.Err != nil {
+			pc.err = msg.Err
+			return pc, nil
+		}
+		pc.state = postureViewList
+		return pc, pc.Init(c)
+
+	case formCompleteMsg:
+		return pc, pc.Init(c)
 
 	case ToastMsg:
 		return pc, pc.Init(c)
@@ -81,6 +182,18 @@ func (pc *PostureChecksPage) View(width, height int) string {
 		return errorStyle.Render("  Error: " + pc.err.Error())
 	}
 
+	if pc.state == postureViewEditConfirm {
+		return RenderConfirm("Confirm: Edit Posture Check", postureCheckConfirmFields(pc.editData))
+	}
+	if pc.state == postureViewEdit && pc.editForm != nil {
+		return pageTitleStyle.Render("Edit Posture Check") + "\n\n" + pc.editForm.View()
+	}
+	if pc.state == postureViewConfirm {
+		return RenderConfirm("Confirm: Create Posture Check", postureCheckConfirmFields(pc.formData))
+	}
+	if pc.state == postureViewForm && pc.form != nil {
+		return pageTitleStyle.Render("Create Posture Check") + "\n\n" + pc.form.View()
+	}
 	if pc.state == postureViewDetail {
 		return pc.viewDetail(width)
 	}
@@ -106,8 +219,23 @@ func (pc *PostureChecksPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (P
 	key := msg.String()
 
 	if pc.state == postureViewDetail {
-		if key == "esc" || key == "backspace" || key == "q" {
+		switch key {
+		case "esc", "backspace", "q":
 			pc.state = postureViewList
+		case "e":
+			if pc.cursor < len(pc.filtered) {
+				check := pc.filtered[pc.cursor]
+				pc.editData = postureCheckToFormData(check)
+				pc.editForm = newPostureCheckForm(&pc.editData)
+				pc.editCheckID = check.ID
+				pc.state = postureViewEdit
+				return pc, pc.editForm.Init()
+			}
+		case "d":
+			if pc.cursor < len(pc.filtered) {
+				check := pc.filtered[pc.cursor]
+				return pc, DeletePostureCheck(c, check.ID)
+			}
 		}
 		return pc, nil
 	}
@@ -138,10 +266,15 @@ func (pc *PostureChecksPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (P
 		}
 	case "r":
 		return pc, pc.Init(c)
+	case "c":
+		pc.formData = postureCheckFormData{checkType: "nb_version", geoAction: "allow", networkRangeAction: "allow"}
+		pc.form = newPostureCheckForm(&pc.formData)
+		pc.state = postureViewForm
+		return pc, pc.form.Init()
 	case "d":
 		if len(pc.filtered) > 0 {
 			check := pc.filtered[pc.cursor]
-			return pc, deletePostureCheck(c, check.ID)
+			return pc, DeletePostureCheck(c, check.ID)
 		}
 	case "/":
 		pc.searching = true
@@ -227,7 +360,7 @@ func (pc *PostureChecksPage) viewList(width, height int) string {
 		})
 
 	b.WriteString(t.Render() + "\n")
-	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  ", pc.cursor+1, len(pc.filtered))))
+	b.WriteString(dimHintStyle.Render(fmt.Sprintf("  %d/%d  c: create", pc.cursor+1, len(pc.filtered))))
 
 	return b.String()
 }
@@ -254,6 +387,24 @@ func (pc *PostureChecksPage) viewDetail(width int) string {
 		fields = append(fields, struct{ label, value string }{
 			"Min NB Version", check.Checks.NBVersionCheck.MinVersion})
 	}
+	if check.Checks.OSVersionCheck != nil {
+		osCheck := check.Checks.OSVersionCheck
+		if osCheck.Android != nil {
+			fields = append(fields, struct{ label, value string }{"Android Min", osCheck.Android.MinVersion})
+		}
+		if osCheck.Darwin != nil {
+			fields = append(fields, struct{ label, value string }{"macOS Min", osCheck.Darwin.MinVersion})
+		}
+		if osCheck.IOS != nil {
+			fields = append(fields, struct{ label, value string }{"iOS Min", osCheck.IOS.MinVersion})
+		}
+		if osCheck.Linux != nil {
+			fields = append(fields, struct{ label, value string }{"Linux Min Kernel", osCheck.Linux.MinKernelVersion})
+		}
+		if osCheck.Windows != nil {
+			fields = append(fields, struct{ label, value string }{"Windows Min Kernel", osCheck.Windows.MinKernelVersion})
+		}
+	}
 	if check.Checks.GeoLocationCheck != nil {
 		geo := check.Checks.GeoLocationCheck
 		locs := make([]string, len(geo.Locations))
@@ -274,6 +425,20 @@ func (pc *PostureChecksPage) viewDetail(width int) string {
 			struct{ label, value string }{"Net Range Action", nr.Action},
 			struct{ label, value string }{"Ranges", strings.Join(nr.Ranges, ", ")})
 	}
+	if check.Checks.ProcessCheck != nil {
+		procs := check.Checks.ProcessCheck
+		paths := make([]string, 0, len(procs.Processes))
+		for _, p := range procs.Processes {
+			if p.LinuxPath != "" {
+				paths = append(paths, p.LinuxPath)
+			} else if p.MacPath != "" {
+				paths = append(paths, p.MacPath)
+			} else if p.WindowsPath != "" {
+				paths = append(paths, p.WindowsPath)
+			}
+		}
+		fields = append(fields, struct{ label, value string }{"Processes", strings.Join(paths, ", ")})
+	}
 
 	for _, f := range fields {
 		label := detailLabelStyle.Render(f.label)
@@ -281,7 +446,7 @@ func (pc *PostureChecksPage) viewDetail(width int) string {
 		b.WriteString(fmt.Sprintf("%s  %s\n", label, value))
 	}
 
-	b.WriteString("\n" + dimHintStyle.Render("  esc: back  d: delete  r: refresh"))
+	b.WriteString("\n" + dimHintStyle.Render("  esc: back  e: edit  d: delete  r: refresh"))
 
 	return b.String()
 }
@@ -300,16 +465,5 @@ func postureCheckType(check models.PostureCheck) string {
 		return "process"
 	default:
 		return "unknown"
-	}
-}
-
-func deletePostureCheck(c *client.Client, checkID string) tea.Cmd {
-	return func() tea.Msg {
-		resp, err := c.MakeRequest("DELETE", "/posture-checks/"+url.PathEscape(checkID), nil)
-		if err != nil {
-			return APIErrorMsg{Err: err, Context: "delete posture check"}
-		}
-		defer resp.Body.Close()
-		return ToastMsg{Message: "Posture check deleted"}
 	}
 }

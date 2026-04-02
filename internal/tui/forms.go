@@ -951,6 +951,250 @@ func extractGroupIDs(groups []models.PolicyGroup) []string {
 	return ids
 }
 
+// ─── Posture Check Create / Edit ────────────────────────────────────
+
+type postureCheckFormData struct {
+	name        string
+	description string
+	checkType   string // "nb_version", "os_version", "geo_location", "peer_network_range", "process"
+	// NB Version
+	nbMinVersion string
+	// OS Version
+	androidMinVersion       string
+	darwinMinVersion        string
+	iosMinVersion           string
+	linuxMinKernelVersion   string
+	windowsMinKernelVersion string
+	// Geo Location
+	geoLocations string // comma-separated country codes "US,GB,DE"
+	geoAction    string // "allow" or "deny"
+	// Peer Network Range
+	networkRanges      string // comma-separated CIDRs
+	networkRangeAction string // "allow" or "deny"
+	// Process
+	processes string // comma-separated process paths
+}
+
+func newPostureCheckForm(data *postureCheckFormData) *huh.Form {
+	return huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().Title("Name").Value(&data.name),
+			huh.NewInput().Title("Description").Value(&data.description),
+			huh.NewSelect[string]().
+				Title("Check Type").
+				Options(
+					huh.NewOption("NetBird Version", "nb_version"),
+					huh.NewOption("OS Version", "os_version"),
+					huh.NewOption("Geo Location", "geo_location"),
+					huh.NewOption("Peer Network Range", "peer_network_range"),
+					huh.NewOption("Process Check", "process"),
+				).
+				Value(&data.checkType),
+		),
+		huh.NewGroup(
+			huh.NewInput().Title("Minimum NetBird Version (e.g. 0.25.0)").Value(&data.nbMinVersion),
+		).WithHideFunc(func() bool { return data.checkType != "nb_version" }),
+		huh.NewGroup(
+			huh.NewInput().Title("Android Min Version").Value(&data.androidMinVersion),
+			huh.NewInput().Title("macOS Min Version").Value(&data.darwinMinVersion),
+			huh.NewInput().Title("iOS Min Version").Value(&data.iosMinVersion),
+			huh.NewInput().Title("Linux Min Kernel Version").Value(&data.linuxMinKernelVersion),
+			huh.NewInput().Title("Windows Min Kernel Version").Value(&data.windowsMinKernelVersion),
+		).WithHideFunc(func() bool { return data.checkType != "os_version" }),
+		huh.NewGroup(
+			huh.NewInput().Title("Country Codes (comma-separated, e.g. US,GB,DE)").Value(&data.geoLocations),
+			huh.NewSelect[string]().Title("Action").Options(
+				huh.NewOption("Allow", "allow"),
+				huh.NewOption("Deny", "deny"),
+			).Value(&data.geoAction),
+		).WithHideFunc(func() bool { return data.checkType != "geo_location" }),
+		huh.NewGroup(
+			huh.NewInput().Title("Network Ranges (comma-separated CIDRs)").Value(&data.networkRanges),
+			huh.NewSelect[string]().Title("Action").Options(
+				huh.NewOption("Allow", "allow"),
+				huh.NewOption("Deny", "deny"),
+			).Value(&data.networkRangeAction),
+		).WithHideFunc(func() bool { return data.checkType != "peer_network_range" }),
+		huh.NewGroup(
+			huh.NewInput().Title("Process Paths (comma-separated)").Value(&data.processes),
+		).WithHideFunc(func() bool { return data.checkType != "process" }),
+	)
+}
+
+func buildPostureCheckRequest(data postureCheckFormData) models.PostureCheckRequest {
+	req := models.PostureCheckRequest{
+		Name:        data.name,
+		Description: data.description,
+	}
+	switch data.checkType {
+	case "nb_version":
+		req.Checks.NBVersionCheck = &models.NBVersionCheck{MinVersion: data.nbMinVersion}
+	case "os_version":
+		check := &models.OSVersionCheck{}
+		if data.androidMinVersion != "" {
+			check.Android = &models.MinVersionConfig{MinVersion: data.androidMinVersion}
+		}
+		if data.darwinMinVersion != "" {
+			check.Darwin = &models.MinVersionConfig{MinVersion: data.darwinMinVersion}
+		}
+		if data.iosMinVersion != "" {
+			check.IOS = &models.MinVersionConfig{MinVersion: data.iosMinVersion}
+		}
+		if data.linuxMinKernelVersion != "" {
+			check.Linux = &models.MinKernelVersionConfig{MinKernelVersion: data.linuxMinKernelVersion}
+		}
+		if data.windowsMinKernelVersion != "" {
+			check.Windows = &models.MinKernelVersionConfig{MinKernelVersion: data.windowsMinKernelVersion}
+		}
+		req.Checks.OSVersionCheck = check
+	case "geo_location":
+		locations := make([]models.Location, 0)
+		for _, code := range splitTrim(data.geoLocations) {
+			locations = append(locations, models.Location{CountryCode: code})
+		}
+		req.Checks.GeoLocationCheck = &models.GeoLocationCheck{Locations: locations, Action: data.geoAction}
+	case "peer_network_range":
+		req.Checks.PeerNetworkRangeCheck = &models.PeerNetworkRangeCheck{
+			Ranges: splitTrim(data.networkRanges),
+			Action: data.networkRangeAction,
+		}
+	case "process":
+		processes := make([]models.Process, 0)
+		for _, path := range splitTrim(data.processes) {
+			processes = append(processes, models.Process{LinuxPath: path, MacPath: path, WindowsPath: path})
+		}
+		req.Checks.ProcessCheck = &models.ProcessCheck{Processes: processes}
+	}
+	return req
+}
+
+func submitPostureCheckCreate(c *client.Client, data postureCheckFormData) tea.Cmd {
+	return func() tea.Msg {
+		req := buildPostureCheckRequest(data)
+		body, err := json.Marshal(req)
+		if err != nil {
+			return APIErrorMsg{Err: fmt.Errorf("marshal request: %w", err), Context: "create posture check"}
+		}
+		resp, err := c.MakeRequest("POST", "/posture-checks", bytes.NewReader(body))
+		if err != nil {
+			return APIErrorMsg{Err: err, Context: "create posture check"}
+		}
+		defer resp.Body.Close()
+		return formCompleteMsg{message: fmt.Sprintf("Posture check '%s' created", data.name)}
+	}
+}
+
+func submitPostureCheckEdit(c *client.Client, checkID string, data postureCheckFormData) tea.Cmd {
+	req := buildPostureCheckRequest(data)
+	return UpdatePostureCheck(c, checkID, req)
+}
+
+func postureCheckToFormData(check models.PostureCheck) postureCheckFormData {
+	data := postureCheckFormData{
+		name:        check.Name,
+		description: check.Description,
+	}
+	switch {
+	case check.Checks.NBVersionCheck != nil:
+		data.checkType = "nb_version"
+		data.nbMinVersion = check.Checks.NBVersionCheck.MinVersion
+	case check.Checks.OSVersionCheck != nil:
+		data.checkType = "os_version"
+		osCheck := check.Checks.OSVersionCheck
+		if osCheck.Android != nil {
+			data.androidMinVersion = osCheck.Android.MinVersion
+		}
+		if osCheck.Darwin != nil {
+			data.darwinMinVersion = osCheck.Darwin.MinVersion
+		}
+		if osCheck.IOS != nil {
+			data.iosMinVersion = osCheck.IOS.MinVersion
+		}
+		if osCheck.Linux != nil {
+			data.linuxMinKernelVersion = osCheck.Linux.MinKernelVersion
+		}
+		if osCheck.Windows != nil {
+			data.windowsMinKernelVersion = osCheck.Windows.MinKernelVersion
+		}
+	case check.Checks.GeoLocationCheck != nil:
+		data.checkType = "geo_location"
+		codes := make([]string, len(check.Checks.GeoLocationCheck.Locations))
+		for i, loc := range check.Checks.GeoLocationCheck.Locations {
+			codes[i] = loc.CountryCode
+		}
+		data.geoLocations = strings.Join(codes, ", ")
+		data.geoAction = check.Checks.GeoLocationCheck.Action
+	case check.Checks.PeerNetworkRangeCheck != nil:
+		data.checkType = "peer_network_range"
+		data.networkRanges = strings.Join(check.Checks.PeerNetworkRangeCheck.Ranges, ", ")
+		data.networkRangeAction = check.Checks.PeerNetworkRangeCheck.Action
+	case check.Checks.ProcessCheck != nil:
+		data.checkType = "process"
+		paths := make([]string, len(check.Checks.ProcessCheck.Processes))
+		for i, p := range check.Checks.ProcessCheck.Processes {
+			if p.LinuxPath != "" {
+				paths[i] = p.LinuxPath
+			} else if p.MacPath != "" {
+				paths[i] = p.MacPath
+			} else {
+				paths[i] = p.WindowsPath
+			}
+		}
+		data.processes = strings.Join(paths, ", ")
+	}
+	return data
+}
+
+func postureCheckTypeLabel(checkType string) string {
+	switch checkType {
+	case "nb_version":
+		return "NetBird Version"
+	case "os_version":
+		return "OS Version"
+	case "geo_location":
+		return "Geo Location"
+	case "peer_network_range":
+		return "Peer Network Range"
+	case "process":
+		return "Process Check"
+	default:
+		return checkType
+	}
+}
+
+func postureCheckConfirmFields(data postureCheckFormData) []ConfirmField {
+	fields := []ConfirmField{
+		{Label: "Name", Value: data.name},
+		{Label: "Description", Value: data.description},
+		{Label: "Check Type", Value: postureCheckTypeLabel(data.checkType)},
+	}
+	switch data.checkType {
+	case "nb_version":
+		fields = append(fields, ConfirmField{Label: "Min NB Version", Value: data.nbMinVersion})
+	case "os_version":
+		fields = append(fields,
+			ConfirmField{Label: "Android Min", Value: data.androidMinVersion},
+			ConfirmField{Label: "macOS Min", Value: data.darwinMinVersion},
+			ConfirmField{Label: "iOS Min", Value: data.iosMinVersion},
+			ConfirmField{Label: "Linux Min Kernel", Value: data.linuxMinKernelVersion},
+			ConfirmField{Label: "Windows Min Kernel", Value: data.windowsMinKernelVersion},
+		)
+	case "geo_location":
+		fields = append(fields,
+			ConfirmField{Label: "Countries", Value: data.geoLocations},
+			ConfirmField{Label: "Action", Value: data.geoAction},
+		)
+	case "peer_network_range":
+		fields = append(fields,
+			ConfirmField{Label: "Ranges", Value: data.networkRanges},
+			ConfirmField{Label: "Action", Value: data.networkRangeAction},
+		)
+	case "process":
+		fields = append(fields, ConfirmField{Label: "Processes", Value: data.processes})
+	}
+	return fields
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────
 
 func splitTrim(s string) []string {
