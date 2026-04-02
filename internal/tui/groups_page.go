@@ -52,6 +52,9 @@ func (g *GroupsPage) CursorPosition() int { return g.cursor }
 func (g *GroupsPage) SetFocused(focused bool) { g.focused = focused }
 
 func (g *GroupsPage) Init(c *client.Client) tea.Cmd {
+	if len(g.groups) > 0 {
+		return nil
+	}
 	g.loading = true
 	g.err = nil
 	return FetchGroups(c)
@@ -157,13 +160,16 @@ func (g *GroupsPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 			g.err = msg.Err
 			return g, nil
 		}
-		return g, g.Init(c)
+		g.loading = true
+		return g, FetchGroups(c)
 
 	case formCompleteMsg:
-		return g, g.Init(c)
+		g.loading = true
+		return g, FetchGroups(c)
 
 	case ToastMsg:
-		return g, g.Init(c)
+		g.loading = true
+		return g, FetchGroups(c)
 
 	case APIErrorMsg:
 		g.err = msg.Err
@@ -267,7 +273,8 @@ func (g *GroupsPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea
 			return g, fetchGroupDetail(c, group.ID)
 		}
 	case "r":
-		return g, g.Init(c)
+		g.loading = true
+		return g, FetchGroups(c)
 	case "c":
 		g.formData = groupFormData{}
 		g.form = newGroupCreateForm(&g.formData)

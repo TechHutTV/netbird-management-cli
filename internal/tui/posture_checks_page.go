@@ -51,6 +51,9 @@ func (pc *PostureChecksPage) CursorPosition() int  { return pc.cursor }
 func (pc *PostureChecksPage) SetFocused(focused bool) { pc.focused = focused }
 
 func (pc *PostureChecksPage) Init(c *client.Client) tea.Cmd {
+	if len(pc.checks) > 0 {
+		return nil
+	}
 	pc.loading = true
 	pc.err = nil
 	return FetchPostureChecks(c)
@@ -147,7 +150,8 @@ func (pc *PostureChecksPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cm
 			pc.err = msg.Err
 			return pc, nil
 		}
-		return pc, pc.Init(c)
+		pc.loading = true
+		return pc, FetchPostureChecks(c)
 
 	case PostureCheckDeletedMsg:
 		if msg.Err != nil {
@@ -155,13 +159,16 @@ func (pc *PostureChecksPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cm
 			return pc, nil
 		}
 		pc.state = postureViewList
-		return pc, pc.Init(c)
+		pc.loading = true
+		return pc, FetchPostureChecks(c)
 
 	case formCompleteMsg:
-		return pc, pc.Init(c)
+		pc.loading = true
+		return pc, FetchPostureChecks(c)
 
 	case ToastMsg:
-		return pc, pc.Init(c)
+		pc.loading = true
+		return pc, FetchPostureChecks(c)
 
 	case APIErrorMsg:
 		pc.err = msg.Err
@@ -265,7 +272,8 @@ func (pc *PostureChecksPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (P
 			pc.state = postureViewDetail
 		}
 	case "r":
-		return pc, pc.Init(c)
+		pc.loading = true
+		return pc, FetchPostureChecks(c)
 	case "c":
 		pc.formData = postureCheckFormData{checkType: "nb_version", geoAction: "allow", networkRangeAction: "allow"}
 		pc.form = newPostureCheckForm(&pc.formData)

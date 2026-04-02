@@ -48,6 +48,9 @@ func (ip *IngressPage) CursorPosition() int { return ip.cursor }
 func (ip *IngressPage) SetFocused(focused bool) { ip.focused = focused }
 
 func (ip *IngressPage) Init(c *client.Client) tea.Cmd {
+	if len(ip.peers) > 0 {
+		return nil
+	}
 	ip.loading = true
 	ip.err = nil
 	return fetchIngressPeers(c)
@@ -144,7 +147,8 @@ func (ip *IngressPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, t
 			ip.state = ingressViewDetail
 		}
 	case "r":
-		return ip, ip.Init(c)
+		ip.loading = true
+		return ip, fetchIngressPeers(c)
 	case "/":
 		ip.searching = true
 		ip.search = ""

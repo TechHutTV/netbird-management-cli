@@ -95,6 +95,9 @@ func fetchDNSData(c *client.Client) tea.Cmd {
 }
 
 func (d *DNSPage) Init(c *client.Client) tea.Cmd {
+	if len(d.groups) > 0 {
+		return nil
+	}
 	d.loading = true
 	d.err = nil
 	return fetchDNSData(c)
@@ -181,7 +184,8 @@ func (d *DNSPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 			d.err = msg.Err
 			return d, nil
 		}
-		return d, d.Init(c)
+		d.loading = true
+		return d, fetchDNSData(c)
 
 	case dnsDataLoadedMsg:
 		d.loading = false
@@ -195,10 +199,12 @@ func (d *DNSPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 		return d, nil
 
 	case formCompleteMsg:
-		return d, d.Init(c)
+		d.loading = true
+		return d, fetchDNSData(c)
 
 	case ToastMsg:
-		return d, d.Init(c)
+		d.loading = true
+		return d, fetchDNSData(c)
 
 	case APIErrorMsg:
 		d.err = msg.Err
@@ -295,7 +301,8 @@ func (d *DNSPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea.Cm
 			d.state = dnsViewDetail
 		}
 	case "r":
-		return d, d.Init(c)
+		d.loading = true
+		return d, fetchDNSData(c)
 	case "c":
 		d.formData = dnsFormData{}
 		d.form = newDNSCreateForm(&d.formData, d.groupNames)

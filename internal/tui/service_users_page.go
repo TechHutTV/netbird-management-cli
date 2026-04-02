@@ -55,6 +55,9 @@ func (s *ServiceUsersPage) CursorPosition() int { return s.cursor }
 func (s *ServiceUsersPage) SetFocused(focused bool) { s.focused = focused }
 
 func (s *ServiceUsersPage) Init(c *client.Client) tea.Cmd {
+	if len(s.users) > 0 {
+		return nil
+	}
 	s.loading = true
 	s.err = nil
 	return FetchUsers(c)
@@ -117,10 +120,12 @@ func (s *ServiceUsersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd)
 		return s, nil
 
 	case formCompleteMsg:
-		return s, s.Init(c)
+		s.loading = true
+		return s, FetchUsers(c)
 
 	case ToastMsg:
-		return s, s.Init(c)
+		s.loading = true
+		return s, FetchUsers(c)
 
 	case APIErrorMsg:
 		s.err = msg.Err
@@ -207,7 +212,8 @@ func (s *ServiceUsersPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Pag
 			s.state = svcUsersViewDetail
 		}
 	case "r":
-		return s, s.Init(c)
+		s.loading = true
+		return s, FetchUsers(c)
 	case "c":
 		s.formData = svcUserFormData{role: "user"}
 		s.form = newServiceUserCreateForm(&s.formData)

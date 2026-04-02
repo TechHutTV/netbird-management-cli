@@ -89,6 +89,9 @@ func (r *RoutesPage) CursorPosition() int { return r.cursor }
 func (r *RoutesPage) SetFocused(focused bool) { r.focused = focused }
 
 func (r *RoutesPage) Init(c *client.Client) tea.Cmd {
+	if len(r.routes) > 0 {
+		return nil
+	}
 	r.loading = true
 	r.err = nil
 	return fetchRoutesData(c)
@@ -175,7 +178,8 @@ func (r *RoutesPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 			r.err = msg.Err
 			return r, nil
 		}
-		return r, r.Init(c)
+		r.loading = true
+		return r, fetchRoutesData(c)
 
 	case routesDataLoadedMsg:
 		r.loading = false
@@ -189,10 +193,12 @@ func (r *RoutesPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 		return r, nil
 
 	case formCompleteMsg:
-		return r, r.Init(c)
+		r.loading = true
+		return r, fetchRoutesData(c)
 
 	case ToastMsg:
-		return r, r.Init(c)
+		r.loading = true
+		return r, fetchRoutesData(c)
 
 	case APIErrorMsg:
 		r.err = msg.Err
@@ -318,7 +324,8 @@ func (r *RoutesPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea
 			r.state = routesViewDetail
 		}
 	case "r":
-		return r, r.Init(c)
+		r.loading = true
+		return r, fetchRoutesData(c)
 	case "c":
 		r.formData = routeFormData{}
 		r.form = newRouteCreateForm(&r.formData, r.groupNames)

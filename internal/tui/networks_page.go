@@ -97,6 +97,9 @@ func fetchNetworksData(c *client.Client) tea.Cmd {
 }
 
 func (n *NetworksPage) Init(c *client.Client) tea.Cmd {
+	if len(n.networks) > 0 {
+		return nil
+	}
 	n.loading = true
 	n.err = nil
 	return fetchNetworksData(c)
@@ -245,17 +248,20 @@ func (n *NetworksPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 		return n, nil
 
 	case formCompleteMsg:
-		return n, n.Init(c)
+		n.loading = true
+		return n, fetchNetworksData(c)
 
 	case NetworkUpdatedMsg:
 		if msg.Err != nil {
 			n.err = msg.Err
 			return n, nil
 		}
-		return n, n.Init(c)
+		n.loading = true
+		return n, fetchNetworksData(c)
 
 	case ToastMsg:
-		return n, n.Init(c)
+		n.loading = true
+		return n, fetchNetworksData(c)
 
 	case APIErrorMsg:
 		n.err = msg.Err
@@ -406,7 +412,8 @@ func (n *NetworksPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, t
 			return n, fetchNetworkDetail(c, net.ID)
 		}
 	case "r":
-		return n, n.Init(c)
+		n.loading = true
+		return n, fetchNetworksData(c)
 	case "c":
 		n.formData = networkFormData{}
 		n.form = newNetworkCreateForm(&n.formData)

@@ -51,6 +51,9 @@ func (u *UsersPage) CursorPosition() int { return u.cursor }
 func (u *UsersPage) SetFocused(focused bool) { u.focused = focused }
 
 func (u *UsersPage) Init(c *client.Client) tea.Cmd {
+	if len(u.users) > 0 {
+		return nil
+	}
 	u.loading = true
 	u.err = nil
 	return FetchUsers(c)
@@ -154,13 +157,16 @@ func (u *UsersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 			u.err = msg.Err
 			return u, nil
 		}
-		return u, u.Init(c)
+		u.loading = true
+		return u, FetchUsers(c)
 
 	case formCompleteMsg:
-		return u, u.Init(c)
+		u.loading = true
+		return u, FetchUsers(c)
 
 	case ToastMsg:
-		return u, u.Init(c)
+		u.loading = true
+		return u, FetchUsers(c)
 
 	case APIErrorMsg:
 		u.err = msg.Err
@@ -271,7 +277,8 @@ func (u *UsersPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea.
 			u.state = usersViewDetail
 		}
 	case "r":
-		return u, u.Init(c)
+		u.loading = true
+		return u, FetchUsers(c)
 	case "c":
 		u.formData = userInviteFormData{}
 		u.form = newUserInviteForm(&u.formData)

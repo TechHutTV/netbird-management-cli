@@ -91,6 +91,9 @@ func fetchPoliciesData(c *client.Client) tea.Cmd {
 }
 
 func (p *PoliciesPage) Init(c *client.Client) tea.Cmd {
+	if len(p.policies) > 0 {
+		return nil
+	}
 	p.loading = true
 	p.err = nil
 	return fetchPoliciesData(c)
@@ -177,7 +180,8 @@ func (p *PoliciesPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 			p.err = msg.Err
 			return p, nil
 		}
-		return p, p.Init(c)
+		p.loading = true
+		return p, fetchPoliciesData(c)
 
 	case policiesDataLoadedMsg:
 		p.loading = false
@@ -191,10 +195,12 @@ func (p *PoliciesPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 		return p, nil
 
 	case formCompleteMsg:
-		return p, p.Init(c)
+		p.loading = true
+		return p, fetchPoliciesData(c)
 
 	case ToastMsg:
-		return p, p.Init(c)
+		p.loading = true
+		return p, fetchPoliciesData(c)
 
 	case APIErrorMsg:
 		p.err = msg.Err
@@ -321,7 +327,8 @@ func (p *PoliciesPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, t
 			p.state = policiesViewDetail
 		}
 	case "r":
-		return p, p.Init(c)
+		p.loading = true
+		return p, fetchPoliciesData(c)
 	case "c":
 		p.formData = policyFormData{}
 		p.form = newPolicyCreateForm(&p.formData, p.groupNames)

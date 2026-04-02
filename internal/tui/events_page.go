@@ -36,6 +36,12 @@ func (e *EventsPage) CursorPosition() int { return e.cursor }
 func (e *EventsPage) SetFocused(focused bool) { e.focused = focused }
 
 func (e *EventsPage) Init(c *client.Client) tea.Cmd {
+	if len(e.events) > 0 {
+		if e.autoRefresh {
+			return eventsTickCmd()
+		}
+		return nil
+	}
 	e.loading = true
 	e.err = nil
 	cmds := []tea.Cmd{FetchEvents(c)}
@@ -129,7 +135,8 @@ func (e *EventsPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea
 			e.cursor++
 		}
 	case "r":
-		return e, e.Init(c)
+		e.loading = true
+		return e, FetchEvents(c)
 	case "/":
 		e.searching = true
 		e.search = ""

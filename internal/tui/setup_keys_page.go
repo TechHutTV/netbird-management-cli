@@ -47,6 +47,9 @@ func (s *SetupKeysPage) CursorPosition() int { return s.cursor }
 func (s *SetupKeysPage) SetFocused(focused bool) { s.focused = focused }
 
 func (s *SetupKeysPage) Init(c *client.Client) tea.Cmd {
+	if len(s.keys) > 0 {
+		return nil
+	}
 	s.loading = true
 	s.err = nil
 	return FetchSetupKeys(c)
@@ -102,10 +105,12 @@ func (s *SetupKeysPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 		return s, nil
 
 	case formCompleteMsg:
-		return s, s.Init(c)
+		s.loading = true
+		return s, FetchSetupKeys(c)
 
 	case ToastMsg:
-		return s, s.Init(c)
+		s.loading = true
+		return s, FetchSetupKeys(c)
 
 	case APIErrorMsg:
 		s.err = msg.Err
@@ -200,7 +205,8 @@ func (s *SetupKeysPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, 
 			s.state = setupKeysViewDetail
 		}
 	case "r":
-		return s, s.Init(c)
+		s.loading = true
+		return s, FetchSetupKeys(c)
 	case "c":
 		s.formData = setupKeyFormData{}
 		s.form = newSetupKeyCreateForm(&s.formData)

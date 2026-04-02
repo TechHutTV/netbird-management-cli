@@ -68,6 +68,12 @@ func (p *PeersPage) CursorPosition() int { return p.cursor }
 func (p *PeersPage) SetFocused(focused bool) { p.focused = focused }
 
 func (p *PeersPage) Init(c *client.Client) tea.Cmd {
+	if len(p.peers) > 0 {
+		if p.autoRefresh {
+			return peersTickCmd()
+		}
+		return nil
+	}
 	p.loading = true
 	p.err = nil
 	cmds := []tea.Cmd{FetchPeers(c)}
@@ -121,7 +127,8 @@ func (p *PeersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 			p.err = msg.Err
 			return p, nil
 		}
-		return p, p.Init(c)
+		p.loading = true
+		return p, FetchPeers(c)
 
 	case PeersTickMsg:
 		if p.focused && p.autoRefresh && p.state == peersViewList {
@@ -182,10 +189,12 @@ func (p *PeersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 			p.err = msg.Err
 			return p, nil
 		}
-		return p, p.Init(c)
+		p.loading = true
+		return p, FetchPeers(c)
 
 	case ToastMsg:
-		return p, p.Init(c)
+		p.loading = true
+		return p, FetchPeers(c)
 
 	case APIErrorMsg:
 		p.err = msg.Err
@@ -397,7 +406,8 @@ func (p *PeersPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea.
 			}
 		}
 	case "r":
-		return p, p.Init(c)
+		p.loading = true
+		return p, FetchPeers(c)
 	case "d":
 		if len(p.filtered) > 0 {
 			peer := p.filtered[p.cursor]
