@@ -62,7 +62,7 @@ func NewApp(c *client.Client, daemon *DaemonClient) App {
 	p[SectionDNS] = NewDNSPage()
 	p[SectionPostureChecks] = NewPostureChecksPage()
 	p[SectionEvents] = NewEventsPage()
-	p[SectionAccount] = NewAccountsPage()
+	p[SectionSettings] = NewSettingsPage()
 	p[SectionIngress] = NewIngressPage()
 	p[SectionExportImport] = NewExportImportPage()
 
@@ -163,15 +163,13 @@ func (a App) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return a, tea.Quit
 	}
 
-	// Number hotkeys only work when nav bar is focused (not in content/forms)
+	// Number hotkeys jump to tab but keep focus in nav bar
 	if a.focus == focusNav {
 		if nav, section, ok := a.nav.SelectByHotkey(key); ok {
 			a.nav = nav
-			if section == SectionDashboard {
-				return a.switchPage(section)
+			if page, ok := a.pages[section]; ok {
+				page.SetFocused(false)
 			}
-			a.focus = focusContent
-			a.nav = a.nav.SetFocused(false)
 			return a.switchPage(section)
 		}
 	}
@@ -314,7 +312,7 @@ func (a App) renderHeader() string {
 // statusHints returns context-appropriate key binding hints
 func statusHints(focus focusArea) string {
 	if focus == focusNav {
-		return "1-9,0: jump  h/l: navigate  enter: select  tab: content  q: quit"
+		return "1-9,0: jump  ←/→: navigate  enter: select  tab: content  q: quit"
 	}
 	return "1-9,0: jump  tab/q: nav  esc: back  /: search  c: create  d: delete  r: refresh"
 }
