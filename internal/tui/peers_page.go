@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
@@ -40,10 +41,12 @@ type PeersPage struct {
 	editPeerID      string
 	daemon          *DaemonClient
 	connections     map[string]PeerConnectionInfo
+	autoRefresh     bool
+	lastRefresh     time.Time
 }
 
 func NewPeersPage() *PeersPage {
-	return &PeersPage{loading: true}
+	return &PeersPage{loading: true, autoRefresh: true}
 }
 
 // SetDaemon sets the daemon client for peer connection info
@@ -58,7 +61,11 @@ func (p *PeersPage) SetFocused(focused bool) { p.focused = focused }
 func (p *PeersPage) Init(c *client.Client) tea.Cmd {
 	p.loading = true
 	p.err = nil
-	return FetchPeers(c)
+	cmds := []tea.Cmd{FetchPeers(c)}
+	if p.autoRefresh {
+		cmds = append(cmds, peersTickCmd())
+	}
+	return tea.Batch(cmds...)
 }
 
 func (p *PeersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
@@ -107,6 +114,22 @@ func (p *PeersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 		}
 		return p, p.Init(c)
 
+	case PeersTickMsg:
+		if p.focused && p.autoRefresh && p.state == peersViewList {
+			p.lastRefresh = time.Now()
+			return p, tea.Batch(FetchPeers(c), peersTickCmd())
+		}
+		if p.autoRefresh {
+			return p, peersTickCmd() // keep ticking, refresh when focused on list
+		}
+		return p, nil
+
+	case ConnectionTickMsg:
+		if p.focused && p.state == peersViewDetail && p.daemon != nil && p.autoRefresh {
+			return p, tea.Batch(FetchPeerConnections(p.daemon), connectionTickCmd())
+		}
+		return p, nil
+
 	case PeersLoadedMsg:
 		p.loading = false
 		if msg.Err != nil {
@@ -114,6 +137,7 @@ func (p *PeersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 			return p, nil
 		}
 		p.peers = msg.Peers
+		p.lastRefresh = time.Now()
 		p.applyFilter()
 		return p, nil
 
@@ -243,7 +267,11 @@ func (p *PeersPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea.
 		if len(p.filtered) > 0 {
 			p.state = peersViewDetail
 			if p.daemon != nil {
-				return p, FetchPeerConnections(p.daemon)
+				cmds := []tea.Cmd{FetchPeerConnections(p.daemon)}
+				if p.autoRefresh {
+					cmds = append(cmds, connectionTickCmd())
+				}
+				return p, tea.Batch(cmds...)
 			}
 		}
 	case "r":
@@ -261,6 +289,11 @@ func (p *PeersPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea.
 	case "/":
 		p.searching = true
 		p.search = ""
+	case "p":
+		p.autoRefresh = !p.autoRefresh
+		if p.autoRefresh {
+			return p, peersTickCmd()
+		}
 	}
 
 	return p, nil
@@ -388,7 +421,14 @@ func (p *PeersPage) viewList(width, height int) string {
 		hints += "  esc: clear filter"
 	}
 	hints += "  a: accessible  d: delete  r: refresh"
-	b.WriteString(dimHintStyle.Render(hints))
+	b.WriteString(dimHintStyle.Render(hints) + "\n")
+
+	if p.autoRefresh && !p.lastRefresh.IsZero() {
+		ago := time.Since(p.lastRefresh).Truncate(time.Second)
+		b.WriteString(dimHintStyle.Render(fmt.Sprintf("  auto-refresh: %s ago  (p to pause)", ago)))
+	} else if !p.autoRefresh {
+		b.WriteString(dimHintStyle.Render("  auto-refresh paused  (p to resume)"))
+	}
 
 	return b.String()
 }
