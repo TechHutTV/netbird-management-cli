@@ -127,9 +127,8 @@ func (s *SettingsPage) visibleFields(sec settingsSection) []fieldDef {
 
 // ── Field value accessors ────────────────────────────────────────────
 
-// getFieldValue returns the current draft value as a display string
-func (s *SettingsPage) getFieldValue(id fieldID) string {
-	st := s.draft
+// fieldValueFrom returns the display string for a field from the given settings
+func fieldValueFrom(st models.AccountSettings, id fieldID) string {
 	switch id {
 	case fieldPeerLoginExpEnabled:
 		return boolStr(st.PeerLoginExpirationEnabled)
@@ -161,38 +160,14 @@ func (s *SettingsPage) getFieldValue(id fieldID) string {
 	return ""
 }
 
+// getFieldValue returns the current draft value as a display string
+func (s *SettingsPage) getFieldValue(id fieldID) string {
+	return fieldValueFrom(s.draft, id)
+}
+
 // getOriginalFieldValue returns the original (pre-edit) value as a display string
 func (s *SettingsPage) getOriginalFieldValue(id fieldID) string {
-	st := s.original
-	switch id {
-	case fieldPeerLoginExpEnabled:
-		return boolStr(st.PeerLoginExpirationEnabled)
-	case fieldPeerLoginExp:
-		return formatSettingsDuration(st.PeerLoginExpiration)
-	case fieldPeerInactivityExpEnabled:
-		return boolStr(st.PeerInactivityExpirationEnabled)
-	case fieldPeerInactivityExp:
-		return formatSettingsDuration(st.PeerInactivityExpiration)
-	case fieldPeerApproval:
-		return boolStr(st.PeerApprovalEnabled)
-	case fieldGroupsPropagation:
-		return boolStr(st.GroupsPropagationEnabled)
-	case fieldJWTGroupsEnabled:
-		return boolStr(st.JWTGroupsEnabled)
-	case fieldJWTGroupsClaim:
-		return st.JWTGroupsClaim
-	case fieldJWTAllowGroups:
-		return strings.Join(st.JWTAllowGroups, ", ")
-	case fieldRegularUsersViewBlocked:
-		return boolStr(st.RegularUsersViewBlocked)
-	case fieldDNSDomain:
-		return st.DNSDomain
-	case fieldNetworkRange:
-		return st.NetworkRange
-	case fieldTrafficLogging:
-		return boolStr(st.TrafficLogging)
-	}
-	return ""
+	return fieldValueFrom(s.original, id)
 }
 
 // getBoolField reads a boolean field from the draft
@@ -511,24 +486,23 @@ func parseSettingsDuration(s string) int {
 	if s == "" || s == "0" {
 		return 0
 	}
-	if len(s) < 2 {
-		return 0
-	}
-	suffix := s[len(s)-1]
-	numStr := s[:len(s)-1]
-	var n int
-	if _, err := fmt.Sscanf(numStr, "%d", &n); err != nil {
-		return 0
-	}
-	switch suffix {
-	case 'd':
-		return n * 86400
-	case 'h':
-		return n * 3600
-	case 'm':
-		return n * 60
-	case 's':
-		return n
+	// Try suffixed formats (e.g. "30d", "24h", "60m", "90s")
+	if len(s) >= 2 {
+		suffix := s[len(s)-1]
+		numStr := s[:len(s)-1]
+		var n int
+		if _, err := fmt.Sscanf(numStr, "%d", &n); err == nil {
+			switch suffix {
+			case 'd':
+				return n * 86400
+			case 'h':
+				return n * 3600
+			case 'm':
+				return n * 60
+			case 's':
+				return n
+			}
+		}
 	}
 	// Try parsing the whole string as plain integer seconds
 	var total int

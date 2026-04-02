@@ -50,9 +50,14 @@ func NewSettingsPage() *SettingsPage {
 	}
 }
 
-func (s *SettingsPage) Title() string        { return "Settings" }
-func (s *SettingsPage) CursorPosition() int  { return s.contentIdx }
-func (s *SettingsPage) SetFocused(f bool)    { s.focused = f }
+func (s *SettingsPage) Title() string { return "Settings" }
+func (s *SettingsPage) CursorPosition() int {
+	if s.innerFocus == focusSidebar {
+		return s.sidebarIdx
+	}
+	return s.contentIdx
+}
+func (s *SettingsPage) SetFocused(f bool) { s.focused = f }
 
 // Init fetches settings if not yet loaded
 func (s *SettingsPage) Init(c *client.Client) tea.Cmd {
@@ -105,6 +110,9 @@ func (s *SettingsPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 func (s *SettingsPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea.Cmd) {
 	key := msg.String()
 
+	// Clear toast on any keypress
+	s.toast = ""
+
 	// ── Confirm screen ───────────────────────────────────────────────
 	if s.confirming {
 		switch key {
@@ -120,28 +128,36 @@ func (s *SettingsPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, t
 
 	// ── Sidebar focus ────────────────────────────────────────────────
 	if s.innerFocus == focusSidebar {
-		return s.handleSidebarKey(key)
+		return s.handleSidebarKey(key, c)
 	}
 
 	// ── Content focus ────────────────────────────────────────────────
 	return s.handleContentKey(key, c)
 }
 
-func (s *SettingsPage) handleSidebarKey(key string) (Page, tea.Cmd) {
+func (s *SettingsPage) handleSidebarKey(key string, c *client.Client) (Page, tea.Cmd) {
 	switch key {
 	case keyUp:
 		if s.sidebarIdx > 0 {
 			s.sidebarIdx--
+			s.section = settingsSection(s.sidebarIdx)
+			s.contentIdx = 0
 		}
 	case keyDown:
 		if s.sidebarIdx < len(settingsSectionLabels)-1 {
 			s.sidebarIdx++
+			s.section = settingsSection(s.sidebarIdx)
+			s.contentIdx = 0
 		}
 	case keyEnter, "right", "l":
 		s.section = settingsSection(s.sidebarIdx)
 		s.contentIdx = 0
 		s.editingIdx = -1
 		s.innerFocus = focusContentPanel
+	case "s":
+		if s.loaded && s.dirty {
+			s.confirming = true
+		}
 	}
 	return s, nil
 }
