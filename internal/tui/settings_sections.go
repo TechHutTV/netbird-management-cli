@@ -434,149 +434,161 @@ func wrapText(text string, maxWidth int) string {
 	return strings.Join(lines, "\n")
 }
 
-// renderToggleCard renders a toggle setting with description left, toggle right
+// cardSeparator renders a dim horizontal rule
+func cardSeparator(width int) string {
+	line := strings.Repeat("─", width-4)
+	return lipgloss.NewStyle().Foreground(colorBorderFaint).Render("  " + line)
+}
+
+// renderToggleCard renders a toggle setting as a stacked card
 func (s *SettingsPage) renderToggleCard(f fieldDef, selected bool, width int) string {
 	val := s.getBoolField(f.ID)
 	changed := s.fieldChanged(f.ID)
+	cardWidth := width - 4
+	if cardWidth < 20 {
+		cardWidth = 20
+	}
 
-	// Right side: toggle indicator
+	// Toggle line
 	var toggle string
 	if f.CloudOnly {
-		toggle = lipgloss.NewStyle().Foreground(colorFaint).Render("  ○ OFF  (cloud)")
+		toggle = lipgloss.NewStyle().Foreground(colorFaint).Render("○ OFF  (cloud-only)")
 	} else if val {
-		toggle = enabledStyle.Render("  ● ON ")
+		toggle = enabledStyle.Render("● ON")
 	} else {
-		toggle = disabledStyle.Render("  ○ OFF")
+		toggle = disabledStyle.Render("○ OFF")
 	}
 	if changed {
-		toggle += lipgloss.NewStyle().Foreground(colorYellow).Render(" *")
-	}
-	toggleWidth := 18
-
-	// Left side: label + wrapped description
-	leftWidth := width - toggleWidth - 4
-	if leftWidth < 20 {
-		leftWidth = 20
+		toggle += lipgloss.NewStyle().Foreground(colorYellow).Render("  (modified)")
 	}
 
+	// Styles
 	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(colorText)
+	descStyle := lipgloss.NewStyle().Foreground(colorTextDim)
 	if f.CloudOnly {
 		labelStyle = lipgloss.NewStyle().Foreground(colorFaint)
+		descStyle = lipgloss.NewStyle().Foreground(colorFaint)
 	} else if selected {
 		labelStyle = lipgloss.NewStyle().Bold(true).Foreground(colorOrange)
 	}
-	descStyle := lipgloss.NewStyle().Foreground(colorTextDim)
-	if f.CloudOnly {
-		descStyle = lipgloss.NewStyle().Foreground(colorFaint)
-	}
 
-	labelStr := labelStyle.Render(f.Label)
-	descStr := descStyle.Render(wrapText(f.Description, leftWidth))
+	// Build stacked card
+	var lines []string
+	lines = append(lines, labelStyle.Render(f.Label))
+	lines = append(lines, descStyle.Render(wrapText(f.Description, cardWidth)))
+	lines = append(lines, toggle)
 
-	leftCol := lipgloss.NewStyle().Width(leftWidth).Render(labelStr + "\n" + descStr)
-	rightCol := lipgloss.NewStyle().Width(toggleWidth).Align(lipgloss.Right).Render(toggle)
-
-	row := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, rightCol)
+	card := strings.Join(lines, "\n")
 
 	if selected && !f.CloudOnly {
-		cardStyle := lipgloss.NewStyle().
+		return lipgloss.NewStyle().
 			Background(colorSelected).
-			Width(width - 2).
-			Padding(0, 1)
-		return cardStyle.Render(row) + "\n"
+			Width(cardWidth).
+			Padding(0, 2).
+			Render(card) + "\n" + cardSeparator(width)
 	}
 
-	return lipgloss.NewStyle().Padding(0, 1).Render(row) + "\n"
+	return lipgloss.NewStyle().
+		Padding(0, 2).
+		Render(card) + "\n" + cardSeparator(width)
 }
 
-// renderTextCard renders a text/duration setting with description left, value right
+// renderTextCard renders a text/duration setting as a stacked card
 func (s *SettingsPage) renderTextCard(f fieldDef, selected bool, width int) string {
 	val := s.getFieldValue(f.ID)
 	changed := s.fieldChanged(f.ID)
+	cardWidth := width - 4
+	if cardWidth < 20 {
+		cardWidth = 20
+	}
 
-	// Right side: value box
-	valWidth := 24
+	// Value display
 	displayVal := val
 	if displayVal == "" {
 		displayVal = "(empty)"
 	}
-	if changed {
-		displayVal += " *"
+	valBoxWidth := cardWidth
+	if valBoxWidth > 40 {
+		valBoxWidth = 40
 	}
 
-	valBoxStyle := lipgloss.NewStyle().
+	valBox := lipgloss.NewStyle().
 		Foreground(colorText).
 		Background(adaptive("#E2E8F0", "#1A2332")).
-		Width(valWidth).
-		Padding(0, 1)
-	valBox := valBoxStyle.Render(displayVal)
+		Width(valBoxWidth).
+		Padding(0, 1).
+		Render(displayVal)
 
-	// Left side: label + wrapped description
-	leftWidth := width - valWidth - 6
-	if leftWidth < 20 {
-		leftWidth = 20
+	changeStr := ""
+	if changed {
+		changeStr = lipgloss.NewStyle().Foreground(colorYellow).Render("  (modified)")
 	}
 
+	// Styles
 	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(colorText)
 	if selected {
 		labelStyle = lipgloss.NewStyle().Bold(true).Foreground(colorOrange)
 	}
 	descStyle := lipgloss.NewStyle().Foreground(colorTextDim)
 
-	labelStr := labelStyle.Render(f.Label)
-	descStr := descStyle.Render(wrapText(f.Description, leftWidth))
+	// Build stacked card
+	var lines []string
+	lines = append(lines, labelStyle.Render(f.Label)+changeStr)
+	lines = append(lines, descStyle.Render(wrapText(f.Description, cardWidth)))
+	lines = append(lines, valBox)
 
-	leftCol := lipgloss.NewStyle().Width(leftWidth).Render(labelStr + "\n" + descStr)
-	rightCol := lipgloss.NewStyle().Width(valWidth + 2).Align(lipgloss.Right).Render(valBox)
-
-	row := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, rightCol)
+	card := strings.Join(lines, "\n")
 
 	if selected {
-		cardStyle := lipgloss.NewStyle().
+		return lipgloss.NewStyle().
 			Background(colorSelected).
-			Width(width - 2).
-			Padding(0, 1)
-		return cardStyle.Render(row) + "\n"
+			Width(cardWidth).
+			Padding(0, 2).
+			Render(card) + "\n" + cardSeparator(width)
 	}
 
-	return lipgloss.NewStyle().Padding(0, 1).Render(row) + "\n"
+	return lipgloss.NewStyle().
+		Padding(0, 2).
+		Render(card) + "\n" + cardSeparator(width)
 }
 
-// renderTextEditCard renders a field in edit mode with description left, edit box right
+// renderTextEditCard renders a field in edit mode as a stacked card
 func (s *SettingsPage) renderTextEditCard(f fieldDef, width int) string {
-	valWidth := 24
-	leftWidth := width - valWidth - 6
-	if leftWidth < 20 {
-		leftWidth = 20
+	cardWidth := width - 4
+	if cardWidth < 20 {
+		cardWidth = 20
+	}
+	valBoxWidth := cardWidth
+	if valBoxWidth > 40 {
+		valBoxWidth = 40
 	}
 
 	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(colorOrange)
 	descStyle := lipgloss.NewStyle().Foreground(colorTextDim)
 
-	labelStr := labelStyle.Render(f.Label)
-	descStr := descStyle.Render(wrapText(f.Description, leftWidth))
-
 	cursor := lipgloss.NewStyle().Foreground(colorOrange).Render("▌")
 	editBox := lipgloss.NewStyle().
 		Foreground(colorText).
 		Background(adaptive("#CBD5E0", "#1A2332")).
-		Width(valWidth).
+		Width(valBoxWidth).
 		Padding(0, 1).
 		Render(s.editBuf + cursor)
 
-	hint := dimHintStyle.Render("enter: ok  esc: cancel")
+	hint := dimHintStyle.Render("enter: confirm  esc: cancel  backspace: delete")
 
-	leftCol := lipgloss.NewStyle().Width(leftWidth).Render(labelStr + "\n" + descStr)
-	rightCol := lipgloss.NewStyle().Width(valWidth + 2).Align(lipgloss.Right).Render(editBox + "\n" + hint)
+	var lines []string
+	lines = append(lines, labelStyle.Render(f.Label))
+	lines = append(lines, descStyle.Render(wrapText(f.Description, cardWidth)))
+	lines = append(lines, editBox)
+	lines = append(lines, hint)
 
-	row := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, rightCol)
+	card := strings.Join(lines, "\n")
 
-	cardStyle := lipgloss.NewStyle().
+	return lipgloss.NewStyle().
 		Background(colorSelected).
-		Width(width - 2).
-		Padding(0, 1)
-
-	return cardStyle.Render(row) + "\n"
+		Width(cardWidth).
+		Padding(0, 2).
+		Render(card) + "\n" + cardSeparator(width)
 }
 
 // contentHints returns the key-hint line for the content area
