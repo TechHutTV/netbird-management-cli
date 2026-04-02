@@ -67,12 +67,13 @@ const (
 
 // fieldDef describes a single settings field
 type fieldDef struct {
-	ID             fieldID
-	Label          string
-	Kind           fieldKind
-	CloudOnly      bool
-	HasCondition   bool
-	ConditionalOn  fieldID
+	ID            fieldID
+	Label         string
+	Description   string
+	Kind          fieldKind
+	CloudOnly     bool
+	HasCondition  bool
+	ConditionalOn fieldID
 }
 
 // fieldsForSection returns all fields (including conditional ones) for a section
@@ -80,31 +81,74 @@ func fieldsForSection(sec settingsSection) []fieldDef {
 	switch sec {
 	case sectionAuthentication:
 		return []fieldDef{
-			{ID: fieldPeerLoginExpEnabled, Label: "Peer Session Expiration", Kind: fieldToggle},
-			{ID: fieldPeerLoginExp, Label: "Expiration Period", Kind: fieldDuration, HasCondition: true, ConditionalOn: fieldPeerLoginExpEnabled},
-			{ID: fieldPeerInactivityExpEnabled, Label: "Peer Inactivity Expiration", Kind: fieldToggle},
-			{ID: fieldPeerInactivityExp, Label: "Inactivity Period", Kind: fieldDuration, HasCondition: true, ConditionalOn: fieldPeerInactivityExpEnabled},
-			{ID: fieldPeerApproval, Label: "Peer Approval Required", Kind: fieldToggle, CloudOnly: true},
+			{
+				ID: fieldPeerLoginExpEnabled, Label: "Peer Session Expiration", Kind: fieldToggle,
+				Description: "Request periodic re-authentication of peers registered with SSO.",
+			},
+			{
+				ID: fieldPeerLoginExp, Label: "Expiration Period", Kind: fieldDuration,
+				Description:  "Time after which every peer added with SSO login will require re-authentication.",
+				HasCondition: true, ConditionalOn: fieldPeerLoginExpEnabled,
+			},
+			{
+				ID: fieldPeerInactivityExpEnabled, Label: "Peer Inactivity Expiration", Kind: fieldToggle,
+				Description: "Require authentication after users disconnect from management.",
+			},
+			{
+				ID: fieldPeerInactivityExp, Label: "Inactivity Period", Kind: fieldDuration,
+				Description:  "Time of inactivity after which peers require re-authentication.",
+				HasCondition: true, ConditionalOn: fieldPeerInactivityExpEnabled,
+			},
+			{
+				ID: fieldPeerApproval, Label: "Peer Approval Required", Kind: fieldToggle, CloudOnly: true,
+				Description: "Require manual approval for new users joining via domain matching.",
+			},
 		}
 	case sectionGroups:
 		return []fieldDef{
-			{ID: fieldGroupsPropagation, Label: "User Group Propagation", Kind: fieldToggle},
-			{ID: fieldJWTGroupsEnabled, Label: "JWT Group Sync", Kind: fieldToggle},
-			{ID: fieldJWTGroupsClaim, Label: "JWT Claim", Kind: fieldText, HasCondition: true, ConditionalOn: fieldJWTGroupsEnabled},
-			{ID: fieldJWTAllowGroups, Label: "JWT Allow Groups", Kind: fieldText, HasCondition: true, ConditionalOn: fieldJWTGroupsEnabled},
+			{
+				ID: fieldGroupsPropagation, Label: "User Group Propagation", Kind: fieldToggle,
+				Description: "Allow group propagation from user's auto-groups to peers, sharing membership information.",
+			},
+			{
+				ID: fieldJWTGroupsEnabled, Label: "JWT Group Sync", Kind: fieldToggle,
+				Description: "Extract and sync groups from JWT claims with user's auto-groups, auto-creating groups from tokens.",
+			},
+			{
+				ID: fieldJWTGroupsClaim, Label: "JWT Claim", Kind: fieldText,
+				Description:  "Specify the JWT claim name for extracting group names.",
+				HasCondition: true, ConditionalOn: fieldJWTGroupsEnabled,
+			},
+			{
+				ID: fieldJWTAllowGroups, Label: "JWT Allow Groups", Kind: fieldText,
+				Description:  "Limit NetBird access to specific group names from your identity provider.",
+				HasCondition: true, ConditionalOn: fieldJWTGroupsEnabled,
+			},
 		}
 	case sectionPermissions:
 		return []fieldDef{
-			{ID: fieldRegularUsersViewBlocked, Label: "Restrict Dashboard", Kind: fieldToggle},
+			{
+				ID: fieldRegularUsersViewBlocked, Label: "Restrict Dashboard for Regular Users", Kind: fieldToggle,
+				Description: "Access to the dashboard will be limited and regular users will not be able to view any peers.",
+			},
 		}
 	case sectionNetworks:
 		return []fieldDef{
-			{ID: fieldDNSDomain, Label: "DNS Domain", Kind: fieldText},
-			{ID: fieldNetworkRange, Label: "Network Range", Kind: fieldText},
+			{
+				ID: fieldDNSDomain, Label: "DNS Domain", Kind: fieldText,
+				Description: "Specify a custom peer DNS domain for your network.",
+			},
+			{
+				ID: fieldNetworkRange, Label: "Network Range", Kind: fieldText,
+				Description: "Specify a custom IPv4 range in CIDR format. All peer IPs will be re-allocated when changed.",
+			},
 		}
 	case sectionClients:
 		return []fieldDef{
-			{ID: fieldTrafficLogging, Label: "Traffic Logging", Kind: fieldToggle, CloudOnly: true},
+			{
+				ID: fieldTrafficLogging, Label: "Traffic Logging", Kind: fieldToggle, CloudOnly: true,
+				Description: "Enable network traffic logging for monitoring and analytics.",
+			},
 		}
 	}
 	return nil
@@ -265,38 +309,41 @@ const sidebarWidth = 22
 
 // renderSidebar renders the left sidebar with section list
 func (s *SettingsPage) renderSidebar(height int) string {
-	activeItemStyle := lipgloss.NewStyle().
-		Foreground(colorText).
-		Background(colorSelected).
-		Bold(true).
-		Width(sidebarWidth).
-		Padding(0, 1)
-
-	inactiveItemStyle := lipgloss.NewStyle().
-		Foreground(colorTextDim).
-		Width(sidebarWidth).
-		Padding(0, 1)
-
-	activeSidebarStyle := lipgloss.NewStyle().
-		Foreground(colorOrange).
-		Background(colorSelected).
-		Bold(true).
-		Width(sidebarWidth).
-		Padding(0, 1)
-
 	var rows []string
 	for i, label := range settingsSectionLabels {
 		sec := settingsSection(i)
-		var row string
+
+		prefix := "  "
+		var style lipgloss.Style
+
 		switch {
-		case s.innerFocus == focusSidebar && s.sidebarIdx == i:
-			row = activeSidebarStyle.Render(label)
+		case s.focused && s.innerFocus == focusSidebar && s.sidebarIdx == i:
+			prefix = "▸ "
+			style = lipgloss.NewStyle().
+				Foreground(colorOrange).
+				Background(colorSelected).
+				Bold(true).
+				Width(sidebarWidth)
 		case sec == s.section:
-			row = activeItemStyle.Render(label)
+			prefix = "  "
+			style = lipgloss.NewStyle().
+				Foreground(colorText).
+				Bold(true).
+				Width(sidebarWidth)
 		default:
-			row = inactiveItemStyle.Render(label)
+			style = lipgloss.NewStyle().
+				Foreground(colorTextDim).
+				Width(sidebarWidth)
 		}
-		rows = append(rows, row)
+
+		rows = append(rows, style.Render(prefix+label))
+	}
+
+	// Dirty indicator at the bottom
+	if s.dirty {
+		rows = append(rows, "")
+		marker := lipgloss.NewStyle().Foreground(colorYellow).Bold(true).Render("  ● Unsaved changes")
+		rows = append(rows, marker)
 	}
 
 	content := strings.Join(rows, "\n")
@@ -315,7 +362,6 @@ func (s *SettingsPage) renderContent(width, height int) string {
 	if s.err != nil {
 		return errorStyle.Render("  Error: " + s.err.Error())
 	}
-
 	if !s.loaded {
 		return dimHintStyle.Render("  Press enter to load settings.")
 	}
@@ -326,115 +372,157 @@ func (s *SettingsPage) renderContent(width, height int) string {
 	}
 
 	sectionTitle := settingsSectionLabels[int(s.section)]
-	header := sectionHeaderStyle.Render(sectionTitle) + "\n\n"
+	header := lipgloss.NewStyle().
+		Foreground(colorText).
+		Bold(true).
+		MarginBottom(1).
+		Render("  " + sectionTitle)
 
 	var rows []string
+	rows = append(rows, header)
+	rows = append(rows, "")
+
 	for i, f := range visible {
-		isSelected := s.innerFocus == focusContentPanel && i == s.contentIdx
+		isSelected := s.focused && s.innerFocus == focusContentPanel && i == s.contentIdx
 		isEditing := s.editingIdx == i && s.innerFocus == focusContentPanel
 
-		var row string
+		var card string
 		switch f.Kind {
 		case fieldToggle:
-			row = s.renderToggle(f, isSelected)
+			card = s.renderToggleCard(f, isSelected, width)
 		case fieldText, fieldDuration:
 			if isEditing {
-				row = s.renderTextEditing(f, width)
+				card = s.renderTextEditCard(f, width)
 			} else {
-				row = s.renderTextDisplay(f, isSelected)
+				card = s.renderTextCard(f, isSelected, width)
 			}
 		}
-		rows = append(rows, row)
+		rows = append(rows, card)
 	}
 
-	body := strings.Join(rows, "\n")
-
-	hints := s.contentHints()
-	hintLine := "\n" + dimHintStyle.Render(hints)
+	// Key hints at bottom
+	rows = append(rows, "")
+	rows = append(rows, dimHintStyle.Render("  "+s.contentHints()))
 
 	return lipgloss.NewStyle().
 		Width(width).
 		Height(height).
-		Render(header + body + hintLine)
+		Render(strings.Join(rows, "\n"))
 }
 
-// renderToggle renders a single toggle field row
-func (s *SettingsPage) renderToggle(f fieldDef, selected bool) string {
+// renderToggleCard renders a toggle setting as a card with label, description, and status
+func (s *SettingsPage) renderToggleCard(f fieldDef, selected bool, width int) string {
 	val := s.getBoolField(f.ID)
-	indicator := enabledStyle.Render("ON ")
-	if !val {
-		indicator = disabledStyle.Render("OFF")
-	}
-
-	label := s.fieldLabel(f, selected)
 	changed := s.fieldChanged(f.ID)
 
-	marker := "  "
-	if changed {
-		marker = lipgloss.NewStyle().Foreground(colorYellow).Render("* ")
-	}
-
-	cloudBadge := ""
+	// Status badge
+	var badge string
 	if f.CloudOnly {
-		cloudBadge = lipgloss.NewStyle().Foreground(colorFaint).Render(" (cloud-only)")
+		badge = lipgloss.NewStyle().Foreground(colorFaint).Render("[cloud-only]")
+	} else if val {
+		badge = enabledStyle.Render("● Enabled")
+	} else {
+		badge = disabledStyle.Render("○ Disabled")
 	}
 
-	row := fmt.Sprintf("%s%s  [%s]%s", marker, label, indicator, cloudBadge)
+	// Change marker
+	changeStr := ""
+	if changed {
+		changeStr = lipgloss.NewStyle().Foreground(colorYellow).Render(" (modified)")
+	}
+
+	// Label
+	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(colorText)
+	if f.CloudOnly {
+		labelStyle = lipgloss.NewStyle().Foreground(colorFaint)
+	} else if selected {
+		labelStyle = lipgloss.NewStyle().Bold(true).Foreground(colorOrange)
+	}
+
+	// Description
+	descStyle := lipgloss.NewStyle().Foreground(colorTextDim)
+	if f.CloudOnly {
+		descStyle = lipgloss.NewStyle().Foreground(colorFaint)
+	}
+
+	// Build the card content
+	line1 := fmt.Sprintf("  %s  %s%s", labelStyle.Render(f.Label), badge, changeStr)
+	line2 := descStyle.Render("  " + f.Description)
+
+	card := line1 + "\n" + line2
 
 	if selected && !f.CloudOnly {
-		return lipgloss.NewStyle().Background(colorSelected).Render(row)
+		cardStyle := lipgloss.NewStyle().
+			Background(colorSelected).
+			Width(width - 2).
+			Padding(0, 1)
+		return cardStyle.Render(card) + "\n"
 	}
-	if f.CloudOnly {
-		return lipgloss.NewStyle().Foreground(colorFaint).Render(row)
-	}
-	return row
+
+	return "  " + card + "\n"
 }
 
-// renderTextDisplay renders a non-editing text/duration row
-func (s *SettingsPage) renderTextDisplay(f fieldDef, selected bool) string {
+// renderTextCard renders a text/duration setting as a card
+func (s *SettingsPage) renderTextCard(f fieldDef, selected bool, width int) string {
 	val := s.getFieldValue(f.ID)
-	if val == "" {
-		val = lipgloss.NewStyle().Foreground(colorFaint).Render("(empty)")
-	}
-
-	label := s.fieldLabel(f, selected)
 	changed := s.fieldChanged(f.ID)
 
-	marker := "  "
+	if val == "" {
+		val = "(empty)"
+	}
+
+	changeStr := ""
 	if changed {
-		marker = lipgloss.NewStyle().Foreground(colorYellow).Render("* ")
+		changeStr = lipgloss.NewStyle().Foreground(colorYellow).Render(" (modified)")
 	}
 
-	row := fmt.Sprintf("%s%s  %s", marker, label, detailValueStyle.Render(val))
+	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(colorText)
+	if selected {
+		labelStyle = lipgloss.NewStyle().Bold(true).Foreground(colorOrange)
+	}
+
+	valStyle := lipgloss.NewStyle().Foreground(colorBlue)
+	descStyle := lipgloss.NewStyle().Foreground(colorTextDim)
+
+	line1 := fmt.Sprintf("  %s  %s%s", labelStyle.Render(f.Label), valStyle.Render(val), changeStr)
+	line2 := descStyle.Render("  " + f.Description)
+
+	card := line1 + "\n" + line2
 
 	if selected {
-		return lipgloss.NewStyle().Background(colorSelected).Render(row)
+		cardStyle := lipgloss.NewStyle().
+			Background(colorSelected).
+			Width(width - 2).
+			Padding(0, 1)
+		return cardStyle.Render(card) + "\n"
 	}
-	return row
+
+	return "  " + card + "\n"
 }
 
-// renderTextEditing renders a field currently in edit mode
-func (s *SettingsPage) renderTextEditing(f fieldDef, _ int) string {
+// renderTextEditCard renders a field in edit mode
+func (s *SettingsPage) renderTextEditCard(f fieldDef, width int) string {
+	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(colorOrange)
+	descStyle := lipgloss.NewStyle().Foreground(colorTextDim)
+
 	cursor := lipgloss.NewStyle().Foreground(colorOrange).Render("▌")
-	buf := lipgloss.NewStyle().Foreground(colorText).Render(s.editBuf)
+	editBox := lipgloss.NewStyle().
+		Foreground(colorText).
+		Background(lipgloss.Color("#1A2332")).
+		Padding(0, 1).
+		Render(s.editBuf + cursor)
 
-	label := detailLabelStyle.Render(f.Label + ":")
-	row := fmt.Sprintf("  %s  %s%s", label, buf, cursor)
+	line1 := fmt.Sprintf("  %s", labelStyle.Render(f.Label))
+	line2 := descStyle.Render("  " + f.Description)
+	line3 := "  " + editBox
+	line4 := dimHintStyle.Render("  enter: confirm  esc: cancel  backspace: delete")
 
-	hint := dimHintStyle.Render("  enter: confirm  esc: cancel  backspace: delete")
-	return row + "\n" + hint
-}
+	cardStyle := lipgloss.NewStyle().
+		Background(colorSelected).
+		Width(width - 2).
+		Padding(0, 1)
 
-// fieldLabel returns a styled label string for a field
-func (s *SettingsPage) fieldLabel(f fieldDef, selected bool) string {
-	labelTxt := f.Label + ":"
-	if f.CloudOnly {
-		return lipgloss.NewStyle().Foreground(colorFaint).Width(20).Align(lipgloss.Right).PaddingRight(1).Render(labelTxt)
-	}
-	if selected {
-		return lipgloss.NewStyle().Foreground(colorOrange).Width(20).Align(lipgloss.Right).PaddingRight(1).Render(labelTxt)
-	}
-	return detailLabelStyle.Render(labelTxt)
+	return cardStyle.Render(line1+"\n"+line2+"\n"+line3+"\n"+line4) + "\n"
 }
 
 // contentHints returns the key-hint line for the content area
@@ -442,20 +530,23 @@ func (s *SettingsPage) contentHints() string {
 	if s.editingIdx >= 0 {
 		return "enter: confirm  esc: cancel  backspace: delete"
 	}
+	hints := "↑↓: navigate  ←/esc: sidebar"
 	visible := s.visibleFields(s.section)
 	if s.contentIdx >= 0 && s.contentIdx < len(visible) {
 		f := visible[s.contentIdx]
-		if f.CloudOnly {
-			return "↑/↓: navigate  ←/esc: sidebar  s: save"
-		}
-		switch f.Kind {
-		case fieldToggle:
-			return "↑/↓: navigate  enter/space: toggle  ←/esc: sidebar  s: save"
-		case fieldText, fieldDuration:
-			return "↑/↓: navigate  enter: edit  ←/esc: sidebar  s: save"
+		if !f.CloudOnly {
+			switch f.Kind {
+			case fieldToggle:
+				hints += "  enter/space: toggle"
+			case fieldText, fieldDuration:
+				hints += "  enter: edit"
+			}
 		}
 	}
-	return "↑/↓: navigate  ←/esc: sidebar  s: save"
+	if s.dirty {
+		hints += "  s: save"
+	}
+	return hints
 }
 
 // ── Duration helpers ─────────────────────────────────────────────────
