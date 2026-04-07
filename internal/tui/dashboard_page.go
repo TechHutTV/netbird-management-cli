@@ -101,9 +101,6 @@ func (d *DashboardPage) View(width, height int) string {
 		colWidth = 30
 	}
 
-	// Logo banner
-	banner := renderLogoBanner(width)
-
 	left := d.renderDaemonStatus(colWidth)
 	right := d.renderManagementOverview(colWidth)
 
@@ -121,44 +118,7 @@ func (d *DashboardPage) View(width, height int) string {
 		Padding(1, 2).
 		Render(right)
 
-	columns := lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "  ", rightBox)
-
-	return banner + "\n" + columns
-}
-
-// netbirdLogoLines is the bird mark rendered as colored unicode half-blocks.
-// Generated from the official NetBird logo using chafa.
-var netbirdLogoLines = []string{
-	"\x1b[0m\x1b[38;2;88;57;38;48;2;14;24;34m▄\x1b[38;2;129;76;40m▄\x1b[38;2;162;90;42m▄\x1b[38;2;164;91;42m▄\x1b[38;2;138;80;41m▄\x1b[38;2;92;59;38m▄\x1b[38;2;24;28;34m▄\x1b[38;2;164;92;42;48;2;21;26;34m▄\x1b[38;2;245;130;48;48;2;141;81;41m▄\x1b[48;2;232;123;46m▄\x1b[48;2;245;130;48m▄▄▄\x1b[38;2;195;106;44;48;2;78;53;37m▌\x1b[0m",
-	"\x1b[38;2;16;24;34;48;2;130;76;40m▄\x1b[38;2;175;97;43;48;2;245;130;48m▄\x1b[38;2;245;130;48m▄▄▄▄\x1b[38;2;243;123;48;48;2;228;98;48m▌\x1b[38;2;242;93;49;48;2;243;118;48m▄\x1b[38;2;243;116;48;48;2;245;130;48m▄\x1b[38;2;245;130;48m▄▄▄\x1b[38;2;200;109;45;48;2;83;55;37m▌\x1b[38;2;14;24;34;48;2;14;24;34m▄\x1b[0m",
-	"\x1b[38;2;14;24;34;48;2;14;24;34m▄\x1b[48;2;27;30;34m▄\x1b[38;2;51;40;36;48;2;209;113;45m▄\x1b[38;2;232;123;47;48;2;245;130;48m▄\x1b[38;2;245;130;48m▄\x1b[38;2;244;124;48;48;2;243;105;49m▌\x1b[38;2;242;93;50;48;2;242;93;49m▄\x1b[48;2;242;93;50m▄\x1b[48;2;242;94;49m▄\x1b[38;2;243;108;49;48;2;244;127;48m▌\x1b[38;2;245;130;48;48;2;245;130;48m▄\x1b[38;2;205;111;45;48;2;89;57;38m▌\x1b[38;2;14;24;34;48;2;15;24;34m▄\x1b[48;2;14;24;34m▄\x1b[0m",
-	"\x1b[38;2;14;24;34;48;2;14;24;34m▄▄▄\x1b[48;2;86;56;37m▄\x1b[38;2;186;89;44;48;2;243;123;48m▄\x1b[38;2;242;93;50;48;2;242;93;49m▄\x1b[48;2;242;93;50m▄▄▄\x1b[48;2;242;99;49m▌\x1b[38;2;209;111;45;48;2;94;60;38m▌\x1b[38;2;14;24;34;48;2;16;24;34m▄\x1b[48;2;14;24;34m▄▄\x1b[0m",
-	"\x1b[38;2;14;24;34;48;2;14;24;34m▄▄▄\x1b[38;2;49;39;35;48;2;163;92;42m▌\x1b[38;2;245;130;48;48;2;242;128;47m▄\x1b[38;2;244;128;48;48;2;243;105;49m▄\x1b[38;2;242;99;49;48;2;242;93;50m▄\x1b[38;2;242;93;50m▄▄\x1b[38;2;210;83;47;48;2;98;49;39m▌\x1b[38;2;14;24;34;48;2;17;24;34m▄\x1b[48;2;14;24;34m▄▄▄\x1b[0m",
-	"\x1b[38;2;14;24;34;48;2;14;24;34m▄▄\x1b[38;2;45;38;35;48;2;158;89;42m▌\x1b[38;2;241;128;47;48;2;244;129;47m▌\x1b[38;2;243;129;47;48;2;245;130;48m▄▄\x1b[38;2;244;129;47;48;2;243;124;48m▌\x1b[38;2;242;119;48;48;2;242;95;49m▄\x1b[38;2;212;84;47;48;2;102;50;39m▌\x1b[38;2;14;24;34;48;2;18;25;34m▄\x1b[48;2;14;24;34m▄▄▄▄\x1b[0m",
-}
-
-// renderLogoBanner renders the bird logo with "NetBird" text beside it
-func renderLogoBanner(width int) string {
-	logo := strings.Join(netbirdLogoLines, "\n")
-
-	title := lipgloss.NewStyle().
-		Foreground(colorOrange).
-		Bold(true).
-		Render("NetBird")
-
-	subtitle := lipgloss.NewStyle().
-		Foreground(colorTextDim).
-		Render("Management Console")
-
-	textBlock := "\n" + title + "\n" + subtitle
-
-	banner := lipgloss.JoinHorizontal(lipgloss.Center, "  ", logo, "  ", textBlock)
-
-	return lipgloss.NewStyle().
-		Width(width).
-		Align(lipgloss.Center).
-		MarginBottom(1).
-		Render(banner)
+	return lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "  ", rightBox)
 }
 
 // ─── Daemon status (left column) ────────────────────────────────────
