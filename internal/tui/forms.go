@@ -667,6 +667,9 @@ func newUserInviteForm(data *userInviteFormData, availableGroups map[string]stri
 
 	options := make([]huh.Option[string], 0, len(availableGroups))
 	for id, name := range availableGroups {
+		if name == "All" {
+			continue // system group for peers, not assignable to users
+		}
 		options = append(options, huh.NewOption(name, id))
 	}
 
