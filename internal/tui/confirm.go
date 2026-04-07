@@ -24,10 +24,13 @@ func RenderConfirm(title string, fields []ConfirmField) string {
 	sb.WriteString(pageTitleStyle.Render(title) + "\n\n")
 
 	for _, f := range fields {
-		if f.Value == "" {
-			continue
+		val := f.Value
+		if val == "" {
+			val = lipgloss.NewStyle().Foreground(colorFaint).Render("(none)")
+		} else {
+			val = detailValueStyle.Render(val)
 		}
-		sb.WriteString(lbl(f.Label+":") + detailValueStyle.Render(f.Value) + "\n")
+		sb.WriteString(lbl(f.Label+":") + val + "\n")
 	}
 
 	sb.WriteString("\n")
