@@ -562,7 +562,7 @@ func (p *PeersPage) viewList(width, height int) string {
 	if p.search != "" {
 		hints += "  esc: clear filter"
 	}
-	hints += "  c: create  d: delete  a: accessible  g: bulk groups  p: pause  r: refresh"
+	hints += "  d: delete  a: accessible  g: bulk groups  p: pause  r: refresh"
 	b.WriteString(dimHintStyle.Render(hints) + "\n")
 
 	if p.autoRefresh && !p.lastRefresh.IsZero() {
