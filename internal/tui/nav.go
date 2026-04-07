@@ -134,8 +134,6 @@ func (n NavModel) Focused() bool   { return n.focused }
 
 // View renders the horizontal top navigation bar with numbered hotkeys
 func (n NavModel) View(width int) string {
-	brand := navBrandStyle.Render("NetBird")
-
 	var tabs []string
 	for i, item := range n.items {
 		label := item.Label
@@ -157,7 +155,7 @@ func (n NavModel) View(width int) string {
 		}
 	}
 
-	tabContent := brand + "  " + strings.Join(tabs, "  ")
+	tabContent := strings.Join(tabs, "  ")
 
 	// Single container with bottom border — no per-tab borders
 	return navBarContainerStyle.
