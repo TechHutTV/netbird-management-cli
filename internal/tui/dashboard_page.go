@@ -230,6 +230,8 @@ func (d *DashboardPage) renderDaemonStatus(width int) string {
 			for _, net := range lp.Networks {
 				sb.WriteString(indent + detailValueStyle.Render("▸ "+net) + "\n")
 			}
+		} else {
+			sb.WriteString(lbl("Networks:") + labelStyle.Render("None") + "\n")
 		}
 
 		sb.WriteString("\n")
