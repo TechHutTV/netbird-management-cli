@@ -682,11 +682,26 @@ func newUserInviteForm(data *userInviteFormData, availableGroups map[string]stri
 			huh.NewInput().
 				Title("Name").
 				Placeholder("e.g. John Doe").
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return fmt.Errorf("name is required")
+					}
+					return nil
+				}).
 				Value(&data.name),
 			huh.NewInput().
 				Title("Email").
 				Description("Required for regular users").
 				Placeholder("user@example.com").
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return fmt.Errorf("email is required")
+					}
+					if !strings.Contains(s, "@") {
+						return fmt.Errorf("invalid email address")
+					}
+					return nil
+				}).
 				Value(&data.email),
 			huh.NewSelect[string]().
 				Title("Role").
