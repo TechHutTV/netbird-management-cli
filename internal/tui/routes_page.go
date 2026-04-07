@@ -85,7 +85,12 @@ func NewRoutesPage() *RoutesPage {
 }
 
 func (r *RoutesPage) Title() string { return "Routes" }
-func (r *RoutesPage) CursorPosition() int { return r.cursor }
+func (r *RoutesPage) CursorPosition() int {
+	if r.state != routesViewList {
+		return 1
+	}
+	return r.cursor
+}
 func (r *RoutesPage) SetFocused(focused bool) { r.focused = focused }
 
 func (r *RoutesPage) Init(c *client.Client) tea.Cmd {

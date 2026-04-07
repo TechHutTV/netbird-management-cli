@@ -57,7 +57,12 @@ func NewNetworksPage() *NetworksPage {
 }
 
 func (n *NetworksPage) Title() string { return "Networks" }
-func (n *NetworksPage) CursorPosition() int { return n.cursor }
+func (n *NetworksPage) CursorPosition() int {
+	if n.state != networksViewList {
+		return 1
+	}
+	return n.cursor
+}
 func (n *NetworksPage) SetFocused(focused bool) { n.focused = focused }
 
 type networksDataLoadedMsg struct {

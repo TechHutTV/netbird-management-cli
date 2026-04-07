@@ -49,7 +49,12 @@ func NewDNSPage() *DNSPage {
 }
 
 func (d *DNSPage) Title() string { return "DNS" }
-func (d *DNSPage) CursorPosition() int { return d.cursor }
+func (d *DNSPage) CursorPosition() int {
+	if d.state != dnsViewList {
+		return 1
+	}
+	return d.cursor
+}
 func (d *DNSPage) SetFocused(focused bool) { d.focused = focused }
 
 // dnsDataLoadedMsg carries DNS groups + resolved group names

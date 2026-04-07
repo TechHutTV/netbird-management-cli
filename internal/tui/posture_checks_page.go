@@ -47,7 +47,12 @@ func NewPostureChecksPage() *PostureChecksPage {
 }
 
 func (pc *PostureChecksPage) Title() string        { return "Posture Checks" }
-func (pc *PostureChecksPage) CursorPosition() int  { return pc.cursor }
+func (pc *PostureChecksPage) CursorPosition() int {
+	if pc.state != postureViewList {
+		return 1
+	}
+	return pc.cursor
+}
 func (pc *PostureChecksPage) SetFocused(focused bool) { pc.focused = focused }
 
 func (pc *PostureChecksPage) Init(c *client.Client) tea.Cmd {

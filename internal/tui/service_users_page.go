@@ -51,7 +51,12 @@ func NewServiceUsersPage() *ServiceUsersPage {
 }
 
 func (s *ServiceUsersPage) Title() string { return "Service Users" }
-func (s *ServiceUsersPage) CursorPosition() int { return s.cursor }
+func (s *ServiceUsersPage) CursorPosition() int {
+	if s.state != svcUsersViewList {
+		return 1
+	}
+	return s.cursor
+}
 func (s *ServiceUsersPage) SetFocused(focused bool) { s.focused = focused }
 
 func (s *ServiceUsersPage) Init(c *client.Client) tea.Cmd {

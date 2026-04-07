@@ -48,7 +48,12 @@ func NewGroupsPage() *GroupsPage {
 }
 
 func (g *GroupsPage) Title() string { return "Groups" }
-func (g *GroupsPage) CursorPosition() int { return g.cursor }
+func (g *GroupsPage) CursorPosition() int {
+	if g.state != groupsViewList {
+		return 1
+	}
+	return g.cursor
+}
 func (g *GroupsPage) SetFocused(focused bool) { g.focused = focused }
 
 func (g *GroupsPage) Init(c *client.Client) tea.Cmd {

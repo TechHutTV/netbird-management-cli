@@ -48,7 +48,12 @@ func NewUsersPage() *UsersPage {
 }
 
 func (u *UsersPage) Title() string { return "Users" }
-func (u *UsersPage) CursorPosition() int { return u.cursor }
+func (u *UsersPage) CursorPosition() int {
+	if u.state != usersViewList {
+		return 1 // prevent nav bar steal when in form/detail/confirm
+	}
+	return u.cursor
+}
 func (u *UsersPage) SetFocused(focused bool) { u.focused = focused }
 
 type usersDataLoadedMsg struct {

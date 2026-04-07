@@ -43,7 +43,12 @@ func NewSetupKeysPage() *SetupKeysPage {
 }
 
 func (s *SetupKeysPage) Title() string { return "Setup Keys" }
-func (s *SetupKeysPage) CursorPosition() int { return s.cursor }
+func (s *SetupKeysPage) CursorPosition() int {
+	if s.state != setupKeysViewList {
+		return 1
+	}
+	return s.cursor
+}
 func (s *SetupKeysPage) SetFocused(focused bool) { s.focused = focused }
 
 func (s *SetupKeysPage) Init(c *client.Client) tea.Cmd {

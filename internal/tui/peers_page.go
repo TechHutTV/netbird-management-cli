@@ -64,7 +64,12 @@ func (p *PeersPage) SetDaemon(d *DaemonClient) {
 }
 
 func (p *PeersPage) Title() string { return "Peers" }
-func (p *PeersPage) CursorPosition() int { return p.cursor }
+func (p *PeersPage) CursorPosition() int {
+	if p.state != peersViewList {
+		return 1
+	}
+	return p.cursor
+}
 func (p *PeersPage) SetFocused(focused bool) { p.focused = focused }
 
 func (p *PeersPage) Init(c *client.Client) tea.Cmd {

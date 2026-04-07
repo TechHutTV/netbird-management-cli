@@ -49,7 +49,12 @@ func NewPoliciesPage() *PoliciesPage {
 }
 
 func (p *PoliciesPage) Title() string { return "Policies" }
-func (p *PoliciesPage) CursorPosition() int { return p.cursor }
+func (p *PoliciesPage) CursorPosition() int {
+	if p.state != policiesViewList {
+		return 1
+	}
+	return p.cursor
+}
 func (p *PoliciesPage) SetFocused(focused bool) { p.focused = focused }
 
 type policiesDataLoadedMsg struct {
