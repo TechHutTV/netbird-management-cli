@@ -94,6 +94,14 @@ func (s *SetupKeysPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case PageRefreshTickMsg:
+		// Only refresh if in list view and not in form
+		if s.state == setupKeysViewList && s.form == nil {
+			s.loading = true
+			return s, FetchSetupKeys(c)
+		}
+		return s, nil
+
 	case SetupKeysLoadedMsg:
 		s.loading = false
 		if msg.Err != nil {

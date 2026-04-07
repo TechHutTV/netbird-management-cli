@@ -10,6 +10,7 @@ import (
 	"netbird-manage/internal/commands"
 	"netbird-manage/internal/config"
 	"netbird-manage/internal/helpers"
+	"netbird-manage/internal/tui"
 )
 
 var (
@@ -140,6 +141,12 @@ func main() {
 	c.Debug = debugMode
 
 	svc := commands.NewService(c)
+
+	// TUI mode
+	if command == "tui" {
+		tui.Run(c)
+		os.Exit(0)
+	}
 
 	// Route the command to the correct handler
 	switch command {

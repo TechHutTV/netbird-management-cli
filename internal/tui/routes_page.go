@@ -173,6 +173,14 @@ func (r *RoutesPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case PageRefreshTickMsg:
+		// Only refresh if in list view and not editing or in form
+		if r.state == routesViewList && r.form == nil && r.editForm == nil {
+			r.loading = true
+			return r, fetchRoutesData(c)
+		}
+		return r, nil
+
 	case RouteUpdatedMsg:
 		if msg.Err != nil {
 			r.err = msg.Err

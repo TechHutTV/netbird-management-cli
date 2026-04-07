@@ -77,11 +77,12 @@ func NewApp(c *client.Client, daemon *DaemonClient) App {
 
 // Init implements tea.Model
 func (a App) Init() tea.Cmd {
+	cmds := []tea.Cmd{pageRefreshTickCmd()}
 	active := a.nav.Active()
 	if page, ok := a.pages[active]; ok {
-		return page.Init(a.client)
+		cmds = append(cmds, page.Init(a.client))
 	}
-	return nil
+	return tea.Batch(cmds...)
 }
 
 // Update implements tea.Model
@@ -106,6 +107,24 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case APIErrorMsg:
 		a.toast = "Error: " + msg.Err.Error()
 		return a, nil
+
+	case PageRefreshTickMsg:
+		// Refresh active page in background every 60s
+		cmds := []tea.Cmd{pageRefreshTickCmd()}
+		active := a.nav.Active()
+		if page, ok := a.pages[active]; ok {
+			updated, cmd := page.Update(msg, a.client)
+			if cmd != nil {
+				newPages := make(map[Section]Page, len(a.pages))
+				for k, v := range a.pages {
+					newPages[k] = v
+				}
+				newPages[active] = updated
+				a.pages = newPages
+				cmds = append(cmds, cmd)
+			}
+		}
+		return a, tea.Batch(cmds...)
 	}
 
 	return a.updateActivePage(msg)

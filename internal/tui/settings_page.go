@@ -73,6 +73,16 @@ func (s *SettingsPage) Init(c *client.Client) tea.Cmd {
 func (s *SettingsPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 	switch m := msg.(type) {
 
+	case PageRefreshTickMsg:
+		// Skip refresh if user has unsaved changes, is editing, or is confirming
+		if s.dirty || s.editingIdx >= 0 || s.confirming || s.saving {
+			return s, nil
+		}
+		if s.loaded {
+			return s, FetchSettings(c)
+		}
+		return s, nil
+
 	case SettingsLoadedMsg:
 		s.loading = false
 		if m.Err != nil {

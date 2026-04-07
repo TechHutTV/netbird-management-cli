@@ -124,6 +124,9 @@ type EventsTickMsg struct{}
 // ConnectionTickMsg triggers an auto-refresh of peer connection detail
 type ConnectionTickMsg struct{}
 
+// PageRefreshTickMsg triggers a background refresh of the active page every 60s
+type PageRefreshTickMsg struct{}
+
 // PeerConnectionInfo holds daemon-reported connection details for a single peer
 type PeerConnectionInfo struct {
 	ConnType       string // "P2P", "Relayed", or "Disconnected"

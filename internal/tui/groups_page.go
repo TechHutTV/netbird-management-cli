@@ -136,6 +136,14 @@ func (g *GroupsPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case PageRefreshTickMsg:
+		// Only refresh if in list view and not editing or in form
+		if g.state == groupsViewList && g.form == nil && g.editForm == nil {
+			g.loading = true
+			return g, FetchGroups(c)
+		}
+		return g, nil
+
 	case GroupsLoadedMsg:
 		g.loading = false
 		if msg.Err != nil {

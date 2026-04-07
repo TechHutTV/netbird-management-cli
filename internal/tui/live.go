@@ -10,6 +10,7 @@ const (
 	peersRefreshInterval      = 5 * time.Second
 	eventsRefreshInterval     = 10 * time.Second
 	connectionRefreshInterval = 5 * time.Second
+	pageRefreshInterval       = 60 * time.Second
 )
 
 func peersTickCmd() tea.Cmd {
@@ -27,5 +28,11 @@ func eventsTickCmd() tea.Cmd {
 func connectionTickCmd() tea.Cmd {
 	return tea.Tick(connectionRefreshInterval, func(time.Time) tea.Msg {
 		return ConnectionTickMsg{}
+	})
+}
+
+func pageRefreshTickCmd() tea.Cmd {
+	return tea.Tick(pageRefreshInterval, func(time.Time) tea.Msg {
+		return PageRefreshTickMsg{}
 	})
 }

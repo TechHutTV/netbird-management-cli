@@ -179,6 +179,14 @@ func (d *DNSPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case PageRefreshTickMsg:
+		// Only refresh if in list view and not editing or in form
+		if d.state == dnsViewList && d.form == nil && d.editForm == nil {
+			d.loading = true
+			return d, fetchDNSData(c)
+		}
+		return d, nil
+
 	case DNSUpdatedMsg:
 		if msg.Err != nil {
 			d.err = msg.Err

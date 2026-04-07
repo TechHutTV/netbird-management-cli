@@ -175,6 +175,14 @@ func (p *PoliciesPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case PageRefreshTickMsg:
+		// Only refresh if in list view and not editing or in form
+		if p.state == policiesViewList && p.form == nil && p.editForm == nil {
+			p.loading = true
+			return p, fetchPoliciesData(c)
+		}
+		return p, nil
+
 	case PolicyUpdatedMsg:
 		if msg.Err != nil {
 			p.err = msg.Err

@@ -135,6 +135,14 @@ func (u *UsersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case PageRefreshTickMsg:
+		// Only refresh if in list view and not editing or in form
+		if u.state == usersViewList && u.form == nil && u.editForm == nil {
+			u.loading = true
+			return u, FetchUsers(c)
+		}
+		return u, nil
+
 	case UsersLoadedMsg:
 		u.loading = false
 		if msg.Err != nil {

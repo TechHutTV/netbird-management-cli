@@ -226,6 +226,14 @@ func (n *NetworksPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case PageRefreshTickMsg:
+		// Only refresh if in list view and not editing or in form
+		if n.state == networksViewList && n.form == nil && n.editForm == nil {
+			n.loading = true
+			return n, fetchNetworksData(c)
+		}
+		return n, nil
+
 	case networksDataLoadedMsg:
 		n.loading = false
 		if msg.err != nil {
