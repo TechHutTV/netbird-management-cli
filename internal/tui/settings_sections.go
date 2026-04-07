@@ -42,11 +42,10 @@ type fieldID int
 
 const (
 	// Authentication
-	fieldPeerLoginExpEnabled fieldID = iota
+	fieldPeerApproval fieldID = iota
+	fieldPeerLoginExpEnabled
 	fieldPeerLoginExp
 	fieldPeerInactivityExpEnabled
-	fieldPeerInactivityExp
-	fieldPeerApproval
 
 	// Groups
 	fieldGroupsPropagation
@@ -83,26 +82,22 @@ func fieldsForSection(sec settingsSection) []fieldDef {
 	case sectionAuthentication:
 		return []fieldDef{
 			{
+				ID: fieldPeerApproval, Label: "User Approval Required", Kind: fieldToggle,
+				Description: "Require manual approval for new users joining via domain matching. Users will be blocked until approved.",
+			},
+			{
 				ID: fieldPeerLoginExpEnabled, Label: "Peer Session Expiration", Kind: fieldToggle,
 				Description: "Request periodic re-authentication of peers registered with SSO.",
 			},
 			{
-				ID: fieldPeerLoginExp, Label: "Expiration Period", Kind: fieldDuration,
+				ID: fieldPeerLoginExp, Label: "Session Expiration", Kind: fieldDuration,
 				Description:  "Time after which every peer added with SSO login will require re-authentication.",
-				Placeholder: "e.g. 7d", HasCondition: true, ConditionalOn: fieldPeerLoginExpEnabled,
+				Placeholder: "e.g. 24h", HasCondition: true, ConditionalOn: fieldPeerLoginExpEnabled,
 			},
 			{
-				ID: fieldPeerInactivityExpEnabled, Label: "Peer Inactivity Expiration", Kind: fieldToggle,
-				Description: "Require authentication after users disconnect from management.",
-			},
-			{
-				ID: fieldPeerInactivityExp, Label: "Inactivity Period", Kind: fieldDuration,
-				Description:  "Time of inactivity after which peers require re-authentication.",
-				Placeholder: "e.g. 10m", HasCondition: true, ConditionalOn: fieldPeerInactivityExpEnabled,
-			},
-			{
-				ID: fieldPeerApproval, Label: "Peer Approval Required", Kind: fieldToggle, CloudOnly: true,
-				Description: "Require manual approval for new users joining via domain matching.",
+				ID: fieldPeerInactivityExpEnabled, Label: "Require login after disconnect", Kind: fieldToggle,
+				Description: "Enable to require authentication after users disconnect from management for 10 minutes.",
+				HasCondition: true, ConditionalOn: fieldPeerLoginExpEnabled,
 			},
 		}
 	case sectionGroups:
@@ -183,8 +178,6 @@ func fieldValueFrom(st models.AccountSettings, id fieldID) string {
 		return formatSettingsDuration(st.PeerLoginExpiration)
 	case fieldPeerInactivityExpEnabled:
 		return boolStr(st.PeerInactivityExpirationEnabled)
-	case fieldPeerInactivityExp:
-		return formatSettingsDuration(st.PeerInactivityExpiration)
 	case fieldPeerApproval:
 		return boolStr(st.PeerApprovalEnabled)
 	case fieldGroupsPropagation:
@@ -267,8 +260,6 @@ func (s *SettingsPage) setFieldValue(id fieldID, val string) {
 	switch id {
 	case fieldPeerLoginExp:
 		st.PeerLoginExpiration = parseSettingsDuration(val)
-	case fieldPeerInactivityExp:
-		st.PeerInactivityExpiration = parseSettingsDuration(val)
 	case fieldJWTGroupsClaim:
 		st.JWTGroupsClaim = val
 	case fieldJWTAllowGroups:
@@ -289,9 +280,9 @@ func (s *SettingsPage) fieldChanged(id fieldID) bool {
 // settingsChanged returns true if any field differs between draft and original
 func (s *SettingsPage) settingsChanged() bool {
 	allFields := []fieldID{
-		fieldPeerLoginExpEnabled, fieldPeerLoginExp,
-		fieldPeerInactivityExpEnabled, fieldPeerInactivityExp,
 		fieldPeerApproval,
+		fieldPeerLoginExpEnabled, fieldPeerLoginExp,
+		fieldPeerInactivityExpEnabled,
 		fieldGroupsPropagation, fieldJWTGroupsEnabled,
 		fieldJWTGroupsClaim, fieldJWTAllowGroups,
 		fieldRegularUsersViewBlocked,
