@@ -40,6 +40,7 @@ type UsersPage struct {
 	editForm   *huh.Form
 	editData   userEditFormData
 	editUserID string
+	groupNames map[string]string
 }
 
 func NewUsersPage() *UsersPage {
@@ -50,13 +51,49 @@ func (u *UsersPage) Title() string { return "Users" }
 func (u *UsersPage) CursorPosition() int { return u.cursor }
 func (u *UsersPage) SetFocused(focused bool) { u.focused = focused }
 
+type usersDataLoadedMsg struct {
+	users      []models.User
+	groupNames map[string]string
+	err        error
+}
+
+func fetchUsersData(c *client.Client) tea.Cmd {
+	return func() tea.Msg {
+		groupResp, err := c.MakeRequest("GET", "/groups", nil)
+		if err != nil {
+			return usersDataLoadedMsg{err: err}
+		}
+		defer groupResp.Body.Close()
+		var allGroups []models.PolicyGroup
+		if err := jsonDecode(groupResp.Body, &allGroups); err != nil {
+			return usersDataLoadedMsg{err: err}
+		}
+		nameMap := make(map[string]string, len(allGroups))
+		for _, g := range allGroups {
+			nameMap[g.ID] = g.Name
+		}
+
+		userResp, err := c.MakeRequest("GET", "/users", nil)
+		if err != nil {
+			return usersDataLoadedMsg{err: err}
+		}
+		defer userResp.Body.Close()
+		var users []models.User
+		if err := jsonDecode(userResp.Body, &users); err != nil {
+			return usersDataLoadedMsg{err: err}
+		}
+
+		return usersDataLoadedMsg{users: users, groupNames: nameMap}
+	}
+}
+
 func (u *UsersPage) Init(c *client.Client) tea.Cmd {
 	if len(u.users) > 0 {
 		return nil
 	}
 	u.loading = true
 	u.err = nil
-	return FetchUsers(c)
+	return fetchUsersData(c)
 }
 
 func (u *UsersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
@@ -138,9 +175,25 @@ func (u *UsersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 	case PageRefreshTickMsg:
 		// Only refresh if in list view and not editing or in form
 		if u.state == usersViewList && u.form == nil && u.editForm == nil {
-			u.loading = true
-			return u, FetchUsers(c)
+			return u, fetchUsersData(c)
 		}
+		return u, nil
+
+	case usersDataLoadedMsg:
+		u.loading = false
+		if msg.err != nil {
+			u.err = msg.err
+			return u, nil
+		}
+		u.groupNames = msg.groupNames
+		regular := make([]models.User, 0)
+		for _, user := range msg.users {
+			if !user.IsServiceUser {
+				regular = append(regular, user)
+			}
+		}
+		u.users = regular
+		u.applyFilter()
 		return u, nil
 
 	case UsersLoadedMsg:
@@ -149,7 +202,6 @@ func (u *UsersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 			u.err = msg.Err
 			return u, nil
 		}
-		// Filter to regular users only
 		regular := make([]models.User, 0)
 		for _, user := range msg.Users {
 			if !user.IsServiceUser {
@@ -205,11 +257,19 @@ func (u *UsersPage) View(width, height int) string {
 		return pageTitleStyle.Render("Edit User") + "\n\n" + u.editForm.View()
 	}
 	if u.state == usersViewConfirm {
+		groupDisplay := make([]string, 0, len(u.formData.selectedGroups))
+		for _, id := range u.formData.selectedGroups {
+			if name, ok := u.groupNames[id]; ok {
+				groupDisplay = append(groupDisplay, name)
+			} else {
+				groupDisplay = append(groupDisplay, id)
+			}
+		}
 		return RenderConfirm("Confirm: Invite User", []ConfirmField{
 			{Label: "Name", Value: u.formData.name},
 			{Label: "Email", Value: u.formData.email},
 			{Label: "Role", Value: u.formData.role},
-			{Label: "Auto Groups", Value: u.formData.autoGroups},
+			{Label: "Auto Groups", Value: strings.Join(groupDisplay, ", ")},
 			{Label: "Service User", Value: fmt.Sprintf("%v", u.formData.isService)},
 		})
 	}
@@ -289,7 +349,7 @@ func (u *UsersPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea.
 		return u, FetchUsers(c)
 	case "c":
 		u.formData = userInviteFormData{}
-		u.form = newUserInviteForm(&u.formData)
+		u.form = newUserInviteForm(&u.formData, u.groupNames)
 		u.state = usersViewForm
 		return u, u.form.Init()
 	case "b":

@@ -655,15 +655,20 @@ func submitPolicyCreate(c *client.Client, data policyFormData) tea.Cmd {
 // ─── User Invite ────────────────────────────────────────────────────
 
 type userInviteFormData struct {
-	email      string
-	name       string
-	role       string
-	autoGroups string
-	isService  bool
+	email          string
+	name           string
+	role           string
+	selectedGroups []string
+	isService      bool
 }
 
-func newUserInviteForm(data *userInviteFormData) *huh.Form {
+func newUserInviteForm(data *userInviteFormData, availableGroups map[string]string) *huh.Form {
 	data.role = "user"
+
+	options := make([]huh.Option[string], 0, len(availableGroups))
+	for id, name := range availableGroups {
+		options = append(options, huh.NewOption(name, id))
+	}
 
 	return huh.NewForm(
 		huh.NewGroup(
@@ -687,27 +692,22 @@ func newUserInviteForm(data *userInviteFormData) *huh.Form {
 					huh.NewOption("Admin", "admin"),
 				).
 				Value(&data.role),
-			huh.NewInput().
+			huh.NewMultiSelect[string]().
 				Title("Auto Groups").
-				Description("Comma-separated group IDs (optional)").
-				Placeholder("group-id").
-				Value(&data.autoGroups),
+				Description("Groups to automatically assign").
+				Options(options...).
+				Value(&data.selectedGroups),
 		),
 	)
 }
 
 func submitUserInvite(c *client.Client, data userInviteFormData) tea.Cmd {
 	return func() tea.Msg {
-		var autoGroups []string
-		if data.autoGroups != "" {
-			autoGroups = splitTrim(data.autoGroups)
-		}
-
 		req := models.UserCreateRequest{
 			Email:         data.email,
 			Name:          data.name,
 			Role:          data.role,
-			AutoGroups:    autoGroups,
+			AutoGroups:    data.selectedGroups,
 			IsServiceUser: data.isService,
 		}
 		body, err := json.Marshal(req)
