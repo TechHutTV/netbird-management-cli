@@ -150,7 +150,7 @@ func renderNetbirdLogo() string {
 func (d *DashboardPage) renderDaemonStatus(width int) string {
 	var sb strings.Builder
 
-	sb.WriteString(sectionHeaderStyle.Render("Daemon Status") + "\n\n")
+	sb.WriteString(sectionHeaderStyle.Render("NetBird Client") + "\n\n")
 
 	if d.daemon == nil {
 		noMarginDim := lipgloss.NewStyle().Foreground(colorFaint)
