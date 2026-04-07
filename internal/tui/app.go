@@ -185,10 +185,20 @@ func (a App) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		case "left", "h":
 			a.nav = a.nav.MoveLeft()
-			return a, nil
+			nav, section := a.nav.Select()
+			a.nav = nav
+			if page, ok := a.pages[section]; ok {
+				page.SetFocused(false)
+			}
+			return a.switchPage(section)
 		case "right", "l":
 			a.nav = a.nav.MoveRight()
-			return a, nil
+			nav, section := a.nav.Select()
+			a.nav = nav
+			if page, ok := a.pages[section]; ok {
+				page.SetFocused(false)
+			}
+			return a.switchPage(section)
 		case keyEnter:
 			// Select tab and load page, but stay in nav bar (page unfocused)
 			nav, section := a.nav.Select()
