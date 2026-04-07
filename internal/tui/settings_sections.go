@@ -70,6 +70,7 @@ type fieldDef struct {
 	ID            fieldID
 	Label         string
 	Description   string
+	Placeholder   string // shown greyed out when value is empty
 	Kind          fieldKind
 	CloudOnly     bool
 	HasCondition  bool
@@ -88,7 +89,7 @@ func fieldsForSection(sec settingsSection) []fieldDef {
 			{
 				ID: fieldPeerLoginExp, Label: "Expiration Period", Kind: fieldDuration,
 				Description:  "Time after which every peer added with SSO login will require re-authentication.",
-				HasCondition: true, ConditionalOn: fieldPeerLoginExpEnabled,
+				Placeholder: "e.g. 7d", HasCondition: true, ConditionalOn: fieldPeerLoginExpEnabled,
 			},
 			{
 				ID: fieldPeerInactivityExpEnabled, Label: "Peer Inactivity Expiration", Kind: fieldToggle,
@@ -97,7 +98,7 @@ func fieldsForSection(sec settingsSection) []fieldDef {
 			{
 				ID: fieldPeerInactivityExp, Label: "Inactivity Period", Kind: fieldDuration,
 				Description:  "Time of inactivity after which peers require re-authentication.",
-				HasCondition: true, ConditionalOn: fieldPeerInactivityExpEnabled,
+				Placeholder: "e.g. 10m", HasCondition: true, ConditionalOn: fieldPeerInactivityExpEnabled,
 			},
 			{
 				ID: fieldPeerApproval, Label: "Peer Approval Required", Kind: fieldToggle, CloudOnly: true,
@@ -117,7 +118,7 @@ func fieldsForSection(sec settingsSection) []fieldDef {
 			{
 				ID: fieldJWTGroupsClaim, Label: "JWT Claim", Kind: fieldText,
 				Description:  "Specify the JWT claim name for extracting group names.",
-				HasCondition: true, ConditionalOn: fieldJWTGroupsEnabled,
+				Placeholder: "e.g. roles", HasCondition: true, ConditionalOn: fieldJWTGroupsEnabled,
 			},
 			{
 				ID: fieldJWTAllowGroups, Label: "JWT Allow Groups", Kind: fieldText,
@@ -137,10 +138,12 @@ func fieldsForSection(sec settingsSection) []fieldDef {
 			{
 				ID: fieldDNSDomain, Label: "DNS Domain", Kind: fieldText,
 				Description: "Specify a custom peer DNS domain for your network. This should not point to a valid domain to avoid overriding DNS results.",
+				Placeholder: "netbird.cloud",
 			},
 			{
 				ID: fieldNetworkRange, Label: "Network Range", Kind: fieldText,
 				Description: "Specify a custom IPv4 range for your network in CIDR format. All peer IPs will be re-allocated when changed.",
+				Placeholder: "e.g. 100.64.0.0/16",
 			},
 		}
 	case sectionClients:
@@ -503,21 +506,32 @@ func (s *SettingsPage) renderTextCard(f fieldDef, selected bool, width int) stri
 	}
 
 	// Value display
-	displayVal := val
-	if displayVal == "" {
-		displayVal = "(empty)"
-	}
 	valBoxWidth := cardWidth
 	if valBoxWidth > 40 {
 		valBoxWidth = 40
 	}
 
-	valBox := lipgloss.NewStyle().
-		Foreground(colorText).
-		Background(adaptive("#E2E8F0", "#1A2332")).
-		Width(valBoxWidth).
-		Padding(0, 1).
-		Render(displayVal)
+	var valBox string
+	if val == "" && f.Placeholder != "" {
+		// Show placeholder greyed out
+		valBox = lipgloss.NewStyle().
+			Foreground(colorFaint).
+			Background(adaptive("#E2E8F0", "#1A2332")).
+			Width(valBoxWidth).
+			Padding(0, 1).
+			Render(f.Placeholder)
+	} else {
+		displayVal := val
+		if displayVal == "" {
+			displayVal = "(empty)"
+		}
+		valBox = lipgloss.NewStyle().
+			Foreground(colorText).
+			Background(adaptive("#E2E8F0", "#1A2332")).
+			Width(valBoxWidth).
+			Padding(0, 1).
+			Render(displayVal)
+	}
 
 	changeStr := ""
 	if changed {
