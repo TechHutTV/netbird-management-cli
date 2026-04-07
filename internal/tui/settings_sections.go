@@ -42,7 +42,7 @@ type fieldID int
 
 const (
 	// Authentication
-	fieldPeerApproval fieldID = iota
+	fieldUserApproval fieldID = iota
 	fieldPeerLoginExpEnabled
 	fieldPeerLoginExp
 	fieldPeerInactivityExpEnabled
@@ -82,7 +82,7 @@ func fieldsForSection(sec settingsSection) []fieldDef {
 	case sectionAuthentication:
 		return []fieldDef{
 			{
-				ID: fieldPeerApproval, Label: "User Approval Required", Kind: fieldToggle,
+				ID: fieldUserApproval, Label: "User Approval Required", Kind: fieldToggle,
 				Description: "Require manual approval for new users joining via domain matching. Users will be blocked until approved.",
 			},
 			{
@@ -178,8 +178,11 @@ func fieldValueFrom(st models.AccountSettings, id fieldID) string {
 		return formatSettingsDuration(st.PeerLoginExpiration)
 	case fieldPeerInactivityExpEnabled:
 		return boolStr(st.PeerInactivityExpirationEnabled)
-	case fieldPeerApproval:
-		return boolStr(st.PeerApprovalEnabled)
+	case fieldUserApproval:
+		if st.Extra != nil {
+			return boolStr(st.Extra.UserApprovalRequired)
+		}
+		return boolStr(false)
 	case fieldGroupsPropagation:
 		return boolStr(st.GroupsPropagationEnabled)
 	case fieldJWTGroupsEnabled:
@@ -218,8 +221,11 @@ func (s *SettingsPage) getBoolField(id fieldID) bool {
 		return st.PeerLoginExpirationEnabled
 	case fieldPeerInactivityExpEnabled:
 		return st.PeerInactivityExpirationEnabled
-	case fieldPeerApproval:
-		return st.PeerApprovalEnabled
+	case fieldUserApproval:
+		if st.Extra != nil {
+			return st.Extra.UserApprovalRequired
+		}
+		return false
 	case fieldGroupsPropagation:
 		return st.GroupsPropagationEnabled
 	case fieldJWTGroupsEnabled:
@@ -240,8 +246,11 @@ func (s *SettingsPage) toggleField(id fieldID) {
 		st.PeerLoginExpirationEnabled = !st.PeerLoginExpirationEnabled
 	case fieldPeerInactivityExpEnabled:
 		st.PeerInactivityExpirationEnabled = !st.PeerInactivityExpirationEnabled
-	case fieldPeerApproval:
-		st.PeerApprovalEnabled = !st.PeerApprovalEnabled
+	case fieldUserApproval:
+		if st.Extra == nil {
+			st.Extra = &models.AccountSettingsExtra{}
+		}
+		st.Extra.UserApprovalRequired = !st.Extra.UserApprovalRequired
 	case fieldGroupsPropagation:
 		st.GroupsPropagationEnabled = !st.GroupsPropagationEnabled
 	case fieldJWTGroupsEnabled:
@@ -280,7 +289,7 @@ func (s *SettingsPage) fieldChanged(id fieldID) bool {
 // settingsChanged returns true if any field differs between draft and original
 func (s *SettingsPage) settingsChanged() bool {
 	allFields := []fieldID{
-		fieldPeerApproval,
+		fieldUserApproval,
 		fieldPeerLoginExpEnabled, fieldPeerLoginExp,
 		fieldPeerInactivityExpEnabled,
 		fieldGroupsPropagation, fieldJWTGroupsEnabled,
@@ -722,6 +731,13 @@ func (s *SettingsPage) changedConfirmFields() []ConfirmField {
 
 // draftFromAccount copies relevant fields from an Account into an AccountSettings draft
 func draftFromAccount(a models.Account) models.AccountSettings {
+	var extra *models.AccountSettingsExtra
+	if a.Settings.Extra != nil {
+		extra = &models.AccountSettingsExtra{
+			PeerApprovalEnabled:  a.Settings.Extra.PeerApprovalEnabled,
+			UserApprovalRequired: a.Settings.Extra.UserApprovalRequired,
+		}
+	}
 	return models.AccountSettings{
 		PeerLoginExpirationEnabled:      a.Settings.PeerLoginExpirationEnabled,
 		PeerLoginExpiration:             a.Settings.PeerLoginExpiration,
@@ -736,5 +752,6 @@ func draftFromAccount(a models.Account) models.AccountSettings {
 		RegularUsersViewBlocked:         a.Settings.RegularUsersViewBlocked,
 		PeerApprovalEnabled:             a.Settings.PeerApprovalEnabled,
 		TrafficLogging:                  a.Settings.TrafficLogging,
+		Extra:                           extra,
 	}
 }

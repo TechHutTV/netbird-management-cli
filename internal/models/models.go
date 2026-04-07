@@ -553,19 +553,26 @@ type Account struct {
 
 // AccountSettings contains account-wide configuration
 type AccountSettings struct {
-	PeerLoginExpirationEnabled      bool     `json:"peer_login_expiration_enabled"`
-	PeerLoginExpiration             int      `json:"peer_login_expiration"`
-	PeerInactivityExpirationEnabled bool     `json:"peer_inactivity_expiration_enabled"`
-	PeerInactivityExpiration        int      `json:"peer_inactivity_expiration"`
-	DNSDomain                       string   `json:"dns_domain"`
-	NetworkRange                    string   `json:"network_range"`
-	JWTGroupsEnabled                bool     `json:"jwt_groups_enabled"`
-	JWTGroupsClaim                  string   `json:"jwt_groups_claim"`
-	JWTAllowGroups                  []string `json:"jwt_allow_groups"`
-	GroupsPropagationEnabled        bool     `json:"groups_propagation_enabled"`
-	RegularUsersViewBlocked         bool     `json:"regular_users_view_blocked"`
-	PeerApprovalEnabled             bool     `json:"peer_approval_enabled,omitempty"` // Cloud-only
-	TrafficLogging                  bool     `json:"traffic_logging,omitempty"`       // Cloud-only
+	PeerLoginExpirationEnabled      bool                  `json:"peer_login_expiration_enabled"`
+	PeerLoginExpiration             int                   `json:"peer_login_expiration"`
+	PeerInactivityExpirationEnabled bool                  `json:"peer_inactivity_expiration_enabled"`
+	PeerInactivityExpiration        int                   `json:"peer_inactivity_expiration"`
+	DNSDomain                       string                `json:"dns_domain"`
+	NetworkRange                    string                `json:"network_range"`
+	JWTGroupsEnabled                bool                  `json:"jwt_groups_enabled"`
+	JWTGroupsClaim                  string                `json:"jwt_groups_claim"`
+	JWTAllowGroups                  []string              `json:"jwt_allow_groups"`
+	GroupsPropagationEnabled        bool                  `json:"groups_propagation_enabled"`
+	RegularUsersViewBlocked         bool                  `json:"regular_users_view_blocked"`
+	PeerApprovalEnabled             bool                  `json:"peer_approval_enabled,omitempty"`
+	TrafficLogging                  bool                  `json:"traffic_logging,omitempty"`
+	Extra                           *AccountSettingsExtra `json:"extra,omitempty"`
+}
+
+// AccountSettingsExtra contains settings nested under the "extra" key
+type AccountSettingsExtra struct {
+	PeerApprovalEnabled  bool `json:"peer_approval_enabled,omitempty"`
+	UserApprovalRequired bool `json:"user_approval_required,omitempty"`
 }
 
 // AccountOnboarding tracks signup and onboarding progress
