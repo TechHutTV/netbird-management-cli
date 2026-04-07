@@ -321,7 +321,7 @@ func (a App) renderHeader() string {
 	url = strings.TrimPrefix(url, "http://")
 
 	sep := lipgloss.NewStyle().Foreground(colorBorder).Render("  │  ")
-	status := onlineStyle.Render("● Connected") + "  " +
+	status := onlineStyle.Render("● Connected") + sep +
 		detailValueStyle.Render(url)
 
 	headerContent := title + sep + status
