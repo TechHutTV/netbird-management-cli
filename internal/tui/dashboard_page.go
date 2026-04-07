@@ -224,16 +224,6 @@ func (d *DashboardPage) renderDaemonStatus(width int) string {
 			sb.WriteString(lbl("Rosenpass:") + labelStyle.Render("○ Disabled") + "\n")
 		}
 
-		// Networks / IP resources
-		if len(lp.Networks) > 0 {
-			sb.WriteString("\n" + lbl("Networks:") + "\n")
-			for _, net := range lp.Networks {
-				sb.WriteString(indent + detailValueStyle.Render("▸ "+net) + "\n")
-			}
-		} else {
-			sb.WriteString(lbl("Networks:") + labelStyle.Render("None") + "\n")
-		}
-
 		sb.WriteString("\n")
 	}
 
@@ -285,6 +275,16 @@ func (d *DashboardPage) renderDaemonStatus(width int) string {
 				sb.WriteString(indent + offlineStyle.Render("○ ") + detailValueStyle.Render(r.URI) + "\n")
 			}
 		}
+	}
+
+	// Networks / IP resources
+	if fs.LocalPeerState != nil && len(fs.LocalPeerState.Networks) > 0 {
+		sb.WriteString("\n" + lbl("Networks:") + "\n")
+		for _, net := range fs.LocalPeerState.Networks {
+			sb.WriteString(indent + detailValueStyle.Render("▸ "+net) + "\n")
+		}
+	} else {
+		sb.WriteString("\n" + lbl("Networks:") + labelStyle.Render("None") + "\n")
 	}
 
 	// DNS servers
