@@ -223,6 +223,15 @@ func (d *DashboardPage) renderDaemonStatus(width int) string {
 		} else {
 			sb.WriteString(lbl("Rosenpass:") + labelStyle.Render("○ Disabled") + "\n")
 		}
+
+		// Networks / IP resources
+		if len(lp.Networks) > 0 {
+			sb.WriteString("\n" + lbl("Networks:") + "\n")
+			for _, net := range lp.Networks {
+				sb.WriteString(indent + detailValueStyle.Render("▸ "+net) + "\n")
+			}
+		}
+
 		sb.WriteString("\n")
 	}
 
