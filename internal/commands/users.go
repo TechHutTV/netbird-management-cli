@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -288,7 +289,7 @@ func (s *Service) updateUser(userID, role string, autoGroups []string, isBlocked
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err := s.Client.MakeRequest("PUT", "/users/"+userID, bytes.NewReader(bodyBytes))
+	resp, err := s.Client.MakeRequest("PUT", "/users/"+url.PathEscape(userID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -311,7 +312,7 @@ func (s *Service) updateUser(userID, role string, autoGroups []string, isBlocked
 // removeUser deletes a user from the account
 func (s *Service) removeUser(userID string) error {
 	// Fetch user details first
-	resp, err := s.Client.MakeRequest("GET", "/users/"+userID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/users/"+url.PathEscape(userID), nil)
 	if err != nil {
 		return err
 	}
@@ -337,7 +338,7 @@ func (s *Service) removeUser(userID string) error {
 		return nil // User cancelled
 	}
 
-	resp, err = s.Client.MakeRequest("DELETE", "/users/"+userID, nil)
+	resp, err = s.Client.MakeRequest("DELETE", "/users/"+url.PathEscape(userID), nil)
 	if err != nil {
 		return err
 	}
@@ -349,7 +350,7 @@ func (s *Service) removeUser(userID string) error {
 
 // resendUserInvite resends an invitation to a user
 func (s *Service) resendUserInvite(userID string) error {
-	resp, err := s.Client.MakeRequest("POST", "/users/"+userID+"/invite", nil)
+	resp, err := s.Client.MakeRequest("POST", "/users/"+url.PathEscape(userID)+"/invite", nil)
 	if err != nil {
 		return err
 	}

@@ -91,10 +91,9 @@ netbird-manage event --audit --search "admin@example.com"
 | [Posture Checks](posture-checks.md) | Device compliance validation |
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
-| [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |
 | [Export & Import](export-import.md) | YAML/JSON configuration management |
 | [Migrate](migrate.md) | Migration between NetBird accounts |
 
 ---
 
-[Home](../README.md) | [Posture Checks](posture-checks.md) | **Events** | [Geo-Locations](geo-locations.md) | [Accounts](accounts.md) | [Ingress Ports](ingress-ports.md)
+[Home](../README.md) | [Posture Checks](posture-checks.md) | **Events** | [Geo-Locations](geo-locations.md) | [Accounts](accounts.md)

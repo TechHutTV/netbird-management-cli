@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -308,7 +309,7 @@ func (s *Service) listSetupKeys(filterName, filterType string, validOnly bool, o
 
 // inspectSetupKey shows detailed information about a setup key
 func (s *Service) inspectSetupKey(keyID string, outputFormat string) error {
-	resp, err := s.Client.MakeRequest("GET", "/setup-keys/"+keyID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/setup-keys/"+url.PathEscape(keyID), nil)
 	if err != nil {
 		return err
 	}
@@ -473,7 +474,7 @@ func (s *Service) createSetupKey(name, keyType string, expiresIn int, autoGroups
 // updateSetupKeyRevocation updates the revocation status of a setup key
 func (s *Service) updateSetupKeyRevocation(keyID string, revoked bool) error {
 	// First get the current key to retrieve auto-groups
-	resp, err := s.Client.MakeRequest("GET", "/setup-keys/"+keyID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/setup-keys/"+url.PathEscape(keyID), nil)
 	if err != nil {
 		return err
 	}
@@ -495,7 +496,7 @@ func (s *Service) updateSetupKeyRevocation(keyID string, revoked bool) error {
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err = s.Client.MakeRequest("PUT", "/setup-keys/"+keyID, bytes.NewReader(bodyBytes))
+	resp, err = s.Client.MakeRequest("PUT", "/setup-keys/"+url.PathEscape(keyID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -513,7 +514,7 @@ func (s *Service) updateSetupKeyRevocation(keyID string, revoked bool) error {
 // updateSetupKeyGroups updates the auto-groups for a setup key
 func (s *Service) updateSetupKeyGroups(keyID string, newGroups []string) error {
 	// First get the current key to retrieve revoked status
-	resp, err := s.Client.MakeRequest("GET", "/setup-keys/"+keyID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/setup-keys/"+url.PathEscape(keyID), nil)
 	if err != nil {
 		return err
 	}
@@ -535,7 +536,7 @@ func (s *Service) updateSetupKeyGroups(keyID string, newGroups []string) error {
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err = s.Client.MakeRequest("PUT", "/setup-keys/"+keyID, bytes.NewReader(bodyBytes))
+	resp, err = s.Client.MakeRequest("PUT", "/setup-keys/"+url.PathEscape(keyID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -554,7 +555,7 @@ func (s *Service) updateSetupKeyGroups(keyID string, newGroups []string) error {
 // deleteSetupKey deletes a setup key
 func (s *Service) deleteSetupKey(keyID string) error {
 	// First get the key details to show confirmation info
-	resp, err := s.Client.MakeRequest("GET", "/setup-keys/"+keyID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/setup-keys/"+url.PathEscape(keyID), nil)
 	if err != nil {
 		return err
 	}
@@ -576,7 +577,7 @@ func (s *Service) deleteSetupKey(keyID string) error {
 	}
 
 	// Perform deletion
-	resp, err = s.Client.MakeRequest("DELETE", "/setup-keys/"+keyID, nil)
+	resp, err = s.Client.MakeRequest("DELETE", "/setup-keys/"+url.PathEscape(keyID), nil)
 	if err != nil {
 		return err
 	}
@@ -599,7 +600,7 @@ func (s *Service) deleteSetupKeysBatch(idList string) error {
 
 	fmt.Println("Fetching setup key details...")
 	for _, id := range keyIDs {
-		resp, err := s.Client.MakeRequest("GET", "/setup-keys/"+id, nil)
+		resp, err := s.Client.MakeRequest("GET", "/setup-keys/"+url.PathEscape(id), nil)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: Skipping %s: %v\n", id, err)
 			continue
@@ -633,7 +634,7 @@ func (s *Service) deleteSetupKeysBatch(idList string) error {
 	for i, key := range keys {
 		fmt.Printf("[%d/%d] Deleting setup key '%s'... ", i+1, len(keys), key.Name)
 
-		resp, err := s.Client.MakeRequest("DELETE", "/setup-keys/"+key.ID, nil)
+		resp, err := s.Client.MakeRequest("DELETE", "/setup-keys/"+url.PathEscape(key.ID), nil)
 		if err != nil {
 			fmt.Printf("Failed: %v\n", err)
 			failed++
@@ -691,7 +692,7 @@ func (s *Service) deleteAllSetupKeys() error {
 	failCount := 0
 
 	for _, key := range keys {
-		resp, err := s.Client.MakeRequest("DELETE", "/setup-keys/"+key.ID, nil)
+		resp, err := s.Client.MakeRequest("DELETE", "/setup-keys/"+url.PathEscape(key.ID), nil)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "✗ Failed to delete %s (%s): %v\n", key.Name, key.ID, err)
 			failCount++

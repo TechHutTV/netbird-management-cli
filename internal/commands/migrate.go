@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -34,18 +35,18 @@ type MigrateOptions struct {
 	KeyExpiry    string
 	Cleanup      bool
 	// Full configuration migration options
-	MigrateConfig   bool
-	MigrateGroups   bool
-	MigratePolicies bool
-	MigrateNetworks bool
-	MigrateRoutes   bool
-	MigrateDNS      bool
-	MigratePosture  bool
+	MigrateConfig    bool
+	MigrateGroups    bool
+	MigratePolicies  bool
+	MigrateNetworks  bool
+	MigrateRoutes    bool
+	MigrateDNS       bool
+	MigratePosture   bool
 	MigrateSetupKeys bool
-	SkipExisting    bool
-	Update          bool
-	DryRun          bool
-	Verbose         bool
+	SkipExisting     bool
+	Update           bool
+	DryRun           bool
+	Verbose          bool
 }
 
 // HandleMigrateCommand handles the migrate command for peer and configuration migration between accounts
@@ -409,7 +410,7 @@ func migrateGroupPeers(sourceClient, destClient *client.Client, opts MigrateOpti
 
 // getPeerByID fetches a peer by ID from the given client
 func getPeerByID(c *client.Client, peerID string) (*models.Peer, error) {
-	resp, err := c.MakeRequest("GET", "/peers/"+peerID, nil)
+	resp, err := c.MakeRequest("GET", "/peers/"+url.PathEscape(peerID), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +448,7 @@ func getGroupByName(c *client.Client, name string) (*models.GroupDetail, error) 
 
 // getGroupByID fetches full group details
 func getGroupByID(c *client.Client, groupID string) (*models.GroupDetail, error) {
-	resp, err := c.MakeRequest("GET", "/groups/"+groupID, nil)
+	resp, err := c.MakeRequest("GET", "/groups/"+url.PathEscape(groupID), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1245,7 +1246,7 @@ func (ctx *MigrateContext) updateGroup(group models.GroupDetail, destID string) 
 	}
 
 	bodyBytes, _ := json.Marshal(reqBody)
-	resp, err := ctx.DestClient.MakeRequest("PUT", "/groups/"+destID, bytes.NewReader(bodyBytes))
+	resp, err := ctx.DestClient.MakeRequest("PUT", "/groups/"+url.PathEscape(destID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -1350,7 +1351,7 @@ func (ctx *MigrateContext) updatePostureCheck(check models.PostureCheck, destID 
 	}
 
 	bodyBytes, _ := json.Marshal(reqBody)
-	resp, err := ctx.DestClient.MakeRequest("PUT", "/posture-checks/"+destID, bytes.NewReader(bodyBytes))
+	resp, err := ctx.DestClient.MakeRequest("PUT", "/posture-checks/"+url.PathEscape(destID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -1529,7 +1530,7 @@ func (ctx *MigrateContext) updatePolicy(policy models.Policy) error {
 	}
 
 	bodyBytes, _ := json.Marshal(reqBody)
-	resp, err := ctx.DestClient.MakeRequest("PUT", "/policies/"+destPolicy.ID, bytes.NewReader(bodyBytes))
+	resp, err := ctx.DestClient.MakeRequest("PUT", "/policies/"+url.PathEscape(destPolicy.ID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -1756,7 +1757,7 @@ func (ctx *MigrateContext) updateDNS(dns models.DNSNameserverGroup) error {
 	}
 
 	bodyBytes, _ := json.Marshal(reqBody)
-	resp, err := ctx.DestClient.MakeRequest("PUT", "/dns/nameservers/"+destDNS.ID, bytes.NewReader(bodyBytes))
+	resp, err := ctx.DestClient.MakeRequest("PUT", "/dns/nameservers/"+url.PathEscape(destDNS.ID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -1852,7 +1853,7 @@ func (ctx *MigrateContext) updateNetwork(network models.Network) error {
 	}
 
 	bodyBytes, _ := json.Marshal(reqBody)
-	resp, err := ctx.DestClient.MakeRequest("PUT", "/networks/"+destNetwork.ID, bytes.NewReader(bodyBytes))
+	resp, err := ctx.DestClient.MakeRequest("PUT", "/networks/"+url.PathEscape(destNetwork.ID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -293,7 +294,7 @@ func (s *Service) listPolicies(filters *policyFilters, outputFormat string) erro
 
 // inspectPolicy implements the "policy --inspect" command
 func (s *Service) inspectPolicy(policyID, outputFormat string) error {
-	resp, err := s.Client.MakeRequest("GET", "/policies/"+policyID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/policies/"+url.PathEscape(policyID), nil)
 	if err != nil {
 		return err
 	}
@@ -473,7 +474,7 @@ func convertRuleToWrite(rule *models.PolicyRule) *models.PolicyRuleForWrite {
 // deletePolicy implements the "policy --delete" command
 func (s *Service) deletePolicy(policyID string) error {
 	// Fetch policy details first
-	resp, err := s.Client.MakeRequest("GET", "/policies/"+policyID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/policies/"+url.PathEscape(policyID), nil)
 	if err != nil {
 		return err
 	}
@@ -498,7 +499,7 @@ func (s *Service) deletePolicy(policyID string) error {
 		return nil // User cancelled
 	}
 
-	resp, err = s.Client.MakeRequest("DELETE", "/policies/"+policyID, nil)
+	resp, err = s.Client.MakeRequest("DELETE", "/policies/"+url.PathEscape(policyID), nil)
 	if err != nil {
 		return err
 	}
@@ -511,7 +512,7 @@ func (s *Service) deletePolicy(policyID string) error {
 // togglePolicy enables or disables a policy
 func (s *Service) togglePolicy(policyID string, enable bool) error {
 	// First, get the current policy
-	resp, err := s.Client.MakeRequest("GET", "/policies/"+policyID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/policies/"+url.PathEscape(policyID), nil)
 	if err != nil {
 		return err
 	}
@@ -539,7 +540,7 @@ func (s *Service) togglePolicy(policyID string, enable bool) error {
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp2, err := s.Client.MakeRequest("PUT", "/policies/"+policyID, bytes.NewReader(bodyBytes))
+	resp2, err := s.Client.MakeRequest("PUT", "/policies/"+url.PathEscape(policyID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -556,7 +557,7 @@ func (s *Service) togglePolicy(policyID string, enable bool) error {
 // addRuleToPolicy implements the "policy --add-rule" command
 func (s *Service) addRuleToPolicy(policyID, ruleName string, config *ruleConfig) error {
 	// First, get the current policy
-	resp, err := s.Client.MakeRequest("GET", "/policies/"+policyID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/policies/"+url.PathEscape(policyID), nil)
 	if err != nil {
 		return err
 	}
@@ -590,7 +591,7 @@ func (s *Service) addRuleToPolicy(policyID, ruleName string, config *ruleConfig)
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp2, err := s.Client.MakeRequest("PUT", "/policies/"+policyID, bytes.NewReader(bodyBytes))
+	resp2, err := s.Client.MakeRequest("PUT", "/policies/"+url.PathEscape(policyID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -607,7 +608,7 @@ func (s *Service) addRuleToPolicy(policyID, ruleName string, config *ruleConfig)
 // editRule implements the "policy --edit-rule" command
 func (s *Service) editRule(policyID, ruleIdentifier string, config *ruleConfig) error {
 	// First, get the current policy
-	resp, err := s.Client.MakeRequest("GET", "/policies/"+policyID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/policies/"+url.PathEscape(policyID), nil)
 	if err != nil {
 		return err
 	}
@@ -687,7 +688,7 @@ func (s *Service) editRule(policyID, ruleIdentifier string, config *ruleConfig) 
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp2, err := s.Client.MakeRequest("PUT", "/policies/"+policyID, bytes.NewReader(bodyBytes))
+	resp2, err := s.Client.MakeRequest("PUT", "/policies/"+url.PathEscape(policyID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -700,7 +701,7 @@ func (s *Service) editRule(policyID, ruleIdentifier string, config *ruleConfig) 
 // removeRuleFromPolicy implements the "policy --remove-rule" command
 func (s *Service) removeRuleFromPolicy(policyID, ruleIdentifier string) error {
 	// First, get the current policy
-	resp, err := s.Client.MakeRequest("GET", "/policies/"+policyID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/policies/"+url.PathEscape(policyID), nil)
 	if err != nil {
 		return err
 	}
@@ -743,7 +744,7 @@ func (s *Service) removeRuleFromPolicy(policyID, ruleIdentifier string) error {
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp2, err := s.Client.MakeRequest("PUT", "/policies/"+policyID, bytes.NewReader(bodyBytes))
+	resp2, err := s.Client.MakeRequest("PUT", "/policies/"+url.PathEscape(policyID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -833,7 +834,7 @@ func (s *Service) resolveGroupIdentifiers(identifiers string) ([]models.PolicyGr
 // getGroupByNameOrID retrieves a group by name or ID
 func (s *Service) getGroupByNameOrID(identifier string) (*models.GroupDetail, error) {
 	// First, try to get it as an ID
-	resp, err := s.Client.MakeRequest("GET", "/groups/"+identifier, nil)
+	resp, err := s.Client.MakeRequest("GET", "/groups/"+url.PathEscape(identifier), nil)
 	if err == nil {
 		defer resp.Body.Close()
 		var group models.GroupDetail

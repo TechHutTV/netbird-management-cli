@@ -374,7 +374,6 @@ Remove-Item -Recurse -Force "C:\ProgramData\Netbird"
 | [Events](events.md) | Audit logs and traffic monitoring |
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
-| [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |
 | [Export & Import](export-import.md) | YAML/JSON configuration management |
 
 ---

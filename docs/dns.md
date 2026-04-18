@@ -106,7 +106,6 @@ netbird-manage dns --delete <group-id>
 | [Events](events.md) | Audit logs and traffic monitoring |
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
-| [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |
 | [Export & Import](export-import.md) | YAML/JSON configuration management |
 | [Migrate](migrate.md) | Migration between NetBird accounts |
 

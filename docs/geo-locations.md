@@ -59,10 +59,9 @@ netbird-manage geo --cities --country US --output json > us-cities.json
 | [Posture Checks](posture-checks.md) | Device compliance validation |
 | [Events](events.md) | Audit logs and traffic monitoring |
 | [Accounts](accounts.md) | Account settings and configuration |
-| [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |
 | [Export & Import](export-import.md) | YAML/JSON configuration management |
 | [Migrate](migrate.md) | Migration between NetBird accounts |
 
 ---
 
-[Home](../README.md) | [Events](events.md) | **Geo-Locations** | [Accounts](accounts.md) | [Ingress Ports](ingress-ports.md) | [Export & Import](export-import.md)
+[Home](../README.md) | [Events](events.md) | **Geo-Locations** | [Accounts](accounts.md) | [Export & Import](export-import.md)

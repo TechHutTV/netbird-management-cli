@@ -10,6 +10,7 @@ import (
 	"netbird-manage/internal/commands"
 	"netbird-manage/internal/config"
 	"netbird-manage/internal/helpers"
+	"netbird-manage/internal/tui"
 )
 
 var (
@@ -106,12 +107,6 @@ func main() {
 		case "account", "accounts":
 			commands.PrintAccountUsage()
 			os.Exit(0)
-		case "ingress-port", "ingress":
-			commands.PrintIngressPortUsage()
-			os.Exit(0)
-		case "ingress-peer":
-			commands.PrintIngressPeerUsage()
-			os.Exit(0)
 		case "export":
 			commands.PrintExportUsage()
 			os.Exit(0)
@@ -140,6 +135,12 @@ func main() {
 	c.Debug = debugMode
 
 	svc := commands.NewService(c)
+
+	// TUI mode
+	if command == "tui" {
+		tui.Run(c)
+		os.Exit(0)
+	}
 
 	// Route the command to the correct handler
 	switch command {
@@ -205,16 +206,6 @@ func main() {
 		}
 	case "account", "accounts":
 		if err := svc.HandleAccountsCommand(args); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	case "ingress-port", "ingress":
-		if err := svc.HandleIngressPortsCommand(args); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	case "ingress-peer":
-		if err := svc.HandleIngressPeersCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

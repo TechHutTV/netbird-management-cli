@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -233,7 +235,12 @@ func loadYAMLFromDirectory(dirPath string) (map[string]interface{}, error) {
 			continue
 		}
 
-		filePath := filepath.Join(dirPath, filename)
+		filePath, err := safeJoinUnder(dirPath, filename)
+		if err != nil {
+			// Untrusted config.yml tried to reference a path outside the
+			// import directory — silently skip.
+			continue
+		}
 		fileData, err := loadYAMLFromFile(filePath)
 		if err != nil {
 			// Skip missing files
@@ -247,6 +254,25 @@ func loadYAMLFromDirectory(dirPath string) (map[string]interface{}, error) {
 	}
 
 	return result, nil
+}
+
+// safeJoinUnder joins base+name and returns an error if the result escapes base.
+// Defends against an attacker-controlled config.yml specifying "../../etc/..."
+// in import_order. Both symlinks and ".." traversal are blocked.
+func safeJoinUnder(base, name string) (string, error) {
+	absBase, err := filepath.Abs(base)
+	if err != nil {
+		return "", err
+	}
+	joined := filepath.Join(absBase, name)
+	absJoined, err := filepath.Abs(joined)
+	if err != nil {
+		return "", err
+	}
+	if absJoined != absBase && !strings.HasPrefix(absJoined, absBase+string(os.PathSeparator)) {
+		return "", fmt.Errorf("path %q escapes import directory", name)
+	}
+	return absJoined, nil
 }
 
 // loadDefaultDirectoryOrder loads files in default dependency order
@@ -584,7 +610,10 @@ func (ctx *ImportContext) createGroup(name string, data map[string]interface{}) 
 		"peers": []string{}, // Empty - peers cannot be imported via YAML
 	}
 
-	bodyBytes, _ := json.Marshal(reqBody)
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
 	resp, err := ctx.Service.Client.MakeRequest("POST", "/groups", bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
@@ -634,8 +663,11 @@ func (ctx *ImportContext) updateGroup(name, groupID string, data map[string]inte
 		Resources: resources,
 	}
 
-	bodyBytes, _ := json.Marshal(reqBody)
-	resp, err := ctx.Service.Client.MakeRequest("PUT", "/groups/"+groupID, bytes.NewReader(bodyBytes))
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
+	resp, err := ctx.Service.Client.MakeRequest("PUT", "/groups/"+url.PathEscape(groupID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -768,7 +800,10 @@ func (ctx *ImportContext) createPolicy(name string, data map[string]interface{})
 		}
 	}
 
-	bodyBytes, _ := json.Marshal(reqBody)
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
 	resp, err := ctx.Service.Client.MakeRequest("POST", "/policies", bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
@@ -817,8 +852,11 @@ func (ctx *ImportContext) updatePolicy(name string, data map[string]interface{})
 		}
 	}
 
-	bodyBytes, _ := json.Marshal(reqBody)
-	resp, err := ctx.Service.Client.MakeRequest("PUT", "/policies/"+policyID, bytes.NewReader(bodyBytes))
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
+	resp, err := ctx.Service.Client.MakeRequest("PUT", "/policies/"+url.PathEscape(policyID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -1032,7 +1070,10 @@ func (ctx *ImportContext) createNetwork(name string, data map[string]interface{}
 		Description: description,
 	}
 
-	bodyBytes, _ := json.Marshal(reqBody)
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
 	resp, err := ctx.Service.Client.MakeRequest("POST", "/networks", bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
@@ -1074,8 +1115,11 @@ func (ctx *ImportContext) updateNetwork(name, networkID string, data map[string]
 		Description: description,
 	}
 
-	bodyBytes, _ := json.Marshal(reqBody)
-	resp, err := ctx.Service.Client.MakeRequest("PUT", "/networks/"+networkID, bytes.NewReader(bodyBytes))
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
+	resp, err := ctx.Service.Client.MakeRequest("PUT", "/networks/"+url.PathEscape(networkID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -1151,8 +1195,11 @@ func (ctx *ImportContext) addNetworkResources(networkID string, data map[string]
 			Groups:      groupIDs,
 		}
 
-		bodyBytes, _ := json.Marshal(resourceReq)
-		resp, err := ctx.Service.Client.MakeRequest("POST", "/networks/"+networkID+"/resources", bytes.NewReader(bodyBytes))
+		bodyBytes, err := json.Marshal(resourceReq)
+		if err != nil {
+			return fmt.Errorf("failed to create resource '%s': marshal request: %w", resourceName, err)
+		}
+		resp, err := ctx.Service.Client.MakeRequest("POST", "/networks/"+url.PathEscape(networkID)+"/resources", bytes.NewReader(bodyBytes))
 		if err != nil {
 			return fmt.Errorf("failed to create resource '%s': %v", resourceName, err)
 		}
@@ -1215,8 +1262,11 @@ func (ctx *ImportContext) addNetworkRouters(networkID string, data map[string]in
 			Enabled:    enabled,
 		}
 
-		bodyBytes, _ := json.Marshal(routerReq)
-		resp, err := ctx.Service.Client.MakeRequest("POST", "/networks/"+networkID+"/routers", bytes.NewReader(bodyBytes))
+		bodyBytes, err := json.Marshal(routerReq)
+		if err != nil {
+			return fmt.Errorf("failed to create router '%s': marshal request: %w", routerName, err)
+		}
+		resp, err := ctx.Service.Client.MakeRequest("POST", "/networks/"+url.PathEscape(networkID)+"/routers", bytes.NewReader(bodyBytes))
 		if err != nil {
 			return fmt.Errorf("failed to create router '%s': %v", routerName, err)
 		}

@@ -44,10 +44,6 @@ func PrintUsage() {
 	fmt.Println()
 	fmt.Println("  account ...                   Manage account settings (run 'netbird-manage account' for options)")
 	fmt.Println()
-	fmt.Println("  ingress-port ...              Manage port forwarding - Cloud-only (run 'netbird-manage ingress-port' for options)")
-	fmt.Println()
-	fmt.Println("  ingress-peer ...              Manage ingress peers - Cloud-only (run 'netbird-manage ingress-peer' for options)")
-	fmt.Println()
 	fmt.Println("  export ...                    Export configuration to YAML (run 'netbird-manage export' for options)")
 	fmt.Println()
 	fmt.Println("  import ...                    Import configuration from YAML (run 'netbird-manage import' for options)")
@@ -406,46 +402,6 @@ func PrintAccountUsage() {
 	fmt.Println("    --peer-inactivity-expiration <s> Peer inactivity expiration in seconds")
 	fmt.Println()
 	fmt.Println("  --delete <account-id>            Delete an account (dangerous!)")
-}
-
-// PrintIngressPortUsage provides specific help for the 'ingress-port' command
-func PrintIngressPortUsage() {
-	fmt.Println("Usage: netbird-manage ingress-port <flag> [arguments]")
-	fmt.Println("\nManage port forwarding (Cloud-only).")
-	fmt.Println("\nQuery Flags:")
-	fmt.Println("  --list <peer-id>                 List ingress ports for a peer")
-	fmt.Println("  --inspect                        Inspect a specific port allocation")
-	fmt.Println("    --peer-id <id>                 Peer ID (required)")
-	fmt.Println("    --port-id <id>                 Port allocation ID (required)")
-	fmt.Println()
-	fmt.Println("Modification Flags:")
-	fmt.Println("  --create <peer-id>               Create a port forwarding rule")
-	fmt.Println("    --target-port <port>           Target port on the peer (required)")
-	fmt.Println("    --protocol <tcp|udp>           Protocol (default: tcp)")
-	fmt.Println("    --description <desc>           Description")
-	fmt.Println()
-	fmt.Println("  --delete                         Delete a port allocation")
-	fmt.Println("    --peer-id <id>                 Peer ID (required)")
-	fmt.Println("    --port-id <id>                 Port allocation ID (required)")
-}
-
-// PrintIngressPeerUsage provides specific help for the 'ingress-peer' command
-func PrintIngressPeerUsage() {
-	fmt.Println("Usage: netbird-manage ingress-peer <flag> [arguments]")
-	fmt.Println("\nManage ingress peers (Cloud-only).")
-	fmt.Println("\nQuery Flags:")
-	fmt.Println("  --list                           List all ingress peers")
-	fmt.Println("  --inspect <peer-id>              Inspect a specific ingress peer")
-	fmt.Println()
-	fmt.Println("Modification Flags:")
-	fmt.Println("  --create <name>                  Create an ingress peer")
-	fmt.Println("    --location <location>          Geographic location")
-	fmt.Println("    --enabled                      Enable on creation (default)")
-	fmt.Println()
-	fmt.Println("  --delete <peer-id>               Delete an ingress peer")
-	fmt.Println()
-	fmt.Println("  --enable <peer-id>               Enable an ingress peer")
-	fmt.Println("  --disable <peer-id>              Disable an ingress peer")
 }
 
 // PrintExportUsage provides specific help for the 'export' command

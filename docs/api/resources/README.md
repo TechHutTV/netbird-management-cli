@@ -18,7 +18,6 @@ This directory contains detailed documentation for all NetBird API endpoints, or
 ### Network Services
 - **[DNS](dns.md)** - DNS nameserver groups and settings
 - **[Routes](routes.md)** - Network routing configuration
-- **[Ingress Ports](ingress-ports.md)** - Port forwarding and ingress peers (Cloud only)
 
 ### Security & Monitoring
 - **[Posture Checks](posture-checks.md)** - Device compliance validation
@@ -45,7 +44,6 @@ This directory contains detailed documentation for all NetBird API endpoints, or
 | Accounts | 4 endpoints | ✅ **Full** (list, get, update, delete) | ✅ |
 | Events | 2 endpoints | ✅ **Full** (audit, traffic with filters) | ✅ |
 | Geo-Locations | 2 endpoints | ✅ **Full** (countries, cities) | ✅ |
-| Ingress Ports | 10 endpoints | ✅ **Full** (Cloud-only: ports + ingress peers) | ✅ |
 
 **Total Coverage: 14/14 resource types (100%)** 🎉 - 75 endpoints fully implemented
 

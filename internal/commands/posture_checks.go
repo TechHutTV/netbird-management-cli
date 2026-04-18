@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -185,7 +186,7 @@ func (s *Service) listPostureChecks(filters *PostureCheckFilters, outputFormat s
 
 // inspectPostureCheck implements the "posture-check --inspect" command
 func (s *Service) inspectPostureCheck(checkID string, outputFormat string) error {
-	resp, err := s.Client.MakeRequest("GET", "/posture-checks/"+checkID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/posture-checks/"+url.PathEscape(checkID), nil)
 	if err != nil {
 		return err
 	}
@@ -326,7 +327,7 @@ func (s *Service) createPostureCheck(name, description, checkType string, flags 
 // updatePostureCheck implements the "posture-check --update" command
 func (s *Service) updatePostureCheck(checkID, description, checkType string, flags *flag.FlagSet) error {
 	// First, get the current check
-	resp, err := s.Client.MakeRequest("GET", "/posture-checks/"+checkID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/posture-checks/"+url.PathEscape(checkID), nil)
 	if err != nil {
 		return err
 	}
@@ -359,7 +360,7 @@ func (s *Service) updatePostureCheck(checkID, description, checkType string, fla
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err = s.Client.MakeRequest("PUT", "/posture-checks/"+checkID, bytes.NewReader(bodyBytes))
+	resp, err = s.Client.MakeRequest("PUT", "/posture-checks/"+url.PathEscape(checkID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -372,7 +373,7 @@ func (s *Service) updatePostureCheck(checkID, description, checkType string, fla
 // deletePostureCheck implements the "posture-check --delete" command
 func (s *Service) deletePostureCheck(checkID string) error {
 	// Fetch posture check details first
-	resp, err := s.Client.MakeRequest("GET", "/posture-checks/"+checkID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/posture-checks/"+url.PathEscape(checkID), nil)
 	if err != nil {
 		return err
 	}
@@ -397,7 +398,7 @@ func (s *Service) deletePostureCheck(checkID string) error {
 		return nil // User cancelled
 	}
 
-	resp, err = s.Client.MakeRequest("DELETE", "/posture-checks/"+checkID, nil)
+	resp, err = s.Client.MakeRequest("DELETE", "/posture-checks/"+url.PathEscape(checkID), nil)
 	if err != nil {
 		return err
 	}

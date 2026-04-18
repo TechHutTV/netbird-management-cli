@@ -104,7 +104,6 @@ netbird-manage token --revoke tok-abc123xyz --user-id ef3799d6-3891-4769-9690-e6
 | [Events](events.md) | Audit logs and traffic monitoring |
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
-| [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |
 | [Export & Import](export-import.md) | YAML/JSON configuration management |
 | [Migrate](migrate.md) | Migration between NetBird accounts |
 

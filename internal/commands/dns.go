@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -237,7 +238,7 @@ func (s *Service) listDNSGroups(filters *DNSFilters, outputFormat string) error 
 
 // inspectDNSGroup implements the "dns --inspect" command
 func (s *Service) inspectDNSGroup(groupID string, outputFormat string) error {
-	resp, err := s.Client.MakeRequest("GET", "/dns/nameservers/"+groupID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/dns/nameservers/"+url.PathEscape(groupID), nil)
 	if err != nil {
 		return err
 	}
@@ -366,7 +367,7 @@ func (s *Service) createDNSGroup(name, nameservers, groups, domains, description
 // updateDNSGroup implements the "dns --update" command
 func (s *Service) updateDNSGroup(groupID, nameservers, groups, domains, description string, searchDomains, primary, enabled bool) error {
 	// First, get the current group
-	resp, err := s.Client.MakeRequest("GET", "/dns/nameservers/"+groupID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/dns/nameservers/"+url.PathEscape(groupID), nil)
 	if err != nil {
 		return err
 	}
@@ -412,7 +413,7 @@ func (s *Service) updateDNSGroup(groupID, nameservers, groups, domains, descript
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err = s.Client.MakeRequest("PUT", "/dns/nameservers/"+groupID, bytes.NewReader(bodyBytes))
+	resp, err = s.Client.MakeRequest("PUT", "/dns/nameservers/"+url.PathEscape(groupID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -425,7 +426,7 @@ func (s *Service) updateDNSGroup(groupID, nameservers, groups, domains, descript
 // deleteDNSGroup implements the "dns --delete" command
 func (s *Service) deleteDNSGroup(groupID string) error {
 	// Fetch DNS group details first
-	resp, err := s.Client.MakeRequest("GET", "/dns/nameservers/"+groupID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/dns/nameservers/"+url.PathEscape(groupID), nil)
 	if err != nil {
 		return err
 	}
@@ -453,7 +454,7 @@ func (s *Service) deleteDNSGroup(groupID string) error {
 		return nil // User cancelled
 	}
 
-	resp, err = s.Client.MakeRequest("DELETE", "/dns/nameservers/"+groupID, nil)
+	resp, err = s.Client.MakeRequest("DELETE", "/dns/nameservers/"+url.PathEscape(groupID), nil)
 	if err != nil {
 		return err
 	}
@@ -466,7 +467,7 @@ func (s *Service) deleteDNSGroup(groupID string) error {
 // toggleDNSGroup enables or disables a DNS group
 func (s *Service) toggleDNSGroup(groupID string, enable bool) error {
 	// First, get the current group
-	resp, err := s.Client.MakeRequest("GET", "/dns/nameservers/"+groupID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/dns/nameservers/"+url.PathEscape(groupID), nil)
 	if err != nil {
 		return err
 	}
@@ -494,7 +495,7 @@ func (s *Service) toggleDNSGroup(groupID string, enable bool) error {
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err = s.Client.MakeRequest("PUT", "/dns/nameservers/"+groupID, bytes.NewReader(bodyBytes))
+	resp, err = s.Client.MakeRequest("PUT", "/dns/nameservers/"+url.PathEscape(groupID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}

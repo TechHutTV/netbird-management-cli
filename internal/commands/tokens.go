@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"text/tabwriter"
 
@@ -99,7 +100,7 @@ func (s *Service) getCurrentUserID() (string, error) {
 
 // listTokens lists all personal access tokens for a user
 func (s *Service) listTokens(userID string, outputFormat string) error {
-	endpoint := fmt.Sprintf("/users/%s/tokens", userID)
+	endpoint := fmt.Sprintf("/users/%s/tokens", url.PathEscape(userID))
 
 	resp, err := s.Client.MakeRequest("GET", endpoint, nil)
 	if err != nil {
@@ -153,7 +154,7 @@ func (s *Service) listTokens(userID string, outputFormat string) error {
 
 // inspectToken shows detailed information about a specific token
 func (s *Service) inspectToken(userID, tokenID string, outputFormat string) error {
-	endpoint := fmt.Sprintf("/users/%s/tokens/%s", userID, tokenID)
+	endpoint := fmt.Sprintf("/users/%s/tokens/%s", url.PathEscape(userID), url.PathEscape(tokenID))
 
 	resp, err := s.Client.MakeRequest("GET", endpoint, nil)
 	if err != nil {
@@ -203,7 +204,7 @@ func (s *Service) createToken(userID, name string, expiresIn int) error {
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	endpoint := fmt.Sprintf("/users/%s/tokens", userID)
+	endpoint := fmt.Sprintf("/users/%s/tokens", url.PathEscape(userID))
 	resp, err := s.Client.MakeRequest("POST", endpoint, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
@@ -233,7 +234,7 @@ func (s *Service) createToken(userID, name string, expiresIn int) error {
 
 // revokeToken deletes/revokes a personal access token
 func (s *Service) revokeToken(userID, tokenID string) error {
-	endpoint := fmt.Sprintf("/users/%s/tokens/%s", userID, tokenID)
+	endpoint := fmt.Sprintf("/users/%s/tokens/%s", url.PathEscape(userID), url.PathEscape(tokenID))
 
 	// Fetch token details first
 	resp, err := s.Client.MakeRequest("GET", endpoint, nil)

@@ -171,23 +171,22 @@ Authorization: Bearer <YOUR_TOKEN>
 | `account --update <id>` | `PUT /accounts/{id}` | `accounts.go` |
 | `account --delete <id>` | `DELETE /accounts/{id}` | `accounts.go` |
 
-#### Ingress Ports (Cloud-only)
-| CLI Command | API Endpoint | Implementation File |
-|-------------|--------------|---------------------|
-| `ingress-port --list --peer <id>` | `GET /peers/{id}/ingress/ports` | `ingress-ports.go` |
-| `ingress-port --inspect <id> --peer <peerId>` | `GET /peers/{peerId}/ingress/ports/{id}` | `ingress-ports.go` |
-| `ingress-port --create --peer <id>` | `POST /peers/{id}/ingress/ports` | `ingress-ports.go` |
-| `ingress-port --update <id> --peer <peerId>` | `PUT /peers/{peerId}/ingress/ports/{id}` | `ingress-ports.go` |
-| `ingress-port --delete <id> --peer <peerId>` | `DELETE /peers/{peerId}/ingress/ports/{id}` | `ingress-ports.go` |
-| `ingress-peer --list` | `GET /ingress/peers` | `ingress-ports.go` |
-| `ingress-peer --inspect <id>` | `GET /ingress/peers/{id}` | `ingress-ports.go` |
-| `ingress-peer --create` | `POST /ingress/peers` | `ingress-ports.go` |
-| `ingress-peer --update <id>` | `PUT /ingress/peers/{id}` | `ingress-ports.go` |
-| `ingress-peer --delete <id>` | `DELETE /ingress/peers/{id}` | `ingress-ports.go` |
+#### Reverse Proxy (TUI-only)
+| TUI Page | API Endpoint | Implementation File |
+|----------|--------------|---------------------|
+| `Proxy` tab | `GET /reverse-proxies/clusters` | `internal/tui/api.go` |
+| `Proxy` tab | `GET /reverse-proxies/services` | `internal/tui/api.go` |
+| `Proxy > c` | `POST /reverse-proxies/services` | `internal/tui/api.go` |
+| `Proxy > e` / `t` | `PUT /reverse-proxies/services/{id}` | `internal/tui/api.go` |
+| `Proxy > d` | `DELETE /reverse-proxies/services/{id}` | `internal/tui/api.go` |
+| `Proxy > detail > D` | `GET/POST/DELETE /reverse-proxies/services/{id}/domains` | `internal/tui/reverse_proxy_domains.go` |
+| `Proxy > detail > D > v` | `GET /reverse-proxies/services/{id}/domains/{domain_id}/validate` | `internal/tui/reverse_proxy_domains.go` |
+| `Proxy > detail > E` | `GET /events/proxy` | `internal/tui/reverse_proxy_events.go` |
 
 ### ✅ Full API Coverage
 
 **All 14 NetBird API resource types are now fully implemented!** 🎉
+**Plus:** Reverse Proxy (services, clusters, custom domains, access events) is available in the TUI.
 
 For complete feature documentation and examples, see [README.md](README.md).
 
@@ -360,7 +359,6 @@ Plus 7 additional endpoints for network resources and routers - **ALL FULLY IMPL
 - **Accounts** (3 endpoints) - [`docs/api/resources/accounts.md`](docs/api/resources/accounts.md) - Account settings
 - **Events** (2 endpoints) - [`docs/api/resources/events.md`](docs/api/resources/events.md) - Audit logs and monitoring
 - **Geo-Locations** (2 endpoints) - [`docs/api/resources/geo-locations.md`](docs/api/resources/geo-locations.md) - Location data
-- **Ingress Ports** (10 endpoints) - [`docs/api/resources/ingress-ports.md`](docs/api/resources/ingress-ports.md) - Port forwarding (Cloud only)
 
 ---
 

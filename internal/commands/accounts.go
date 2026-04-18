@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -168,7 +169,7 @@ func (s *Service) listAccounts(outputFormat string) error {
 
 // inspectAccount shows detailed information about an account
 func (s *Service) inspectAccount(accountID string, outputFormat string) error {
-	resp, err := s.Client.MakeRequest("GET", "/accounts/"+accountID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/accounts/"+url.PathEscape(accountID), nil)
 	if err != nil {
 		return err
 	}
@@ -227,7 +228,7 @@ func (s *Service) updateAccountFromFlags(accountID string,
 	groupsPropagation, regularUsersView, peerApproval, trafficLogging string) error {
 
 	// First, fetch the current account state
-	resp, err := s.Client.MakeRequest("GET", "/accounts/"+accountID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/accounts/"+url.PathEscape(accountID), nil)
 	if err != nil {
 		return err
 	}
@@ -313,7 +314,7 @@ func (s *Service) updateAccountFromFlags(accountID string,
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	updateResp, err := s.Client.MakeRequest("PUT", "/accounts/"+accountID, bytes.NewReader(bodyBytes))
+	updateResp, err := s.Client.MakeRequest("PUT", "/accounts/"+url.PathEscape(accountID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -326,7 +327,7 @@ func (s *Service) updateAccountFromFlags(accountID string,
 // deleteAccount deletes an account and all its resources
 func (s *Service) deleteAccount(accountID string) error {
 	// Fetch account details first
-	resp, err := s.Client.MakeRequest("GET", "/accounts/"+accountID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/accounts/"+url.PathEscape(accountID), nil)
 	if err != nil {
 		return err
 	}
@@ -350,7 +351,7 @@ func (s *Service) deleteAccount(accountID string) error {
 		return nil // User cancelled
 	}
 
-	resp, err = s.Client.MakeRequest("DELETE", "/accounts/"+accountID, nil)
+	resp, err = s.Client.MakeRequest("DELETE", "/accounts/"+url.PathEscape(accountID), nil)
 	if err != nil {
 		return err
 	}

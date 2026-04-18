@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -90,7 +91,9 @@ func (s *Service) exportSplitFiles(directory, timestamp, format string) error {
 	dirName := fmt.Sprintf("netbird-manage-export-%s", timestamp)
 	dirPath := filepath.Join(directory, dirName)
 
-	if err := os.MkdirAll(dirPath, 0755); err != nil {
+	// Owner-only permissions — exports describe network topology and should not
+	// be world-readable on shared hosts.
+	if err := os.MkdirAll(dirPath, 0700); err != nil {
 		return fmt.Errorf("failed to create directory: %v", err)
 	}
 
@@ -171,7 +174,7 @@ func writeDataFile(outputPath string, data interface{}, format string) error {
 		}
 	}
 
-	if err := os.WriteFile(outputPath, fileData, 0644); err != nil {
+	if err := os.WriteFile(outputPath, fileData, 0600); err != nil {
 		return fmt.Errorf("failed to write %s: %v", outputPath, err)
 	}
 
@@ -453,7 +456,7 @@ func (s *Service) fetchNetworksAsMap() (map[string]interface{}, error) {
 
 // fetchNetworkDetail fetches detailed network information
 func (s *Service) fetchNetworkDetail(networkID string) (*models.NetworkDetail, error) {
-	resp, err := s.Client.MakeRequest("GET", "/networks/"+networkID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -469,7 +472,7 @@ func (s *Service) fetchNetworkDetail(networkID string) (*models.NetworkDetail, e
 
 // fetchNetworkResources fetches resources for a network
 func (s *Service) fetchNetworkResources(networkID string) ([]models.NetworkResource, error) {
-	resp, err := s.Client.MakeRequest("GET", "/networks/"+networkID+"/resources", nil)
+	resp, err := s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID)+"/resources", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -485,7 +488,7 @@ func (s *Service) fetchNetworkResources(networkID string) ([]models.NetworkResou
 
 // fetchNetworkRouters fetches routers for a network
 func (s *Service) fetchNetworkRouters(networkID string) ([]models.NetworkRouter, error) {
-	resp, err := s.Client.MakeRequest("GET", "/networks/"+networkID+"/routers", nil)
+	resp, err := s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID)+"/routers", nil)
 	if err != nil {
 		return nil, err
 	}
