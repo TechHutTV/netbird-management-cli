@@ -36,6 +36,13 @@ internal/
     setup_keys_page.go, users_page.go, service_users_page.go, dns_page.go,
     posture_checks_page.go, events_page.go, accounts_page.go,
     export_import_page.go            — Entity pages (list + detail + create forms)
+    reverse_proxy_page.go            — Reverse Proxy list + outer state machine
+    reverse_proxy_wizard.go          — Multi-screen create/edit wizard (service → targets → auth → access → advanced → confirm)
+    reverse_proxy_forms.go           — huh/v2 form constructors for every wizard leaf screen
+    reverse_proxy_editors.go         — Reusable list-editor renderer (targets, access rules, header auths, custom headers)
+    reverse_proxy_detail.go          — Tabbed read-only detail view (Service / Auth / Access / Advanced / Meta)
+    reverse_proxy_domains.go         — Custom domains sub-view (add / validate / delete)
+    reverse_proxy_events.go          — Proxy access-log sub-view with date-range filter
     forms.go                         — huh/v2 form constructors for all create operations
     confirm.go                       — Confirmation screen renderer (y/n before submit)
     messages.go                      — All custom tea.Msg types
@@ -60,7 +67,7 @@ go build -o netbird-manage ./cmd/netbird-manage/   # Build
 - **Key v2 API:** `Init() tea.Cmd` (not `(Model, Cmd)`), `View() tea.View` (use `tea.NewView(s)`), `tea.KeyPressMsg` (not `KeyMsg`)
 - **Page interface:** `Init`, `Update`, `View`, `Title`, `CursorPosition`, `SetFocused`
 - **All pages in same package** (`internal/tui/`) to avoid import cycles
-- **Navigation:** numbered hotkeys [1]-[0] for first 10 tabs, left/right arrows, enter to load, down to focus content, up at cursor 0 returns to nav
+- **Navigation:** numbered hotkeys `[1]`-`[9]` then `[0]`, left/right arrows, enter to load, down to focus content, up at cursor 0 returns to nav. Hotkey order (left to right): Status, Peers, Policies, Networks, DNS, Routes, Users, Groups, Posture, **Proxy**. Arrow-only tabs after: Events, Service Users, Keys, Settings, Export.
 - **Focus model:** nav bar vs content — `focused` field on each page controls cursor highlight visibility
 - **Forms:** huh/v2 with `MultiSelect` for groups, `esc` to cancel, confirmation screen before submit
 - **Daemon:** optional gRPC to `unix:///var/run/netbird.sock`, graceful nil if unavailable
@@ -92,8 +99,20 @@ All through `client.MakeRequest(method, endpoint, body)`:
 | Users | GET/POST/PUT/DELETE `/users`, `/users/{id}/invite` | users.go | users_page.go |
 | DNS | `/dns/nameservers`, `/dns/settings` | dns.go | dns_page.go |
 | Posture | GET/POST/PUT/DELETE `/posture-checks` | posture_checks.go | posture_checks_page.go |
-| Events | GET `/events/audit` | events.go | events_page.go |
+| Events | GET `/events/audit`, GET `/events/proxy` | events.go | events_page.go |
 | Accounts | GET/PUT/DELETE `/accounts` | accounts.go | accounts_page.go |
+| Reverse Proxy | GET/POST/PUT/DELETE `/reverse-proxies/services`, GET `/reverse-proxies/clusters`, GET/POST/DELETE `/reverse-proxies/services/{id}/domains`, GET `/reverse-proxies/services/{id}/domains/{domain_id}/validate` | — (TUI only) | reverse_proxy_page.go + reverse_proxy_{wizard,forms,editors,detail,domains,events}.go |
+
+## Reverse Proxy feature notes
+
+- **TUI-only** — no CLI parity yet. Lives under the `Proxy` tab (`[0]`).
+- **Full PUT required** on update (matches groups pattern). Use `ReverseProxyUpdateFromService` to rebuild the request from a cached service.
+- **Mode is immutable** post-create; edit form shows it read-only.
+- **L4 modes (TCP/UDP/TLS)** allow exactly one target and no auth.
+- **Access rules** — single IPs are stored as `/32` CIDR on write, displayed without the suffix on read. See `accessBucketFor` / `accessBucketOfFlattened` in `reverse_proxy_wizard.go` for the flattened-index routing.
+- **Cluster gating** — `listenPortValidator` rejects custom listen ports when the selected cluster reports `supports_custom_ports=false`.
+- **Unprotected warning** — HTTP services with no auth AND no access rules trigger a y/n gate before submit.
+- **Deferred:** certificate status polling (dashboard polls every 3.5s; we refetch on demand via `r`), CLI command parity, inline target expansion on list rows.
 
 ## Dependencies
 
@@ -107,7 +126,10 @@ All through `client.MakeRequest(method, endpoint, body)`:
 
 ## Security
 
-- Never commit tokens, API keys, or test results
-- Config file uses `0600` permissions
-- All user IDs in URLs must use `url.PathEscape`
-- `json.Marshal` errors must be checked (not discarded with `_`)
+- Never commit tokens, API keys, or test results. `.netbird-manage.json` is in `.gitignore`.
+- Config file uses `0600` permissions; export files and directories use `0600/0700` (not world-readable).
+- All user IDs in URLs must use `url.PathEscape` — convention enforced in both `internal/tui/api.go` and `internal/commands/*.go`.
+- `json.Marshal` errors must be checked (not discarded with `_`).
+- **Debug-log redaction:** `client.redactSensitiveJSON` masks `password`, `pin`, `token`, `secret`, `api_key`, `access_token`, `refresh_token`, `client_secret`, and `header_auths[].value` in `--debug` JSON dumps. Callers still receive unredacted bytes — redaction applies to stderr output only.
+- **Path traversal:** YAML directory imports use `commands.safeJoinUnder` to reject any `import_order` entry that resolves outside the import directory. Covers `..` escapes; leading `/` is absorbed by `filepath.Join` (safe).
+- **Reverse-proxy secrets:** user-supplied passwords, PINs, and header-auth values never appear in list/summary views — only the edit form echoes them (passwords and PINs masked via `huh.EchoModePassword`). Header values are visible in the Auth detail tab.

@@ -69,32 +69,45 @@ netbird-manage --help         # Shows all available commands
 | [Accounts](docs/accounts.md) | Account settings and configuration |
 | [Export & Import](docs/export-import.md) | YAML/JSON configuration management |
 | [Migrate](docs/migrate.md) | Migration between NetBird accounts |
+| [Reverse Proxy](docs/reverse-proxy.md) | Publish NetBird-private services on public domains (TUI only) |
 
 ## API Coverage
 
-**14/14 NetBird API resource types fully implemented (100%)**
+**14/14 NetBird API resource types fully implemented (CLI + TUI)** plus **Reverse Proxy** (TUI only).
 
-| Resource | Status |
-|----------|--------|
-| Peers | Full CRUD |
-| Groups | Full CRUD |
-| Networks | Full CRUD |
-| Policies | Full CRUD |
-| Setup Keys | Full CRUD |
-| Users | Full CRUD |
-| Tokens | Full CRUD |
-| Routes | Full CRUD |
-| DNS | Full CRUD |
-| Posture Checks | Full CRUD |
-| Events | Read |
-| Geo-Locations | Read |
-| Accounts | Full CRUD |
+| Resource | CLI | TUI |
+|----------|-----|-----|
+| Peers | Full CRUD | ✓ |
+| Groups | Full CRUD | ✓ |
+| Networks | Full CRUD | ✓ |
+| Policies | Full CRUD | ✓ |
+| Setup Keys | Full CRUD | ✓ |
+| Users | Full CRUD | ✓ |
+| Tokens | Full CRUD | — |
+| Routes | Full CRUD | ✓ |
+| DNS | Full CRUD | ✓ |
+| Posture Checks | Full CRUD | ✓ |
+| Events | Read | ✓ |
+| Geo-Locations | Read | — |
+| Accounts | Full CRUD | ✓ (Settings) |
+| Reverse Proxy | — | ✓ (services, clusters, custom domains, proxy events) |
+
+## TUI
+
+Launch the interactive TUI with:
+
+```bash
+netbird-manage tui
+```
+
+Charm-stack terminal UI (bubbletea v2 / lipgloss v2 / huh v2) with numbered-hotkey tabs. The **Reverse Proxy** tab (`[0]`) mirrors the dashboard's `/reverse-proxy/services` experience — full wizard for HTTP/TCP/UDP/TLS services, all four auth methods, CIDR/country access rules, custom domains, and per-service proxy access logs. See [docs/reverse-proxy.md](docs/reverse-proxy.md).
 
 ## Roadmap
 
 ### Planned Features
 
 - **Shell Completion** - Tab completion for bash/zsh/fish
+- **CLI parity for Reverse Proxy** — currently TUI-only
 
 For detailed implementation notes and architecture guidance, see [CLAUDE.md](CLAUDE.md).
 
