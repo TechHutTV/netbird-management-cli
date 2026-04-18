@@ -39,7 +39,6 @@
 - `internal/tui/routes_page.go` — List with network/type/metric/masq/enabled, detail, delete
 - `internal/tui/dns_page.go` — List with server count/domains/primary/enabled, detail, delete
 - `internal/tui/accounts_page.go` — Settings display (login exp, DNS domain, JWT, etc.)
-- `internal/tui/ingress_page.go` — Cloud-only with graceful 404 message
 
 ### Phase 6: Complex Entity Pages
 - `internal/tui/networks_page.go` — List + detail with resources/routers sub-tables, delete
@@ -87,6 +86,38 @@
 - `internal/tui/messages.go` — Added `DaemonStatusMsg`, `DaemonTickMsg`, `DashboardCountsMsg`
 - `internal/tui/run.go` — Creates daemon client, passes to `NewApp(httpClient, daemon)`
 - Dependencies: `github.com/netbirdio/netbird` v0.66.2, `google.golang.org/grpc` v1.79.3
+
+### Phase 9: Reverse Proxy (2026-04-18)
+
+Mimics the dashboard's `/reverse-proxy/services` page. Talks to the public
+`/api/reverse-proxies/services` endpoints (PAT auth). Files:
+
+- `internal/tui/reverse_proxy_page.go` — Page struct, list view, outer state machine
+- `internal/tui/reverse_proxy_wizard.go` — multi-screen create/edit wizard (service → targets → auth → access → advanced → confirm)
+- `internal/tui/reverse_proxy_forms.go` — huh/v2 form constructors for every leaf screen
+- `internal/tui/reverse_proxy_editors.go` — list-editor table renderer used by targets/auth/access/headers
+- `internal/tui/reverse_proxy_detail.go` — tabbed read-only detail view (Service / Auth / Access / Advanced / Meta)
+- `internal/tui/reverse_proxy_domains.go` — custom domains sub-view (add / validate / delete)
+- `internal/tui/reverse_proxy_events.go` — proxy access-log sub-view with date-range filter
+- Model additions in `internal/models/models.go` (ReverseProxyService + nested types, CreateRequest, UpdateRequest, Domain, Cluster, Event)
+- API factories in `internal/tui/api.go` (FetchReverseProxyData, Create/Update/Delete/Toggle, domain CRUD, events)
+- Messages in `internal/tui/messages.go` (ReverseProxiesLoadedMsg, ReverseProxyUpdatedMsg, domains, events)
+- Nav reshuffle in `internal/tui/nav.go` — Proxy takes hotkey [0], Keys drops to arrow-only
+
+Features supported:
+- HTTP/TCP/UDP/TLS modes with the correct protocol/target constraints
+- Multiple HTTP targets per service, with per-target custom headers, TLS skip, request timeout
+- All 4 auth methods (password, PIN, bearer/SSO, magic link) plus N header-auth rules
+- CIDR / IP / country allow+block access rules
+- Mode-specific advanced settings (pass_host_header + rewrite_redirects for HTTP; proxy_protocol + timeout for TCP/TLS; session_idle_timeout for UDP)
+- Custom domains: add / validate / delete
+- Proxy events: per-service access log with 1d/7d/30d range filter
+- "Unprotected service" warning before submit when an HTTP service has no auth + no access rules
+
+Deferred (tracked here):
+- Certificate status polling every 3.5s (dashboard behavior). v1 refetches on demand via `r`.
+- CLI command parity — no `internal/commands/reverse_proxy.go` yet. TUI-only for now.
+- Inline target expansion on list rows — dashboard expands an HTTP row to show its targets; v1 puts them in the detail view.
 
 ## Still TODO (Phase 8: Polish)
 - Help overlay (`?` key)

@@ -107,12 +107,6 @@ func main() {
 		case "account", "accounts":
 			commands.PrintAccountUsage()
 			os.Exit(0)
-		case "ingress-port", "ingress":
-			commands.PrintIngressPortUsage()
-			os.Exit(0)
-		case "ingress-peer":
-			commands.PrintIngressPeerUsage()
-			os.Exit(0)
 		case "export":
 			commands.PrintExportUsage()
 			os.Exit(0)
@@ -212,16 +206,6 @@ func main() {
 		}
 	case "account", "accounts":
 		if err := svc.HandleAccountsCommand(args); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	case "ingress-port", "ingress":
-		if err := svc.HandleIngressPortsCommand(args); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	case "ingress-peer":
-		if err := svc.HandleIngressPeersCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

@@ -633,10 +633,6 @@ func formatEventActivity(event models.AuditEvent) string {
 	case strings.HasPrefix(code, "service"):
 		desc = "Service user " + badge(userLabel) + " " + event.Activity
 
-	// Ingress events
-	case resource == "ingress":
-		desc = "Ingress " + badge(name) + " " + event.Activity
-
 	// Billing/system events
 	case resource == "billing" || resource == "integration":
 		desc = event.Activity

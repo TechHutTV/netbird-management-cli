@@ -1,6 +1,6 @@
 # Export & Import
 
-[Home](../README.md) | [Getting Started](getting-started.md) | [Accounts](accounts.md) | [Ingress Ports](ingress-ports.md) | **Export & Import** | [Migrate](migrate.md)
+[Home](../README.md) | [Getting Started](getting-started.md) | [Accounts](accounts.md) | **Export & Import** | [Migrate](migrate.md)
 
 ---
 
@@ -321,9 +321,8 @@ Errors:
 | [Events](events.md) | Audit logs and traffic monitoring |
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
-| [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |
 | [Migrate](migrate.md) | Migration between NetBird accounts |
 
 ---
 
-[Home](../README.md) | [Ingress Ports](ingress-ports.md) | **Export & Import** | [Migrate](migrate.md)
+[Home](../README.md) | [Accounts](accounts.md) | **Export & Import** | [Migrate](migrate.md)

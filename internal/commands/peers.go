@@ -250,7 +250,7 @@ func (s *Service) listPeers(filterName, filterIP, outputFormat string) error {
 }
 
 func (s *Service) getPeerByID(peerID string) (*models.Peer, error) {
-	endpoint := "/peers/" + peerID
+	endpoint := "/peers/" + url.PathEscape(peerID)
 	resp, err := s.Client.MakeRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, err
@@ -292,7 +292,7 @@ func (s *Service) removePeerByID(peerID string) error {
 	}
 
 	fmt.Printf("Removing peer '%s' (ID: %s)...\n", peer.Name, peer.ID)
-	endpoint := "/peers/" + peer.ID
+	endpoint := "/peers/" + url.PathEscape(peer.ID)
 	resp, err := s.Client.MakeRequest("DELETE", endpoint, nil)
 	if err != nil {
 		return err
@@ -335,7 +335,7 @@ func (s *Service) removePeersBatch(idList string) error {
 	for i, peer := range peers {
 		fmt.Printf("[%d/%d] Removing peer '%s'... ", i+1, len(peers), peer.Name)
 
-		endpoint := "/peers/" + peer.ID
+		endpoint := "/peers/" + url.PathEscape(peer.ID)
 		resp, err := s.Client.MakeRequest("DELETE", endpoint, nil)
 		if err != nil {
 			fmt.Printf("Failed: %v\n", err)
@@ -481,7 +481,7 @@ func (s *Service) updatePeer(peerID string, updates models.PeerUpdateRequest) er
 		return fmt.Errorf("failed to marshal update request: %v", err)
 	}
 
-	endpoint := "/peers/" + peerID
+	endpoint := "/peers/" + url.PathEscape(peerID)
 	resp, err := s.Client.MakeRequest("PUT", endpoint, bytes.NewBuffer(payload))
 	if err != nil {
 		return err
@@ -493,7 +493,7 @@ func (s *Service) updatePeer(peerID string, updates models.PeerUpdateRequest) er
 }
 
 func (s *Service) getAccessiblePeers(peerID, outputFormat string) error {
-	endpoint := "/peers/" + peerID + "/accessible-peers"
+	endpoint := "/peers/" + url.PathEscape(peerID) + "/accessible-peers"
 	resp, err := s.Client.MakeRequest("GET", endpoint, nil)
 	if err != nil {
 		return err

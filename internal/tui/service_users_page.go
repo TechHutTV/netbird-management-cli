@@ -27,23 +27,24 @@ const (
 
 // ServiceUsersPage manages service users list and detail views
 type ServiceUsersPage struct {
-	users     []models.User
-	filtered  []models.User
-	cursor    int
-	loading   bool
-	err       error
-	state     svcUsersViewState
-	form      *huh.Form
-	formData  svcUserFormData
-	focused   bool
-	search    string
-	searching bool
+	users      []models.User
+	filtered   []models.User
+	cursor     int
+	loading    bool
+	err        error
+	state      svcUsersViewState
+	form       *huh.Form
+	formData   svcUserFormData
+	focused    bool
+	search     string
+	searching  bool
+	groupNames map[string]string
 }
 
 type svcUserFormData struct {
-	name       string
-	role       string
-	autoGroups string
+	name           string
+	role           string
+	selectedGroups []string
 }
 
 func NewServiceUsersPage() *ServiceUsersPage {
@@ -59,13 +60,49 @@ func (s *ServiceUsersPage) CursorPosition() int {
 }
 func (s *ServiceUsersPage) SetFocused(focused bool) { s.focused = focused }
 
+type svcUsersDataLoadedMsg struct {
+	users      []models.User
+	groupNames map[string]string
+	err        error
+}
+
+func fetchSvcUsersData(c *client.Client) tea.Cmd {
+	return func() tea.Msg {
+		groupResp, err := c.MakeRequest("GET", "/groups", nil)
+		if err != nil {
+			return svcUsersDataLoadedMsg{err: err}
+		}
+		defer groupResp.Body.Close()
+		var allGroups []models.PolicyGroup
+		if err := jsonDecode(groupResp.Body, &allGroups); err != nil {
+			return svcUsersDataLoadedMsg{err: err}
+		}
+		nameMap := make(map[string]string, len(allGroups))
+		for _, g := range allGroups {
+			nameMap[g.ID] = g.Name
+		}
+
+		usersResp, err := c.MakeRequest("GET", "/users?service_user=true", nil)
+		if err != nil {
+			return svcUsersDataLoadedMsg{err: err}
+		}
+		defer usersResp.Body.Close()
+		var users []models.User
+		if err := jsonDecode(usersResp.Body, &users); err != nil {
+			return svcUsersDataLoadedMsg{err: err}
+		}
+
+		return svcUsersDataLoadedMsg{users: users, groupNames: nameMap}
+	}
+}
+
 func (s *ServiceUsersPage) Init(c *client.Client) tea.Cmd {
 	if len(s.users) > 0 {
 		return nil
 	}
 	s.loading = true
 	s.err = nil
-	return FetchUsers(c)
+	return fetchSvcUsersData(c)
 }
 
 func (s *ServiceUsersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
@@ -107,30 +144,24 @@ func (s *ServiceUsersPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd)
 	}
 
 	switch msg := msg.(type) {
-	case UsersLoadedMsg:
+	case svcUsersDataLoadedMsg:
 		s.loading = false
-		if msg.Err != nil {
-			s.err = msg.Err
+		if msg.err != nil {
+			s.err = msg.err
 			return s, nil
 		}
-		// Filter to service users only
-		svcUsers := make([]models.User, 0)
-		for _, user := range msg.Users {
-			if user.IsServiceUser {
-				svcUsers = append(svcUsers, user)
-			}
-		}
-		s.users = svcUsers
+		s.users = msg.users
+		s.groupNames = msg.groupNames
 		s.applyFilter()
 		return s, nil
 
 	case formCompleteMsg:
 		s.loading = true
-		return s, FetchUsers(c)
+		return s, fetchSvcUsersData(c)
 
 	case ToastMsg:
 		s.loading = true
-		return s, FetchUsers(c)
+		return s, fetchSvcUsersData(c)
 
 	case APIErrorMsg:
 		s.err = msg.Err
@@ -155,7 +186,7 @@ func (s *ServiceUsersPage) View(width, height int) string {
 		return RenderConfirm("Confirm: Create Service User", []ConfirmField{
 			{Label: "Name", Value: s.formData.name},
 			{Label: "Role", Value: s.formData.role},
-			{Label: "Auto Groups", Value: s.formData.autoGroups},
+			{Label: "Auto Groups", Value: resolveGroupNames(s.formData.selectedGroups, s.groupNames)},
 		})
 	}
 	if s.state == svcUsersViewForm && s.form != nil {
@@ -221,7 +252,7 @@ func (s *ServiceUsersPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Pag
 		return s, FetchUsers(c)
 	case "c":
 		s.formData = svcUserFormData{role: "user"}
-		s.form = newServiceUserCreateForm(&s.formData)
+		s.form = newServiceUserCreateForm(&s.formData, s.groupNames)
 		s.state = svcUsersViewForm
 		return s, s.form.Init()
 	case "b":
@@ -346,10 +377,7 @@ func (s *ServiceUsersPage) viewDetail(width int) string {
 
 	b.WriteString(detailTitleStyle.Render("  "+user.Name) + "\n\n")
 
-	groupsStr := "None"
-	if len(user.AutoGroups) > 0 {
-		groupsStr = strings.Join(user.AutoGroups, ", ")
-	}
+	groupsStr := resolveGroupNames(user.AutoGroups, s.groupNames)
 
 	fields := []struct{ label, value string }{
 		{"ID", user.ID},
@@ -371,7 +399,15 @@ func (s *ServiceUsersPage) viewDetail(width int) string {
 	return b.String()
 }
 
-func newServiceUserCreateForm(data *svcUserFormData) *huh.Form {
+func newServiceUserCreateForm(data *svcUserFormData, availableGroups map[string]string) *huh.Form {
+	options := make([]huh.Option[string], 0, len(availableGroups))
+	for id, name := range availableGroups {
+		if name == "All" {
+			continue
+		}
+		options = append(options, huh.NewOption(name, id))
+	}
+
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -383,28 +419,26 @@ func newServiceUserCreateForm(data *svcUserFormData) *huh.Form {
 				Options(
 					huh.NewOption("User", "user"),
 					huh.NewOption("Admin", "admin"),
+					huh.NewOption("Network Admin", "network_admin"),
+					huh.NewOption("Billing Admin", "billing_admin"),
+					huh.NewOption("Auditor", "auditor"),
 				).
 				Value(&data.role),
-			huh.NewInput().
+			huh.NewMultiSelect[string]().
 				Title("Auto Groups").
-				Description("Comma-separated group IDs (optional)").
-				Placeholder("group-id").
-				Value(&data.autoGroups),
+				Description("Groups automatically assigned (optional)").
+				Options(options...).
+				Value(&data.selectedGroups),
 		),
 	)
 }
 
 func submitServiceUserCreate(c *client.Client, data svcUserFormData) tea.Cmd {
 	return func() tea.Msg {
-		var autoGroups []string
-		if data.autoGroups != "" {
-			autoGroups = splitTrim(data.autoGroups)
-		}
-
 		req := models.UserCreateRequest{
 			Name:          data.name,
 			Role:          data.role,
-			AutoGroups:    autoGroups,
+			AutoGroups:    data.selectedGroups,
 			IsServiceUser: true,
 		}
 		body, err := json.Marshal(req)

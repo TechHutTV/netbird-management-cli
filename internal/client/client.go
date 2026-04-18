@@ -73,14 +73,15 @@ func (c *Client) MakeRequest(method, endpoint string, body io.Reader) (*http.Res
 			fmt.Fprintf(os.Stderr, "  %s: %s\n", key, value)
 		}
 
-		// Log request body if present
+		// Log request body if present (redact secrets first)
 		if len(bodyBytes) > 0 {
 			fmt.Fprintf(os.Stderr, "\nRequest Body:\n")
+			redacted := redactSensitiveJSON(bodyBytes)
 			var prettyJSON bytes.Buffer
-			if err := json.Indent(&prettyJSON, bodyBytes, "", "  "); err == nil {
+			if err := json.Indent(&prettyJSON, redacted, "", "  "); err == nil {
 				fmt.Fprintf(os.Stderr, "%s\n", prettyJSON.String())
 			} else {
-				fmt.Fprintf(os.Stderr, "%s\n", string(bodyBytes))
+				fmt.Fprintf(os.Stderr, "%s\n", string(redacted))
 			}
 		}
 	}
@@ -113,11 +114,12 @@ func (c *Client) MakeRequest(method, endpoint string, body io.Reader) (*http.Res
 
 		if c.Debug && len(respBody) > 0 {
 			fmt.Fprintf(os.Stderr, "\nResponse Body:\n")
+			redacted := redactSensitiveJSON(respBody)
 			var prettyJSON bytes.Buffer
-			if err := json.Indent(&prettyJSON, respBody, "", "  "); err == nil {
+			if err := json.Indent(&prettyJSON, redacted, "", "  "); err == nil {
 				fmt.Fprintf(os.Stderr, "%s\n", prettyJSON.String())
 			} else {
-				fmt.Fprintf(os.Stderr, "%s\n", string(respBody))
+				fmt.Fprintf(os.Stderr, "%s\n", string(redacted))
 			}
 		}
 
@@ -138,17 +140,88 @@ func (c *Client) MakeRequest(method, endpoint string, body io.Reader) (*http.Res
 		respBody, err := io.ReadAll(resp.Body)
 		if err == nil && len(respBody) > 0 {
 			fmt.Fprintf(os.Stderr, "\nResponse Body:\n")
+			redacted := redactSensitiveJSON(respBody)
 			var prettyJSON bytes.Buffer
-			if err := json.Indent(&prettyJSON, respBody, "", "  "); err == nil {
+			if err := json.Indent(&prettyJSON, redacted, "", "  "); err == nil {
 				fmt.Fprintf(os.Stderr, "%s\n", prettyJSON.String())
 			} else {
-				fmt.Fprintf(os.Stderr, "%s\n", string(respBody))
+				fmt.Fprintf(os.Stderr, "%s\n", string(redacted))
 			}
-			// Recreate response body for caller
+			// Recreate response body for caller (with the ORIGINAL bytes, not redacted).
 			resp.Body = io.NopCloser(bytes.NewReader(respBody))
 		}
 		fmt.Fprintf(os.Stderr, "===========================\n\n")
 	}
 
 	return resp, nil
+}
+
+// sensitiveJSONKeys names JSON keys whose string values should be redacted
+// whenever they appear in a debug dump. Covers NetBird auth secrets plus
+// generic credential fields any future resource might add.
+var sensitiveJSONKeys = map[string]bool{
+	"password":      true,
+	"pin":           true,
+	"token":         true,
+	"api_key":       true,
+	"apikey":        true,
+	"secret":        true,
+	"access_token":  true,
+	"refresh_token": true,
+	"client_secret": true,
+}
+
+// redactSensitiveJSON walks a JSON document and replaces values of known
+// sensitive keys with "[REDACTED]". Also masks the `value` field of
+// `header_auths` entries (reverse-proxy header-auth shared secret) since it's
+// context-sensitive rather than name-sensitive.
+//
+// If the input isn't valid JSON, returns the original bytes unchanged —
+// the caller will fall through to raw printing.
+func redactSensitiveJSON(b []byte) []byte {
+	var v interface{}
+	if err := json.Unmarshal(b, &v); err != nil {
+		return b
+	}
+	v = redactWalk(v, "")
+	out, err := json.Marshal(v)
+	if err != nil {
+		return b
+	}
+	return out
+}
+
+// redactWalk recursively redacts sensitive values. parentKey is the key
+// name of the containing map entry (or "" at the root / inside a slice) so
+// context-sensitive rules (e.g. `value` inside `header_auths`) work.
+func redactWalk(v interface{}, parentKey string) interface{} {
+	switch n := v.(type) {
+	case map[string]interface{}:
+		out := make(map[string]interface{}, len(n))
+		for k, child := range n {
+			if sensitiveJSONKeys[k] {
+				if _, isString := child.(string); isString {
+					out[k] = "[REDACTED]"
+					continue
+				}
+			}
+			// Context rule: header_auths[].value is a shared secret.
+			if parentKey == "header_auths" && k == "value" {
+				if _, isString := child.(string); isString {
+					out[k] = "[REDACTED]"
+					continue
+				}
+			}
+			out[k] = redactWalk(child, k)
+		}
+		return out
+	case []interface{}:
+		out := make([]interface{}, len(n))
+		for i, child := range n {
+			out[i] = redactWalk(child, parentKey)
+		}
+		return out
+	default:
+		return n
+	}
 }

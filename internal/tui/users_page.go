@@ -255,7 +255,7 @@ func (u *UsersPage) View(width, height int) string {
 	if u.state == usersViewEditConfirm {
 		return RenderConfirm("Confirm: Edit User", []ConfirmField{
 			{Label: "Role", Value: u.editData.role},
-			{Label: "Auto Groups", Value: u.editData.autoGroups},
+			{Label: "Auto Groups", Value: resolveGroupNames(u.editData.selectedGroups, u.groupNames)},
 		})
 	}
 	if u.state == usersViewEdit && u.editForm != nil {
@@ -313,10 +313,10 @@ func (u *UsersPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea.
 			if len(u.filtered) > 0 {
 				user := u.filtered[u.cursor]
 				u.editData = userEditFormData{
-					role:       user.Role,
-					autoGroups: strings.Join(user.AutoGroups, ", "),
+					role:           user.Role,
+					selectedGroups: user.AutoGroups,
 				}
-				u.editForm = newUserEditForm(&u.editData)
+				u.editForm = newUserEditForm(&u.editData, u.groupNames)
 				u.editUserID = user.ID
 				u.state = usersViewEdit
 				return u, u.editForm.Init()
@@ -477,10 +477,7 @@ func (u *UsersPage) viewDetail(width int) string {
 
 	b.WriteString(detailTitleStyle.Render("  "+user.Name) + "\n\n")
 
-	groupsStr := "None"
-	if len(user.AutoGroups) > 0 {
-		groupsStr = strings.Join(user.AutoGroups, ", ")
-	}
+	groupsStr := resolveGroupNames(user.AutoGroups, u.groupNames)
 
 	fields := []struct{ label, value string }{
 		{"ID", user.ID},
@@ -504,3 +501,4 @@ func (u *UsersPage) viewDetail(width int) string {
 
 	return b.String()
 }
+

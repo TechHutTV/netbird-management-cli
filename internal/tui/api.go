@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 
 	tea "charm.land/bubbletea/v2"
@@ -649,5 +650,287 @@ func DeletePostureCheck(c *client.Client, checkID string) tea.Cmd {
 		}
 		defer resp.Body.Close()
 		return PostureCheckDeletedMsg{}
+	}
+}
+
+// ─── Reverse Proxy ──────────────────────────────────────────────────
+
+// FetchReverseProxyData loads services + lookup maps (groups/peers + clusters)
+// in a single Cmd so the page can render on first paint without extra round trips.
+func FetchReverseProxyData(c *client.Client) tea.Cmd {
+	return func() tea.Msg {
+		groupMap, err := fetchGroupNameMap(c)
+		if err != nil {
+			return ReverseProxiesLoadedMsg{Err: err}
+		}
+		peerMap, err := fetchPeerNameMap(c)
+		if err != nil {
+			return ReverseProxiesLoadedMsg{Err: err}
+		}
+
+		clusters, err := fetchReverseProxyClustersList(c)
+		if err != nil {
+			// Clusters endpoint may not always be populated — don't fail the whole load.
+			clusters = nil
+		}
+
+		resp, err := c.MakeRequest("GET", "/reverse-proxies/services", nil)
+		if err != nil {
+			return ReverseProxiesLoadedMsg{Err: err}
+		}
+		defer resp.Body.Close()
+		var services []models.ReverseProxyService
+		if err := json.NewDecoder(resp.Body).Decode(&services); err != nil {
+			return ReverseProxiesLoadedMsg{Err: fmt.Errorf("decode services: %w", err)}
+		}
+
+		return ReverseProxiesLoadedMsg{
+			Services: services,
+			Clusters: clusters,
+			Groups:   groupMap,
+			Peers:    peerMap,
+		}
+	}
+}
+
+func fetchGroupNameMap(c *client.Client) (map[string]string, error) {
+	resp, err := c.MakeRequest("GET", "/groups", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var all []models.PolicyGroup
+	if err := json.NewDecoder(resp.Body).Decode(&all); err != nil {
+		return nil, fmt.Errorf("decode groups: %w", err)
+	}
+	m := make(map[string]string, len(all))
+	for _, g := range all {
+		m[g.ID] = g.Name
+	}
+	return m, nil
+}
+
+func fetchPeerNameMap(c *client.Client) (map[string]string, error) {
+	resp, err := c.MakeRequest("GET", "/peers", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var all []models.Peer
+	if err := json.NewDecoder(resp.Body).Decode(&all); err != nil {
+		return nil, fmt.Errorf("decode peers: %w", err)
+	}
+	m := make(map[string]string, len(all))
+	for _, p := range all {
+		m[p.ID] = p.Name
+	}
+	return m, nil
+}
+
+func fetchReverseProxyClustersList(c *client.Client) ([]models.ReverseProxyCluster, error) {
+	resp, err := c.MakeRequest("GET", "/reverse-proxies/clusters", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var clusters []models.ReverseProxyCluster
+	if err := json.NewDecoder(resp.Body).Decode(&clusters); err != nil {
+		return nil, fmt.Errorf("decode clusters: %w", err)
+	}
+	return clusters, nil
+}
+
+// CreateReverseProxy creates a new service.
+func CreateReverseProxy(c *client.Client, req models.ReverseProxyCreateRequest) tea.Cmd {
+	return func() tea.Msg {
+		body, err := json.Marshal(req)
+		if err != nil {
+			return ReverseProxyUpdatedMsg{Err: fmt.Errorf("marshal request: %w", err)}
+		}
+		resp, err := c.MakeRequest("POST", "/reverse-proxies/services", bytes.NewReader(body))
+		if err != nil {
+			return ReverseProxyUpdatedMsg{Err: err}
+		}
+		defer resp.Body.Close()
+		return ReverseProxyUpdatedMsg{}
+	}
+}
+
+// UpdateReverseProxy PUTs a full service object.
+func UpdateReverseProxy(c *client.Client, serviceID string, req models.ReverseProxyUpdateRequest) tea.Cmd {
+	return func() tea.Msg {
+		body, err := json.Marshal(req)
+		if err != nil {
+			return ReverseProxyUpdatedMsg{Err: fmt.Errorf("marshal request: %w", err)}
+		}
+		resp, err := c.MakeRequest("PUT", "/reverse-proxies/services/"+url.PathEscape(serviceID), bytes.NewReader(body))
+		if err != nil {
+			return ReverseProxyUpdatedMsg{Err: err}
+		}
+		defer resp.Body.Close()
+		return ReverseProxyUpdatedMsg{}
+	}
+}
+
+// DeleteReverseProxy removes a service.
+func DeleteReverseProxy(c *client.Client, serviceID string) tea.Cmd {
+	return func() tea.Msg {
+		resp, err := c.MakeRequest("DELETE", "/reverse-proxies/services/"+url.PathEscape(serviceID), nil)
+		if err != nil {
+			return APIErrorMsg{Err: err, Context: "delete reverse proxy"}
+		}
+		defer resp.Body.Close()
+		return ToastMsg{Message: "Reverse proxy deleted"}
+	}
+}
+
+// ToggleReverseProxy flips enabled on a service, re-sending the full object per API rules.
+func ToggleReverseProxy(c *client.Client, svc models.ReverseProxyService, enable bool) tea.Cmd {
+	return func() tea.Msg {
+		req := ReverseProxyUpdateFromService(svc)
+		req.Enabled = enable
+		body, err := json.Marshal(req)
+		if err != nil {
+			return APIErrorMsg{Err: fmt.Errorf("marshal request: %w", err), Context: "toggle reverse proxy"}
+		}
+		resp, err := c.MakeRequest("PUT", "/reverse-proxies/services/"+url.PathEscape(svc.ID), bytes.NewReader(body))
+		if err != nil {
+			return APIErrorMsg{Err: err, Context: "toggle reverse proxy"}
+		}
+		defer resp.Body.Close()
+		action := "disabled"
+		if enable {
+			action = "enabled"
+		}
+		return ToastMsg{Message: "Reverse proxy " + action}
+	}
+}
+
+// ReverseProxyUpdateFromService builds the full PUT body from a fetched service.
+// Exported so form submit handlers can modify fields and re-send.
+func ReverseProxyUpdateFromService(svc models.ReverseProxyService) models.ReverseProxyUpdateRequest {
+	return models.ReverseProxyUpdateRequest{
+		Name:               svc.Name,
+		ListenPort:         svc.ListenPort,
+		ProxyCluster:       svc.ProxyCluster,
+		Targets:            svc.Targets,
+		Enabled:            svc.Enabled,
+		PassHostHeader:     svc.PassHostHeader,
+		RewriteRedirects:   svc.RewriteRedirects,
+		Auth:               svc.Auth,
+		AccessRestrictions: svc.AccessRestrictions,
+	}
+}
+
+// FetchReverseProxyDomains lists custom domains attached to a service.
+func FetchReverseProxyDomains(c *client.Client, serviceID string) tea.Cmd {
+	return func() tea.Msg {
+		resp, err := c.MakeRequest("GET", "/reverse-proxies/services/"+url.PathEscape(serviceID)+"/domains", nil)
+		if err != nil {
+			return ReverseProxyDomainsLoadedMsg{ServiceID: serviceID, Err: err}
+		}
+		defer resp.Body.Close()
+		var domains []models.ReverseProxyDomain
+		if err := json.NewDecoder(resp.Body).Decode(&domains); err != nil {
+			return ReverseProxyDomainsLoadedMsg{ServiceID: serviceID, Err: fmt.Errorf("decode domains: %w", err)}
+		}
+		return ReverseProxyDomainsLoadedMsg{ServiceID: serviceID, Domains: domains}
+	}
+}
+
+// CreateReverseProxyDomain attaches a custom domain to a service.
+func CreateReverseProxyDomain(c *client.Client, serviceID string, req models.ReverseProxyDomainCreateRequest) tea.Cmd {
+	return func() tea.Msg {
+		body, err := json.Marshal(req)
+		if err != nil {
+			return ReverseProxyDomainChangedMsg{Err: fmt.Errorf("marshal request: %w", err)}
+		}
+		resp, err := c.MakeRequest("POST", "/reverse-proxies/services/"+url.PathEscape(serviceID)+"/domains", bytes.NewReader(body))
+		if err != nil {
+			return ReverseProxyDomainChangedMsg{Err: err}
+		}
+		defer resp.Body.Close()
+		return ReverseProxyDomainChangedMsg{Message: "Domain added"}
+	}
+}
+
+// ValidateReverseProxyDomain triggers DNS validation for a pending custom domain.
+func ValidateReverseProxyDomain(c *client.Client, serviceID, domainID string) tea.Cmd {
+	return func() tea.Msg {
+		resp, err := c.MakeRequest("GET", "/reverse-proxies/services/"+url.PathEscape(serviceID)+"/domains/"+url.PathEscape(domainID)+"/validate", nil)
+		if err != nil {
+			return ReverseProxyDomainChangedMsg{Err: err}
+		}
+		defer resp.Body.Close()
+		return ReverseProxyDomainChangedMsg{Message: "Validation started"}
+	}
+}
+
+// DeleteReverseProxyDomain removes a custom domain from a service.
+func DeleteReverseProxyDomain(c *client.Client, serviceID, domainID string) tea.Cmd {
+	return func() tea.Msg {
+		resp, err := c.MakeRequest("DELETE", "/reverse-proxies/services/"+url.PathEscape(serviceID)+"/domains/"+url.PathEscape(domainID), nil)
+		if err != nil {
+			return ReverseProxyDomainChangedMsg{Err: err}
+		}
+		defer resp.Body.Close()
+		return ReverseProxyDomainChangedMsg{Message: "Domain removed"}
+	}
+}
+
+// FetchReverseProxyEvents loads the proxy access log for a service within a date range.
+func FetchReverseProxyEvents(c *client.Client, serviceID, startDate, endDate string, page, limit int) tea.Cmd {
+	return func() tea.Msg {
+		q := url.Values{}
+		if serviceID != "" {
+			q.Set("service_id", serviceID)
+		}
+		if startDate != "" {
+			q.Set("start_date", startDate)
+		}
+		if endDate != "" {
+			q.Set("end_date", endDate)
+		}
+		if page > 0 {
+			q.Set("page", fmt.Sprintf("%d", page))
+		}
+		if limit > 0 {
+			q.Set("limit", fmt.Sprintf("%d", limit))
+		}
+
+		endpoint := "/events/proxy"
+		if encoded := q.Encode(); encoded != "" {
+			endpoint += "?" + encoded
+		}
+
+		resp, err := c.MakeRequest("GET", endpoint, nil)
+		if err != nil {
+			return ReverseProxyEventsLoadedMsg{ServiceID: serviceID, Err: err}
+		}
+		defer resp.Body.Close()
+
+		// Response may be a bare array or an object wrapping events/pagination —
+		// decode into a tolerant shape first, then fall back to a bare slice.
+		var wrapper struct {
+			Data   []models.ReverseProxyEvent `json:"data"`
+			Events []models.ReverseProxyEvent `json:"events"`
+		}
+		raw, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return ReverseProxyEventsLoadedMsg{ServiceID: serviceID, Err: fmt.Errorf("read response: %w", err)}
+		}
+		if err := json.Unmarshal(raw, &wrapper); err == nil {
+			if len(wrapper.Data) > 0 {
+				return ReverseProxyEventsLoadedMsg{ServiceID: serviceID, Events: wrapper.Data}
+			}
+			if len(wrapper.Events) > 0 {
+				return ReverseProxyEventsLoadedMsg{ServiceID: serviceID, Events: wrapper.Events}
+			}
+		}
+		var bare []models.ReverseProxyEvent
+		if err := json.Unmarshal(raw, &bare); err != nil {
+			return ReverseProxyEventsLoadedMsg{ServiceID: serviceID, Err: fmt.Errorf("decode events: %w", err)}
+		}
+		return ReverseProxyEventsLoadedMsg{ServiceID: serviceID, Events: bare}
 	}
 }

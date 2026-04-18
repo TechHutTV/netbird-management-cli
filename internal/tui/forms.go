@@ -57,6 +57,7 @@ func submitGroupCreate(c *client.Client, data groupFormData) tea.Cmd {
 
 type peerEditFormData struct {
 	name                        string
+	ip                          string
 	sshEnabled                  bool
 	loginExpirationEnabled      bool
 	inactivityExpirationEnabled bool
@@ -66,6 +67,9 @@ func newPeerEditForm(data *peerEditFormData) *huh.Form {
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().Title("Name").Value(&data.name),
+			huh.NewInput().Title("IP Address").
+				Description("Leave unchanged to keep current IP").
+				Value(&data.ip),
 			huh.NewConfirm().Title("SSH Enabled").Value(&data.sshEnabled),
 			huh.NewConfirm().Title("Login Expiration Enabled").Value(&data.loginExpirationEnabled),
 			huh.NewConfirm().Title("Inactivity Expiration Enabled").Value(&data.inactivityExpirationEnabled),
@@ -80,28 +84,45 @@ func submitPeerEdit(c *client.Client, peerID string, data peerEditFormData) tea.
 		LoginExpirationEnabled:      data.loginExpirationEnabled,
 		InactivityExpirationEnabled: data.inactivityExpirationEnabled,
 	}
+	if data.ip != "" {
+		req.IP = data.ip
+	}
 	return UpdatePeer(c, peerID, req)
 }
 
 // ─── User Edit ─────────────────────────────────────────────────────
 
 type userEditFormData struct {
-	role       string
-	autoGroups string
+	role           string
+	selectedGroups []string
 }
 
-func newUserEditForm(data *userEditFormData) *huh.Form {
+func newUserEditForm(data *userEditFormData, availableGroups map[string]string) *huh.Form {
+	options := make([]huh.Option[string], 0, len(availableGroups))
+	for id, name := range availableGroups {
+		if name == "All" {
+			continue
+		}
+		options = append(options, huh.NewOption(name, id))
+	}
+
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Role").
 				Options(
-					huh.NewOption("Admin", "admin"),
 					huh.NewOption("User", "user"),
+					huh.NewOption("Admin", "admin"),
+					huh.NewOption("Network Admin", "network_admin"),
+					huh.NewOption("Billing Admin", "billing_admin"),
+					huh.NewOption("Auditor", "auditor"),
 					huh.NewOption("Owner", "owner"),
 				).
 				Value(&data.role),
-			huh.NewInput().Title("Auto Groups (comma-separated IDs)").Value(&data.autoGroups),
+			huh.NewMultiSelect[string]().
+				Title("Auto Groups").
+				Options(options...).
+				Value(&data.selectedGroups),
 		),
 	)
 }
@@ -109,7 +130,7 @@ func newUserEditForm(data *userEditFormData) *huh.Form {
 func submitUserEdit(c *client.Client, userID string, data userEditFormData) tea.Cmd {
 	req := models.UserUpdateRequest{
 		Role:       data.role,
-		AutoGroups: splitTrim(data.autoGroups),
+		AutoGroups: data.selectedGroups,
 	}
 	return UpdateUser(c, userID, req)
 }
@@ -123,17 +144,27 @@ func submitGroupEdit(c *client.Client, groupID string, data groupFormData) tea.C
 // ─── Setup Key Create ───────────────────────────────────────────────
 
 type setupKeyFormData struct {
-	name       string
-	keyType    string
-	expiresIn  string
-	usageLimit string
-	ephemeral  bool
+	name                string
+	keyType             string
+	expiresIn           string
+	usageLimit          string
+	ephemeral           bool
+	allowExtraDNSLabels bool
+	selectedGroups      []string
 }
 
-func newSetupKeyCreateForm(data *setupKeyFormData) *huh.Form {
+func newSetupKeyCreateForm(data *setupKeyFormData, availableGroups map[string]string) *huh.Form {
 	data.keyType = "one-off"
 	data.expiresIn = "7d"
 	data.usageLimit = "0"
+
+	options := make([]huh.Option[string], 0, len(availableGroups))
+	for id, name := range availableGroups {
+		if name == "All" {
+			continue // system group, not assignable to setup keys
+		}
+		options = append(options, huh.NewOption(name, id))
+	}
 
 	return huh.NewForm(
 		huh.NewGroup(
@@ -155,13 +186,21 @@ func newSetupKeyCreateForm(data *setupKeyFormData) *huh.Form {
 				Value(&data.expiresIn),
 			huh.NewInput().
 				Title("Usage Limit").
-				Description("0 = unlimited").
+				Description("0 = unlimited (only applies to reusable keys)").
 				Placeholder("0").
 				Value(&data.usageLimit),
+			huh.NewMultiSelect[string]().
+				Title("Auto Groups").
+				Description("Groups automatically assigned to peers using this key").
+				Options(options...).
+				Value(&data.selectedGroups),
 			huh.NewConfirm().
 				Title("Ephemeral").
 				Description("Auto-remove peers when offline").
 				Value(&data.ephemeral),
+			huh.NewConfirm().
+				Title("Allow Extra DNS Labels").
+				Value(&data.allowExtraDNSLabels),
 		),
 	)
 }
@@ -172,11 +211,13 @@ func submitSetupKeyCreate(c *client.Client, data setupKeyFormData) tea.Cmd {
 		limit, _ := strconv.Atoi(data.usageLimit)
 
 		req := models.SetupKeyCreateRequest{
-			Name:       data.name,
-			Type:       data.keyType,
-			ExpiresIn:  expiresIn,
-			UsageLimit: limit,
-			Ephemeral:  data.ephemeral,
+			Name:                data.name,
+			Type:                data.keyType,
+			ExpiresIn:           expiresIn,
+			UsageLimit:          limit,
+			Ephemeral:           data.ephemeral,
+			AutoGroups:          data.selectedGroups,
+			AllowExtraDNSLabels: data.allowExtraDNSLabels,
 		}
 		body, err := json.Marshal(req)
 		if err != nil {
@@ -194,20 +235,24 @@ func submitSetupKeyCreate(c *client.Client, data setupKeyFormData) tea.Cmd {
 // ─── Route Create ───────────────────────────────────────────────────
 
 type routeFormData struct {
-	networkID   string
-	network     string
-	description string
-	metric      string
-	masquerade  bool
+	networkID        string
+	routeType        string // "ip-range" or "domains"
+	network          string
+	domains          string // comma-separated domains (max 32)
+	keepRoute        bool
+	description      string
+	metric           string
+	masquerade       bool
 	enabled          bool
 	selectedPeerGrps []string
 	selectedDistGrps []string
 }
 
 func newRouteCreateForm(data *routeFormData, availableGroups map[string]string) *huh.Form {
-	data.metric = "100"
+	data.metric = "9999"
 	data.masquerade = true
 	data.enabled = true
+	data.routeType = "ip-range"
 
 	options := make([]huh.Option[string], 0, len(availableGroups))
 	for id, name := range availableGroups {
@@ -218,13 +263,30 @@ func newRouteCreateForm(data *routeFormData, availableGroups map[string]string) 
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Network ID").
-				Description("Route identifier").
+				Description("Route identifier (max 40 chars)").
 				Placeholder("e.g. office-lan").
 				Value(&data.networkID),
+			huh.NewSelect[string]().
+				Title("Route Type").
+				Options(
+					huh.NewOption("IP Range (CIDR)", "ip-range"),
+					huh.NewOption("Domains", "domains"),
+				).
+				Value(&data.routeType),
 			huh.NewInput().
 				Title("Network CIDR").
+				Description("For IP range routes").
 				Placeholder("e.g. 10.0.0.0/24").
 				Value(&data.network),
+			huh.NewInput().
+				Title("Domains").
+				Description("Comma-separated, max 32 (for domain routes)").
+				Placeholder("e.g. example.com, internal.corp").
+				Value(&data.domains),
+			huh.NewConfirm().
+				Title("Keep Route").
+				Description("Keep route active when DNS resolves (domain routes only)").
+				Value(&data.keepRoute),
 			huh.NewInput().
 				Title("Description").
 				Placeholder("optional").
@@ -242,7 +304,7 @@ func newRouteCreateForm(data *routeFormData, availableGroups map[string]string) 
 			huh.NewInput().
 				Title("Metric").
 				Description("1-9999, lower = higher priority").
-				Placeholder("100").
+				Placeholder("9999").
 				Value(&data.metric),
 			huh.NewConfirm().
 				Title("Masquerade (NAT)").
@@ -259,13 +321,18 @@ func submitRouteCreate(c *client.Client, data routeFormData) tea.Cmd {
 		metric, _ := strconv.Atoi(data.metric)
 		req := models.RouteRequest{
 			NetworkID:   data.networkID,
-			Network:     data.network,
 			Description: data.description,
 			PeerGroups:  data.selectedPeerGrps,
 			Groups:      data.selectedDistGrps,
 			Metric:      metric,
 			Masquerade:  data.masquerade,
 			Enabled:     data.enabled,
+			KeepRoute:   data.keepRoute,
+		}
+		if data.routeType == "domains" && data.domains != "" {
+			req.Domains = splitTrim(data.domains)
+		} else {
+			req.Network = data.network
 		}
 		body, err := json.Marshal(req)
 		if err != nil {
@@ -554,18 +621,21 @@ func submitNetworkRouter(c *client.Client, networkID string, data networkRouterF
 // ─── Policy Create ──────────────────────────────────────────────────
 
 type policyFormData struct {
-	name           string
-	description    string
-	protocol       string
-	action         string
-	ports          string
-	selectedSrc    []string // group IDs via multi-select
-	selectedDst    []string // group IDs via multi-select
+	name            string
+	description     string
+	protocol        string
+	ports           string
+	selectedSrc     []string // group IDs via multi-select
+	selectedDst     []string // group IDs via multi-select
+	bidirectional   bool
+	enabled         bool
+	hasDestResource bool // true when editing a rule with a destination network resource
 }
 
 func newPolicyCreateForm(data *policyFormData, availableGroups map[string]string) *huh.Form {
 	data.protocol = "all"
-	data.action = "accept"
+	data.bidirectional = true
+	data.enabled = true
 
 	options := make([]huh.Option[string], 0, len(availableGroups))
 	for id, name := range availableGroups {
@@ -582,6 +652,7 @@ func newPolicyCreateForm(data *policyFormData, availableGroups map[string]string
 				Title("Description").
 				Placeholder("optional").
 				Value(&data.description),
+			huh.NewConfirm().Title("Enabled").Value(&data.enabled),
 			huh.NewSelect[string]().
 				Title("Protocol").
 				Options(
@@ -589,19 +660,13 @@ func newPolicyCreateForm(data *policyFormData, availableGroups map[string]string
 					huh.NewOption("TCP", "tcp"),
 					huh.NewOption("UDP", "udp"),
 					huh.NewOption("ICMP", "icmp"),
+					huh.NewOption("NetBird SSH", "netbird-ssh"),
 				).
 				Value(&data.protocol),
-			huh.NewSelect[string]().
-				Title("Action").
-				Options(
-					huh.NewOption("Accept", "accept"),
-					huh.NewOption("Drop", "drop"),
-				).
-				Value(&data.action),
 			huh.NewInput().
 				Title("Ports").
-				Description("Comma-separated, e.g. 80,443 (leave empty for all)").
-				Placeholder("80, 443").
+				Description("Comma-separated ports or ranges, e.g. 80, 443, 8000-9000 (leave empty for all; ignored for ICMP/SSH)").
+				Placeholder("80, 443, 8000-9000").
 				Value(&data.ports),
 			huh.NewMultiSelect[string]().
 				Title("Source Groups").
@@ -611,32 +676,30 @@ func newPolicyCreateForm(data *policyFormData, availableGroups map[string]string
 				Title("Destination Groups").
 				Options(options...).
 				Value(&data.selectedDst),
+			newBidirectionalConfirm(data),
 		),
 	)
 }
 
 func submitPolicyCreate(c *client.Client, data policyFormData) tea.Cmd {
 	return func() tea.Msg {
-		var ports []string
-		if data.ports != "" {
-			ports = splitTrim(data.ports)
-		}
+		ports := buildPolicyPorts(data.protocol, data.ports)
 
 		rule := models.PolicyRuleForWrite{
 			Name:          data.name,
 			Enabled:       true,
-			Action:        data.action,
+			Action:        "accept",
 			Protocol:      data.protocol,
 			Ports:         ports,
 			Sources:       data.selectedSrc,
 			Destinations:  data.selectedDst,
-			Bidirectional: true,
+			Bidirectional: data.bidirectional,
 		}
 
 		req := models.PolicyCreateRequest{
 			Name:        data.name,
 			Description: data.description,
-			Enabled:     true,
+			Enabled:     data.enabled,
 			Rules:       []models.PolicyRuleForWrite{rule},
 		}
 		body, err := json.Marshal(req)
@@ -649,6 +712,21 @@ func submitPolicyCreate(c *client.Client, data policyFormData) tea.Cmd {
 		}
 		defer resp.Body.Close()
 		return formCompleteMsg{message: fmt.Sprintf("Policy '%s' created", data.name)}
+	}
+}
+
+// buildPolicyPorts returns ports based on protocol: SSH always "22", ICMP/all empty, tcp/udp from user input
+func buildPolicyPorts(protocol, portsInput string) []string {
+	switch protocol {
+	case "netbird-ssh":
+		return []string{"22"}
+	case "icmp", "all":
+		return nil
+	default:
+		if portsInput != "" {
+			return splitTrim(portsInput)
+		}
+		return nil
 	}
 }
 
@@ -708,6 +786,9 @@ func newUserInviteForm(data *userInviteFormData, availableGroups map[string]stri
 				Options(
 					huh.NewOption("User", "user"),
 					huh.NewOption("Admin", "admin"),
+					huh.NewOption("Network Admin", "network_admin"),
+					huh.NewOption("Billing Admin", "billing_admin"),
+					huh.NewOption("Auditor", "auditor"),
 				).
 				Value(&data.role),
 			huh.NewMultiSelect[string]().
@@ -761,6 +842,7 @@ func newPolicyEditForm(data *policyFormData, availableGroups map[string]string) 
 			huh.NewInput().
 				Title("Description").
 				Value(&data.description),
+			huh.NewConfirm().Title("Enabled").Value(&data.enabled),
 			huh.NewSelect[string]().
 				Title("Protocol").
 				Options(
@@ -768,18 +850,12 @@ func newPolicyEditForm(data *policyFormData, availableGroups map[string]string) 
 					huh.NewOption("TCP", "tcp"),
 					huh.NewOption("UDP", "udp"),
 					huh.NewOption("ICMP", "icmp"),
+					huh.NewOption("NetBird SSH", "netbird-ssh"),
 				).
 				Value(&data.protocol),
-			huh.NewSelect[string]().
-				Title("Action").
-				Options(
-					huh.NewOption("Accept", "accept"),
-					huh.NewOption("Drop", "drop"),
-				).
-				Value(&data.action),
 			huh.NewInput().
 				Title("Ports").
-				Description("Comma-separated, e.g. 80,443 (leave empty for all)").
+				Description("Comma-separated ports or ranges, e.g. 80, 443, 8000-9000 (leave empty for all; ignored for ICMP/SSH)").
 				Value(&data.ports),
 			huh.NewMultiSelect[string]().
 				Title("Source Groups").
@@ -789,21 +865,34 @@ func newPolicyEditForm(data *policyFormData, availableGroups map[string]string) 
 				Title("Destination Groups").
 				Options(options...).
 				Value(&data.selectedDst),
+			newBidirectionalConfirm(data),
 		),
 	)
 }
 
-func submitPolicyEdit(c *client.Client, policyID string, data policyFormData) tea.Cmd {
-	var ports []string
-	if data.ports != "" {
-		ports = splitTrim(data.ports)
+func newBidirectionalConfirm(data *policyFormData) *huh.Confirm {
+	c := huh.NewConfirm().
+		Title("Traffic Direction: ← (return traffic)").
+		Value(&data.bidirectional).
+		Affirmative("← On").
+		Negative("← Off")
+	if data.hasDestResource {
+		data.bidirectional = false
+		c.Description("→ always active\n← unavailable — destination is a network resource")
+	} else {
+		c.Description("→ always active\n← enable to allow return traffic (bidirectional)")
 	}
+	return c
+}
+
+func submitPolicyEdit(c *client.Client, policyID string, data policyFormData) tea.Cmd {
+	ports := buildPolicyPorts(data.protocol, data.ports)
 
 	rules := []models.PolicyRuleForWrite{{
 		Name:          data.name + "-rule",
 		Enabled:       true,
-		Action:        data.action,
-		Bidirectional: true,
+		Action:        "accept",
+		Bidirectional: data.bidirectional,
 		Protocol:      data.protocol,
 		Ports:         ports,
 		Sources:       data.selectedSrc,
@@ -812,7 +901,7 @@ func submitPolicyEdit(c *client.Client, policyID string, data policyFormData) te
 	req := models.PolicyUpdateRequest{
 		Name:        data.name,
 		Description: data.description,
-		Enabled:     true,
+		Enabled:     data.enabled,
 		Rules:       rules,
 	}
 	return UpdatePolicy(c, policyID, req)
@@ -830,11 +919,20 @@ func newRouteEditForm(data *routeFormData, availableGroups map[string]string) *h
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Network ID").
-				Description("Route identifier").
+				Description("Route identifier (max 40 chars)").
 				Value(&data.networkID),
 			huh.NewInput().
 				Title("Network CIDR").
+				Description("For IP range routes (leave empty for domain routes)").
 				Value(&data.network),
+			huh.NewInput().
+				Title("Domains").
+				Description("Comma-separated, max 32 (for domain routes, leave empty for IP range)").
+				Value(&data.domains),
+			huh.NewConfirm().
+				Title("Keep Route").
+				Description("Keep route active when DNS resolves (domain routes only)").
+				Value(&data.keepRoute),
 			huh.NewInput().
 				Title("Description").
 				Value(&data.description),
@@ -870,8 +968,6 @@ func submitRouteEdit(c *client.Client, route models.Route, data routeFormData) t
 	req := models.RouteRequest{
 		Description:         data.description,
 		NetworkID:           data.networkID,
-		Network:             data.network,
-		Domains:             route.Domains,
 		Peer:                route.Peer,
 		PeerGroups:          data.selectedPeerGrps,
 		Metric:              metric,
@@ -879,7 +975,12 @@ func submitRouteEdit(c *client.Client, route models.Route, data routeFormData) t
 		Enabled:             data.enabled,
 		Groups:              data.selectedDistGrps,
 		AccessControlGroups: route.AccessControlGroups,
-		KeepRoute:           route.KeepRoute,
+		KeepRoute:           data.keepRoute,
+	}
+	if data.domains != "" {
+		req.Domains = splitTrim(data.domains)
+	} else {
+		req.Network = data.network
 	}
 	return UpdateRoute(c, route.ID, req)
 }

@@ -306,12 +306,12 @@ func (n *NetworksPage) View(width, height int) string {
 			{Label: "Name", Value: n.resFormData.name},
 			{Label: "Address", Value: n.resFormData.address},
 			{Label: "Description", Value: n.resFormData.description},
-			{Label: "Groups", Value: n.resolveGroupNames(n.resFormData.selectedGroups)},
+			{Label: "Groups", Value: resolveGroupNames(n.resFormData.selectedGroups, n.groupNames)},
 		})
 	}
 	if n.state == networksViewConfirmRouter {
 		return RenderConfirm("Confirm: Add Routing Peer", []ConfirmField{
-			{Label: "Peer Groups", Value: n.resolveGroupNames(n.routerFormData.selectedPeerGroups)},
+			{Label: "Peer Groups", Value: resolveGroupNames(n.routerFormData.selectedPeerGroups, n.groupNames)},
 			{Label: "Metric", Value: n.routerFormData.metric},
 			{Label: "Masquerade", Value: fmt.Sprintf("%v", n.routerFormData.masquerade)},
 		})
@@ -593,18 +593,6 @@ func (n *NetworksPage) viewDetail(width int) string {
 	return b.String()
 }
 
-// resolveGroupNames converts a slice of group IDs to a comma-separated string of names
-func (n *NetworksPage) resolveGroupNames(ids []string) string {
-	names := make([]string, 0, len(ids))
-	for _, id := range ids {
-		if name, ok := n.groupNames[id]; ok {
-			names = append(names, name)
-		} else {
-			names = append(names, id)
-		}
-	}
-	return strings.Join(names, ", ")
-}
 
 type networkDetailLoadedMsg struct {
 	resources []models.NetworkResource

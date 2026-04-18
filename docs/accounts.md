@@ -1,6 +1,6 @@
 # Accounts
 
-[Home](../README.md) | [Getting Started](getting-started.md) | [Events](events.md) | [Geo-Locations](geo-locations.md) | **Accounts** | [Ingress Ports](ingress-ports.md) | [More...](#documentation)
+[Home](../README.md) | [Getting Started](getting-started.md) | [Events](events.md) | [Geo-Locations](geo-locations.md) | **Accounts** | [More...](#documentation)
 
 ---
 
@@ -89,10 +89,9 @@ netbird-manage account --update d10vfhbl0ubs73e6p8ig \
 | [Posture Checks](posture-checks.md) | Device compliance validation |
 | [Events](events.md) | Audit logs and traffic monitoring |
 | [Geo-Locations](geo-locations.md) | Geographic location data |
-| [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |
 | [Export & Import](export-import.md) | YAML/JSON configuration management |
 | [Migrate](migrate.md) | Migration between NetBird accounts |
 
 ---
 
-[Home](../README.md) | [Geo-Locations](geo-locations.md) | **Accounts** | [Ingress Ports](ingress-ports.md) | [Export & Import](export-import.md) | [Migrate](migrate.md)
+[Home](../README.md) | [Geo-Locations](geo-locations.md) | **Accounts** | [Export & Import](export-import.md) | [Migrate](migrate.md)

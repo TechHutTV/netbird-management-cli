@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"text/tabwriter"
 
@@ -179,7 +180,7 @@ func (s *Service) getGroupByName(name string) (*models.GroupDetail, error) {
 }
 
 func (s *Service) getGroupByID(id string) (*models.GroupDetail, error) {
-	endpoint := "/groups/" + id
+	endpoint := "/groups/" + url.PathEscape(id)
 	resp, err := s.Client.MakeRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, err
@@ -199,7 +200,7 @@ func (s *Service) updateGroup(id string, reqBody models.GroupPutRequest) error {
 		return fmt.Errorf("failed to marshal group update request: %v", err)
 	}
 
-	endpoint := "/groups/" + id
+	endpoint := "/groups/" + url.PathEscape(id)
 	resp, err := s.Client.MakeRequest("PUT", endpoint, bytes.NewBuffer(payload))
 	if err != nil {
 		return err
@@ -318,7 +319,7 @@ func (s *Service) deleteGroup(groupIdentifier string) error {
 
 	fmt.Printf("Deleting group '%s' (ID: %s)...\n", group.Name, group.ID)
 
-	endpoint := "/groups/" + groupID
+	endpoint := "/groups/" + url.PathEscape(groupID)
 	resp, err := s.Client.MakeRequest("DELETE", endpoint, nil)
 	if err != nil {
 		return err
@@ -368,7 +369,7 @@ func (s *Service) deleteGroupsBatch(idList string) error {
 	for i, group := range groups {
 		fmt.Printf("[%d/%d] Deleting group '%s'... ", i+1, len(groups), group.Name)
 
-		endpoint := "/groups/" + group.ID
+		endpoint := "/groups/" + url.PathEscape(group.ID)
 		resp, err := s.Client.MakeRequest("DELETE", endpoint, nil)
 		if err != nil {
 			fmt.Printf("Failed: %v\n", err)
@@ -655,7 +656,7 @@ func (s *Service) deleteUnusedGroups() error {
 	failCount := 0
 
 	for _, group := range unusedGroups {
-		endpoint := "/groups/" + group.ID
+		endpoint := "/groups/" + url.PathEscape(group.ID)
 		resp, err := s.Client.MakeRequest("DELETE", endpoint, nil)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to delete '%s' (%s): %v\n", group.Name, group.ID, err)

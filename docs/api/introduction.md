@@ -76,7 +76,6 @@ The NetBird API provides endpoints for managing:
 | **Events** | Audit logs and network traffic monitoring |
 | **Posture Checks** | Device compliance and security validation |
 | **Geo-Locations** | Location-based access control data |
-| **Ingress Ports** | Port forwarding and ingress peer management (Cloud only) |
 
 ## Quick Example
 

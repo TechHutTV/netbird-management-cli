@@ -16,12 +16,25 @@ type Peer struct {
 	LastSeen                    string        `json:"last_seen"`
 	OS                          string        `json:"os"`
 	Version                     string        `json:"version"`
-	Groups                      []PolicyGroup `json:"groups"` // This uses the simplified group object
+	Groups                      []PolicyGroup `json:"groups"`
 	Hostname                    string        `json:"hostname"`
+	UserID                      string        `json:"user_id,omitempty"`
 	SSHEnabled                  bool          `json:"ssh_enabled"`
 	LoginExpirationEnabled      bool          `json:"login_expiration_enabled"`
 	InactivityExpirationEnabled bool          `json:"inactivity_expiration_enabled"`
-	ApprovalRequired            *bool         `json:"approval_required,omitempty"` // Optional, cloud-only
+	ApprovalRequired            *bool         `json:"approval_required,omitempty"`
+	DNSLabel                    string        `json:"dns_label"`
+	ExtraDNSLabels              []string      `json:"extra_dns_labels,omitempty"`
+	ConnectionIP                string        `json:"connection_ip,omitempty"`
+	CountryCode                 string        `json:"country_code,omitempty"`
+	CityName                    string        `json:"city_name,omitempty"`
+	SerialNumber                string        `json:"serial_number,omitempty"`
+	UIVersion                   string        `json:"ui_version,omitempty"`
+	KernelVersion               string        `json:"kernel_version,omitempty"`
+	CreatedAt                   string        `json:"created_at,omitempty"`
+	LoginExpired                bool          `json:"login_expired"`
+	Ephemeral                   bool          `json:"ephemeral"`
+	LastLogin                   string        `json:"last_login,omitempty"`
 }
 
 // PeerUpdateRequest represents the request body for updating a peer
@@ -378,6 +391,43 @@ type DNSNameserverGroupRequest struct {
 	Enabled              bool         `json:"enabled"`
 }
 
+// DNSZone represents a custom DNS zone
+type DNSZone struct {
+	ID                 string      `json:"id"`
+	Name               string      `json:"name"`
+	Domain             string      `json:"domain"`
+	Enabled            bool        `json:"enabled"`
+	EnableSearchDomain bool        `json:"enable_search_domain"`
+	DistributionGroups []string    `json:"distribution_groups"`
+	Records            []DNSRecord `json:"records,omitempty"`
+}
+
+// DNSRecord represents a DNS record within a zone
+type DNSRecord struct {
+	ID      string `json:"id,omitempty"`
+	Name    string `json:"name"`
+	Type    string `json:"type"`    // "A", "AAAA", "CNAME"
+	Content string `json:"content"` // IP address or domain
+	TTL     int    `json:"ttl"`
+}
+
+// DNSZoneRequest represents the request body for creating/updating a DNS zone
+type DNSZoneRequest struct {
+	Name               string   `json:"name"`
+	Domain             string   `json:"domain"`
+	Enabled            bool     `json:"enabled"`
+	EnableSearchDomain bool     `json:"enable_search_domain"`
+	DistributionGroups []string `json:"distribution_groups"`
+}
+
+// DNSRecordRequest represents the request body for creating/updating a DNS record
+type DNSRecordRequest struct {
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	Content string `json:"content"`
+	TTL     int    `json:"ttl"`
+}
+
 // DNSSettings represents DNS settings for the account
 type DNSSettings struct {
 	DisabledManagementGroups []string `json:"disabled_management_groups"`
@@ -587,55 +637,196 @@ type AccountUpdateRequest struct {
 	Onboarding *AccountOnboarding `json:"onboarding,omitempty"`
 }
 
-// IngressPortAllocation represents a port forwarding rule
-type IngressPortAllocation struct {
-	ID           string `json:"id"`
-	AllocationID string `json:"allocation_id,omitempty"`
-	PeerID       string `json:"peer_id"`
-	TargetPort   int    `json:"target_port"`
-	PublicPort   int    `json:"public_port,omitempty"` // Assigned by NetBird Cloud
-	Protocol     string `json:"protocol"`              // "tcp" or "udp"
-	Description  string `json:"description,omitempty"`
-	CreatedAt    string `json:"created_at,omitempty"`
-	UpdatedAt    string `json:"updated_at,omitempty"`
-	IngressPeer  string `json:"ingress_peer,omitempty"` // Ingress peer ID
+// ─── Reverse Proxy ──────────────────────────────────────────────────
+//
+// Endpoints under /api/reverse-proxies/...  (see docs.netbird.io/api/resources/services).
+// A ReverseProxyService exposes a NetBird-private backend ("target") under a public domain,
+// optionally with auth, access restrictions, and custom domains.
+
+// ReverseProxyService is a single service entry returned by GET /reverse-proxies/services.
+type ReverseProxyService struct {
+	ID                 string                          `json:"id,omitempty"`
+	Name               string                          `json:"name"`
+	Domain             string                          `json:"domain"`
+	Mode               string                          `json:"mode,omitempty"`
+	ListenPort         int                             `json:"listen_port,omitempty"`
+	PortAutoAssigned   bool                            `json:"port_auto_assigned,omitempty"`
+	ProxyCluster       string                          `json:"proxy_cluster,omitempty"`
+	Targets            []ReverseProxyTarget            `json:"targets"`
+	Enabled            bool                            `json:"enabled"`
+	PassHostHeader     bool                            `json:"pass_host_header,omitempty"`
+	RewriteRedirects   bool                            `json:"rewrite_redirects,omitempty"`
+	Auth               *ReverseProxyAuth               `json:"auth,omitempty"`
+	AccessRestrictions *ReverseProxyAccessRestrictions `json:"access_restrictions,omitempty"`
+	Meta               *ReverseProxyMeta               `json:"meta,omitempty"`
 }
 
-// IngressPeer represents a global ingress endpoint
-type IngressPeer struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Location  string `json:"location,omitempty"`
-	Hostname  string `json:"hostname,omitempty"` // Public hostname
-	Enabled   bool   `json:"enabled"`
+// ReverseProxyTarget is a single backend target inside a service.
+type ReverseProxyTarget struct {
+	TargetID    string                  `json:"target_id,omitempty"`
+	TargetType  string                  `json:"target_type"`
+	Path        string                  `json:"path,omitempty"`
+	Protocol    string                  `json:"protocol"`
+	Host        string                  `json:"host,omitempty"`
+	Port        int                     `json:"port"`
+	Enabled     bool                    `json:"enabled"`
+	AccessLocal bool                    `json:"access_local,omitempty"`
+	Options     *ReverseProxyTargetOpts `json:"options,omitempty"`
+}
+
+// ReverseProxyTargetOpts carries per-target tuning knobs.
+type ReverseProxyTargetOpts struct {
+	SkipTLSVerify      bool              `json:"skip_tls_verify,omitempty"`
+	RequestTimeout     string            `json:"request_timeout,omitempty"`
+	SessionIdleTimeout string            `json:"session_idle_timeout,omitempty"`
+	PathRewrite        string            `json:"path_rewrite,omitempty"`
+	CustomHeaders      map[string]string `json:"custom_headers,omitempty"`
+	ProxyProtocol      bool              `json:"proxy_protocol,omitempty"`
+}
+
+// ReverseProxyAuth is the full HTTP-only authentication config for a service.
+type ReverseProxyAuth struct {
+	PasswordAuth *ReverseProxyPasswordAuth `json:"password_auth,omitempty"`
+	PinAuth      *ReverseProxyPinAuth      `json:"pin_auth,omitempty"`
+	BearerAuth   *ReverseProxyBearerAuth   `json:"bearer_auth,omitempty"`
+	LinkAuth     *ReverseProxyLinkAuth     `json:"link_auth,omitempty"`
+	HeaderAuths  []ReverseProxyHeaderAuth  `json:"header_auths,omitempty"`
+}
+
+// ReverseProxyPasswordAuth guards the service with a shared password.
+type ReverseProxyPasswordAuth struct {
+	Enabled  bool   `json:"enabled"`
+	Password string `json:"password,omitempty"`
+}
+
+// ReverseProxyPinAuth guards the service with a numeric PIN.
+type ReverseProxyPinAuth struct {
+	Enabled bool   `json:"enabled"`
+	Pin     string `json:"pin,omitempty"`
+}
+
+// ReverseProxyBearerAuth gates access by user group membership (SSO).
+type ReverseProxyBearerAuth struct {
+	Enabled            bool     `json:"enabled"`
+	DistributionGroups []string `json:"distribution_groups,omitempty"`
+}
+
+// ReverseProxyLinkAuth gates access via magic link.
+type ReverseProxyLinkAuth struct {
+	Enabled bool `json:"enabled"`
+}
+
+// ReverseProxyHeaderAuth gates access by checking an incoming request header.
+type ReverseProxyHeaderAuth struct {
+	Enabled bool   `json:"enabled"`
+	Header  string `json:"header"`
+	Value   string `json:"value"`
+}
+
+// ReverseProxyAccessRestrictions is a set of allow/block rules for IPs, CIDRs, and countries.
+type ReverseProxyAccessRestrictions struct {
+	AllowedCIDRs     []string `json:"allowed_cidrs,omitempty"`
+	BlockedCIDRs     []string `json:"blocked_cidrs,omitempty"`
+	AllowedCountries []string `json:"allowed_countries,omitempty"`
+	BlockedCountries []string `json:"blocked_countries,omitempty"`
+}
+
+// ReverseProxyMeta is metadata the server attaches to a service (status, timestamps).
+type ReverseProxyMeta struct {
+	Status    string `json:"status,omitempty"`
 	CreatedAt string `json:"created_at,omitempty"`
 	UpdatedAt string `json:"updated_at,omitempty"`
 }
 
-// IngressPortCreateRequest for POST /peers/{id}/ingress/ports
-type IngressPortCreateRequest struct {
-	TargetPort  int    `json:"target_port"`
-	Protocol    string `json:"protocol,omitempty"`
-	Description string `json:"description,omitempty"`
+// ReverseProxyService status constants.
+const (
+	ReverseProxyStatusActive             = "active"
+	ReverseProxyStatusPending            = "pending"
+	ReverseProxyStatusTunnelNotCreated   = "tunnel_not_created"
+	ReverseProxyStatusCertificatePending = "certificate_pending"
+	ReverseProxyStatusCertificateFailed  = "certificate_failed"
+	ReverseProxyStatusError              = "error"
+)
+
+// ReverseProxyService mode constants.
+const (
+	ReverseProxyModeHTTP = "http"
+	ReverseProxyModeTCP  = "tcp"
+	ReverseProxyModeUDP  = "udp"
+	ReverseProxyModeTLS  = "tls"
+)
+
+// ReverseProxyCluster is a single row returned by GET /reverse-proxies/clusters.
+type ReverseProxyCluster struct {
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	SupportsCustomPorts bool   `json:"supports_custom_ports,omitempty"`
 }
 
-// IngressPortUpdateRequest for PUT /peers/{id}/ingress/ports/{id}
-type IngressPortUpdateRequest struct {
-	TargetPort  int    `json:"target_port"`
-	Protocol    string `json:"protocol,omitempty"`
-	Description string `json:"description,omitempty"`
+// ReverseProxyDomain is a custom domain attached to a service.
+type ReverseProxyDomain struct {
+	ID                  string `json:"id"`
+	Domain              string `json:"domain"`
+	Validated           bool   `json:"validated"`
+	Type                string `json:"type,omitempty"`
+	TargetCluster       string `json:"target_cluster,omitempty"`
+	SupportsCustomPorts bool   `json:"supports_custom_ports,omitempty"`
+	RequireSubdomain    bool   `json:"require_subdomain,omitempty"`
 }
 
-// IngressPeerCreateRequest for POST /ingress/peers
-type IngressPeerCreateRequest struct {
-	Name     string `json:"name"`
-	Location string `json:"location,omitempty"`
-	Enabled  bool   `json:"enabled,omitempty"`
+// ReverseProxyDomainCreateRequest is the body for POST /services/{id}/domains.
+type ReverseProxyDomainCreateRequest struct {
+	Domain        string `json:"domain"`
+	TargetCluster string `json:"target_cluster,omitempty"`
 }
 
-// IngressPeerUpdateRequest for PUT /ingress/peers/{id}
-type IngressPeerUpdateRequest struct {
-	Name     string `json:"name,omitempty"`
-	Location string `json:"location,omitempty"`
-	Enabled  *bool  `json:"enabled,omitempty"`
+// ReverseProxyEvent is a single row in the proxy access log at GET /events/proxy.
+type ReverseProxyEvent struct {
+	ID             string `json:"id"`
+	ServiceID      string `json:"service_id"`
+	Timestamp      string `json:"timestamp"`
+	Method         string `json:"method,omitempty"`
+	Host           string `json:"host,omitempty"`
+	Path           string `json:"path,omitempty"`
+	DurationMs     int    `json:"duration_ms,omitempty"`
+	StatusCode     int    `json:"status_code,omitempty"`
+	SourceIP       string `json:"source_ip,omitempty"`
+	Reason         string `json:"reason,omitempty"`
+	UserID         string `json:"user_id,omitempty"`
+	AuthMethodUsed string `json:"auth_method_used,omitempty"`
+	CountryCode    string `json:"country_code,omitempty"`
+	CityName       string `json:"city_name,omitempty"`
+	BytesUpload    int64  `json:"bytes_upload,omitempty"`
+	BytesDownload  int64  `json:"bytes_download,omitempty"`
+	Protocol       string `json:"protocol,omitempty"`
+}
+
+// ReverseProxyCreateRequest is the body for POST /reverse-proxies/services.
+// Mirrors ReverseProxyService but without server-assigned fields (ID, Meta).
+type ReverseProxyCreateRequest struct {
+	Name               string                          `json:"name"`
+	Domain             string                          `json:"domain"`
+	Mode               string                          `json:"mode,omitempty"`
+	ListenPort         int                             `json:"listen_port,omitempty"`
+	ProxyCluster       string                          `json:"proxy_cluster,omitempty"`
+	Targets            []ReverseProxyTarget            `json:"targets"`
+	Enabled            bool                            `json:"enabled"`
+	PassHostHeader     bool                            `json:"pass_host_header,omitempty"`
+	RewriteRedirects   bool                            `json:"rewrite_redirects,omitempty"`
+	Auth               *ReverseProxyAuth               `json:"auth,omitempty"`
+	AccessRestrictions *ReverseProxyAccessRestrictions `json:"access_restrictions,omitempty"`
+}
+
+// ReverseProxyUpdateRequest is the body for PUT /reverse-proxies/services/{id}.
+// The API requires the full object on update (auth and targets included).
+type ReverseProxyUpdateRequest struct {
+	Name               string                          `json:"name"`
+	ListenPort         int                             `json:"listen_port,omitempty"`
+	ProxyCluster       string                          `json:"proxy_cluster,omitempty"`
+	Targets            []ReverseProxyTarget            `json:"targets"`
+	Enabled            bool                            `json:"enabled"`
+	PassHostHeader     bool                            `json:"pass_host_header,omitempty"`
+	RewriteRedirects   bool                            `json:"rewrite_redirects,omitempty"`
+	Auth               *ReverseProxyAuth               `json:"auth,omitempty"`
+	AccessRestrictions *ReverseProxyAccessRestrictions `json:"access_restrictions,omitempty"`
 }

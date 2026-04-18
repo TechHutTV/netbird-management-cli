@@ -15,8 +15,16 @@ type Page interface {
 	Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd)
 	View(width, height int) string
 	Title() string
-	CursorPosition() int    // returns current cursor index in list (0 = top)
+	CursorPosition() int     // returns current cursor index in list (0 = top)
 	SetFocused(focused bool) // called when page gains/loses focus
+}
+
+// TabCycler is an optional interface for pages that control tab behavior.
+// AcceptTab returns true if the page has focusable content (called when entering from nav).
+// CycleTab advances to the next section, returning true to stay on the page, false to return to nav.
+type TabCycler interface {
+	AcceptTab() bool
+	CycleTab() bool
 }
 
 // focusArea tracks which part of the UI has keyboard focus
@@ -63,8 +71,8 @@ func NewApp(c *client.Client, daemon *DaemonClient) App {
 	p[SectionPostureChecks] = NewPostureChecksPage()
 	p[SectionEvents] = NewEventsPage()
 	p[SectionSettings] = NewSettingsPage()
-	p[SectionIngress] = NewIngressPage()
 	p[SectionExportImport] = NewExportImportPage()
+	p[SectionReverseProxy] = NewReverseProxyPage()
 
 	return App{
 		client: c,
@@ -194,6 +202,24 @@ func (a App) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if key == keyTab {
+		if page, ok := a.pages[a.nav.Active()]; ok {
+			if tc, ok := page.(TabCycler); ok {
+				if a.focus == focusNav {
+					if tc.AcceptTab() {
+						a.focus = focusContent
+						a.nav = a.nav.SetFocused(false)
+						page.SetFocused(true)
+						return a, nil
+					}
+					return a, nil
+				}
+				// Content focused: cycle sections, return to nav when done
+				if tc.CycleTab() {
+					return a, nil
+				}
+				return a.toggleFocus(), nil
+			}
+		}
 		return a.toggleFocus(), nil
 	}
 

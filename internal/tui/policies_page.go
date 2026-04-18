@@ -238,11 +238,12 @@ func (p *PoliciesPage) View(width, height int) string {
 		return RenderConfirm("Confirm: Edit Policy", []ConfirmField{
 			{Label: "Name", Value: p.editData.name},
 			{Label: "Description", Value: p.editData.description},
+			{Label: "Enabled", Value: fmt.Sprintf("%v", p.editData.enabled)},
 			{Label: "Protocol", Value: p.editData.protocol},
-			{Label: "Action", Value: p.editData.action},
 			{Label: "Ports", Value: p.editData.ports},
-			{Label: "Source Groups", Value: p.resolveGroupNames(p.editData.selectedSrc)},
-			{Label: "Dest Groups", Value: p.resolveGroupNames(p.editData.selectedDst)},
+			{Label: "Source Groups", Value: resolveGroupNames(p.editData.selectedSrc, p.groupNames)},
+			{Label: "Dest Groups", Value: resolveGroupNames(p.editData.selectedDst, p.groupNames)},
+			{Label: "Traffic Direction", Value: formatBidirectional(p.editData.bidirectional)},
 		})
 	}
 	if p.state == policiesViewEdit && p.editForm != nil {
@@ -252,11 +253,12 @@ func (p *PoliciesPage) View(width, height int) string {
 		return RenderConfirm("Confirm: Create Policy", []ConfirmField{
 			{Label: "Name", Value: p.formData.name},
 			{Label: "Description", Value: p.formData.description},
+			{Label: "Enabled", Value: fmt.Sprintf("%v", p.formData.enabled)},
 			{Label: "Protocol", Value: p.formData.protocol},
-			{Label: "Action", Value: p.formData.action},
 			{Label: "Ports", Value: p.formData.ports},
-			{Label: "Source Groups", Value: p.resolveGroupNames(p.formData.selectedSrc)},
-			{Label: "Dest Groups", Value: p.resolveGroupNames(p.formData.selectedDst)},
+			{Label: "Source Groups", Value: resolveGroupNames(p.formData.selectedSrc, p.groupNames)},
+			{Label: "Dest Groups", Value: resolveGroupNames(p.formData.selectedDst, p.groupNames)},
+			{Label: "Traffic Direction", Value: formatBidirectional(p.formData.bidirectional)},
 		})
 	}
 	if p.state == policiesViewForm && p.form != nil {
@@ -274,7 +276,7 @@ func (p *PoliciesPage) applyFilter() {
 	} else {
 		filtered := make([]models.Policy, 0)
 		for _, policy := range p.policies {
-			if matchesQuery(p.search, policy.Name) {
+			if matchesQuery(p.search, policy.Name, policy.Description) {
 				filtered = append(filtered, policy)
 			}
 		}
@@ -297,15 +299,17 @@ func (p *PoliciesPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, t
 				p.editData = policyFormData{
 					name:        policy.Name,
 					description: policy.Description,
+					enabled:     policy.Enabled,
 				}
 				// Extract from first rule if available
 				if len(policy.Rules) > 0 {
 					rule := policy.Rules[0]
 					p.editData.protocol = rule.Protocol
-					p.editData.action = rule.Action
 					p.editData.ports = strings.Join(rule.Ports, ", ")
 					p.editData.selectedSrc = extractGroupIDs(rule.Sources)
 					p.editData.selectedDst = extractGroupIDs(rule.Destinations)
+					p.editData.bidirectional = rule.Bidirectional
+					p.editData.hasDestResource = rule.DestinationResource != nil
 				}
 				p.editForm = newPolicyEditForm(&p.editData, p.groupNames)
 				p.state = policiesViewEdit
@@ -492,6 +496,13 @@ func (p *PoliciesPage) viewDetail(width int) string {
 		b.WriteString(fmt.Sprintf("%s  %s\n", label, value))
 	}
 
+	// Posture checks
+	if len(policy.SourcePostureChecks) > 0 {
+		b.WriteString(fmt.Sprintf("%s  %s\n",
+			detailLabelStyle.Render("Posture Checks"),
+			detailValueStyle.Render(fmt.Sprintf("%d attached", len(policy.SourcePostureChecks)))))
+	}
+
 	// Rules sub-sections
 	for i, rule := range policy.Rules {
 		b.WriteString("\n" + sectionHeaderStyle.Render(fmt.Sprintf("  Rule %d: %s", i+1, rule.Name)) + "\n")
@@ -509,14 +520,31 @@ func (p *PoliciesPage) viewDetail(width int) string {
 		if len(rule.Ports) > 0 {
 			ports = strings.Join(rule.Ports, ", ")
 		}
+		if len(rule.PortRanges) > 0 {
+			ranges := make([]string, len(rule.PortRanges))
+			for j, pr := range rule.PortRanges {
+				ranges[j] = fmt.Sprintf("%d-%d", pr.Start, pr.End)
+			}
+			if ports == "all" {
+				ports = strings.Join(ranges, ", ")
+			} else {
+				ports += ", " + strings.Join(ranges, ", ")
+			}
+		}
 
 		srcStr := "any"
 		if len(sources) > 0 {
 			srcStr = strings.Join(sources, ", ")
 		}
+		if rule.SourceResource != nil {
+			srcStr = fmt.Sprintf("resource: %s (%s)", rule.SourceResource.ID, rule.SourceResource.Type)
+		}
 		dstStr := "any"
 		if len(destinations) > 0 {
 			dstStr = strings.Join(destinations, ", ")
+		}
+		if rule.DestinationResource != nil {
+			dstStr = fmt.Sprintf("resource: %s (%s)", rule.DestinationResource.ID, rule.DestinationResource.Type)
 		}
 
 		ruleFields := []struct{ label, value string }{
@@ -525,7 +553,7 @@ func (p *PoliciesPage) viewDetail(width int) string {
 			{"Ports", ports},
 			{"Sources", srcStr},
 			{"Destinations", dstStr},
-			{"Bidirectional", fmt.Sprintf("%v", rule.Bidirectional)},
+			{"Traffic Direction", formatBidirectional(rule.Bidirectional)},
 		}
 
 		for _, f := range ruleFields {
@@ -535,21 +563,16 @@ func (p *PoliciesPage) viewDetail(width int) string {
 		}
 	}
 
-	b.WriteString("\n" + dimHintStyle.Render("  esc: back  e: edit  d: delete  r: refresh"))
+	b.WriteString("\n" + dimHintStyle.Render("  esc: back  e: edit  t: toggle  d: delete  r: refresh"))
 
 	return b.String()
 }
 
-func (p *PoliciesPage) resolveGroupNames(ids []string) string {
-	names := make([]string, 0, len(ids))
-	for _, id := range ids {
-		if name, ok := p.groupNames[id]; ok {
-			names = append(names, name)
-		} else {
-			names = append(names, id)
-		}
+func formatBidirectional(bidir bool) string {
+	if bidir {
+		return "→ ←"
 	}
-	return strings.Join(names, ", ")
+	return "→"
 }
 
 func deletePolicy(c *client.Client, policyID string) tea.Cmd {

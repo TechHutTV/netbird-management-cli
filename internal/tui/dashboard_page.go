@@ -42,6 +42,12 @@ func (d *DashboardPage) Title() string { return "Status" }
 func (d *DashboardPage) CursorPosition() int { return 0 }
 func (d *DashboardPage) SetFocused(focused bool) { d.focused = focused }
 
+// AcceptTab returns false — dashboard has no focusable sections.
+func (d *DashboardPage) AcceptTab() bool { return false }
+
+// CycleTab returns false — nothing to cycle.
+func (d *DashboardPage) CycleTab() bool { return false }
+
 func (d *DashboardPage) Init(c *client.Client) tea.Cmd {
 	d.loading = true
 	return tea.Batch(

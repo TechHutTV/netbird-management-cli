@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -267,7 +268,7 @@ func (s *Service) listNetworks(filterName string, outputFormat string) error {
 // inspectNetwork shows detailed information about a specific network
 func (s *Service) inspectNetwork(networkID string, outputFormat string) error {
 	// Fetch basic network details
-	resp, err := s.Client.MakeRequest("GET", "/networks/"+networkID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID), nil)
 	if err != nil {
 		return err
 	}
@@ -281,7 +282,7 @@ func (s *Service) inspectNetwork(networkID string, outputFormat string) error {
 	// Fetch full router details
 	var routers []models.NetworkRouter
 	if len(network.Routers) > 0 {
-		resp, err = s.Client.MakeRequest("GET", "/networks/"+networkID+"/routers", nil)
+		resp, err = s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID)+"/routers", nil)
 		if err != nil {
 			return err
 		}
@@ -295,7 +296,7 @@ func (s *Service) inspectNetwork(networkID string, outputFormat string) error {
 	// Fetch full resource details
 	var resources []models.NetworkResource
 	if len(network.Resources) > 0 {
-		resp, err = s.Client.MakeRequest("GET", "/networks/"+networkID+"/resources", nil)
+		resp, err = s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID)+"/resources", nil)
 		if err != nil {
 			return err
 		}
@@ -421,7 +422,7 @@ func (s *Service) createNetwork(name, description string) error {
 // deleteNetwork deletes a network by ID
 func (s *Service) deleteNetwork(networkID string) error {
 	// Fetch network details first to show what we're deleting
-	resp, err := s.Client.MakeRequest("GET", "/networks/"+networkID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID), nil)
 	if err != nil {
 		return err
 	}
@@ -447,7 +448,7 @@ func (s *Service) deleteNetwork(networkID string) error {
 		return nil // User cancelled
 	}
 
-	resp, err = s.Client.MakeRequest("DELETE", "/networks/"+networkID, nil)
+	resp, err = s.Client.MakeRequest("DELETE", "/networks/"+url.PathEscape(networkID), nil)
 	if err != nil {
 		return err
 	}
@@ -460,7 +461,7 @@ func (s *Service) deleteNetwork(networkID string) error {
 // renameNetwork renames a network
 func (s *Service) renameNetwork(networkID, newName string) error {
 	// Get existing network details
-	resp, err := s.Client.MakeRequest("GET", "/networks/"+networkID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID), nil)
 	if err != nil {
 		return err
 	}
@@ -482,7 +483,7 @@ func (s *Service) renameNetwork(networkID, newName string) error {
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err = s.Client.MakeRequest("PUT", "/networks/"+networkID, bytes.NewReader(bodyBytes))
+	resp, err = s.Client.MakeRequest("PUT", "/networks/"+url.PathEscape(networkID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -495,7 +496,7 @@ func (s *Service) renameNetwork(networkID, newName string) error {
 // updateNetworkDescription updates a network's description
 func (s *Service) updateNetworkDescription(networkID, description string) error {
 	// Get existing network details
-	resp, err := s.Client.MakeRequest("GET", "/networks/"+networkID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID), nil)
 	if err != nil {
 		return err
 	}
@@ -517,7 +518,7 @@ func (s *Service) updateNetworkDescription(networkID, description string) error 
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err = s.Client.MakeRequest("PUT", "/networks/"+networkID, bytes.NewReader(bodyBytes))
+	resp, err = s.Client.MakeRequest("PUT", "/networks/"+url.PathEscape(networkID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -531,7 +532,7 @@ func (s *Service) updateNetworkDescription(networkID, description string) error 
 
 // listNetworkResources lists all resources in a network
 func (s *Service) listNetworkResources(networkID string) error {
-	resp, err := s.Client.MakeRequest("GET", "/networks/"+networkID+"/resources", nil)
+	resp, err := s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID)+"/resources", nil)
 	if err != nil {
 		return err
 	}
@@ -576,7 +577,7 @@ func (s *Service) listNetworkResources(networkID string) error {
 
 // inspectNetworkResource shows detailed information about a resource
 func (s *Service) inspectNetworkResource(networkID, resourceID string) error {
-	resp, err := s.Client.MakeRequest("GET", "/networks/"+networkID+"/resources/"+resourceID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID)+"/resources/"+url.PathEscape(resourceID), nil)
 	if err != nil {
 		return err
 	}
@@ -629,7 +630,7 @@ func (s *Service) addNetworkResource(networkID, name, address, description, grou
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err := s.Client.MakeRequest("POST", "/networks/"+networkID+"/resources", bytes.NewReader(bodyBytes))
+	resp, err := s.Client.MakeRequest("POST", "/networks/"+url.PathEscape(networkID)+"/resources", bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -647,7 +648,7 @@ func (s *Service) addNetworkResource(networkID, name, address, description, grou
 // updateNetworkResource updates a resource in a network
 func (s *Service) updateNetworkResource(networkID, resourceID, name, address, description, groupsStr string, enabled bool) error {
 	// Get existing resource
-	resp, err := s.Client.MakeRequest("GET", "/networks/"+networkID+"/resources/"+resourceID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID)+"/resources/"+url.PathEscape(resourceID), nil)
 	if err != nil {
 		return err
 	}
@@ -701,7 +702,7 @@ func (s *Service) updateNetworkResource(networkID, resourceID, name, address, de
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err = s.Client.MakeRequest("PUT", "/networks/"+networkID+"/resources/"+resourceID, bytes.NewReader(bodyBytes))
+	resp, err = s.Client.MakeRequest("PUT", "/networks/"+url.PathEscape(networkID)+"/resources/"+url.PathEscape(resourceID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -714,7 +715,7 @@ func (s *Service) updateNetworkResource(networkID, resourceID, name, address, de
 // removeNetworkResource removes a resource from a network
 func (s *Service) removeNetworkResource(networkID, resourceID string) error {
 	// Fetch resource details first
-	resp, err := s.Client.MakeRequest("GET", "/networks/"+networkID+"/resources/"+resourceID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID)+"/resources/"+url.PathEscape(resourceID), nil)
 	if err != nil {
 		return err
 	}
@@ -740,7 +741,7 @@ func (s *Service) removeNetworkResource(networkID, resourceID string) error {
 		return nil // User cancelled
 	}
 
-	resp, err = s.Client.MakeRequest("DELETE", "/networks/"+networkID+"/resources/"+resourceID, nil)
+	resp, err = s.Client.MakeRequest("DELETE", "/networks/"+url.PathEscape(networkID)+"/resources/"+url.PathEscape(resourceID), nil)
 	if err != nil {
 		return err
 	}
@@ -793,7 +794,7 @@ func (s *Service) listAllRouters() error {
 
 // listNetworkRouters lists all routers in a specific network
 func (s *Service) listNetworkRouters(networkID string) error {
-	resp, err := s.Client.MakeRequest("GET", "/networks/"+networkID+"/routers", nil)
+	resp, err := s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID)+"/routers", nil)
 	if err != nil {
 		return err
 	}
@@ -832,7 +833,7 @@ func (s *Service) listNetworkRouters(networkID string) error {
 
 // inspectNetworkRouter shows detailed information about a router
 func (s *Service) inspectNetworkRouter(networkID, routerID string) error {
-	resp, err := s.Client.MakeRequest("GET", "/networks/"+networkID+"/routers/"+routerID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID)+"/routers/"+url.PathEscape(routerID), nil)
 	if err != nil {
 		return err
 	}
@@ -883,7 +884,7 @@ func (s *Service) addNetworkRouter(networkID, peer, peerGroupsStr string, metric
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err := s.Client.MakeRequest("POST", "/networks/"+networkID+"/routers", bytes.NewReader(bodyBytes))
+	resp, err := s.Client.MakeRequest("POST", "/networks/"+url.PathEscape(networkID)+"/routers", bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -901,7 +902,7 @@ func (s *Service) addNetworkRouter(networkID, peer, peerGroupsStr string, metric
 // updateNetworkRouter updates a router in a network
 func (s *Service) updateNetworkRouter(networkID, routerID, peer, peerGroupsStr string, metric int, masquerade, enabled bool) error {
 	// Get existing router
-	resp, err := s.Client.MakeRequest("GET", "/networks/"+networkID+"/routers/"+routerID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID)+"/routers/"+url.PathEscape(routerID), nil)
 	if err != nil {
 		return err
 	}
@@ -943,7 +944,7 @@ func (s *Service) updateNetworkRouter(networkID, routerID, peer, peerGroupsStr s
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err = s.Client.MakeRequest("PUT", "/networks/"+networkID+"/routers/"+routerID, bytes.NewReader(bodyBytes))
+	resp, err = s.Client.MakeRequest("PUT", "/networks/"+url.PathEscape(networkID)+"/routers/"+url.PathEscape(routerID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -956,7 +957,7 @@ func (s *Service) updateNetworkRouter(networkID, routerID, peer, peerGroupsStr s
 // removeNetworkRouter removes a router from a network
 func (s *Service) removeNetworkRouter(networkID, routerID string) error {
 	// Fetch router details first
-	resp, err := s.Client.MakeRequest("GET", "/networks/"+networkID+"/routers/"+routerID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/networks/"+url.PathEscape(networkID)+"/routers/"+url.PathEscape(routerID), nil)
 	if err != nil {
 		return err
 	}
@@ -984,7 +985,7 @@ func (s *Service) removeNetworkRouter(networkID, routerID string) error {
 		return nil // User cancelled
 	}
 
-	resp, err = s.Client.MakeRequest("DELETE", "/networks/"+networkID+"/routers/"+routerID, nil)
+	resp, err = s.Client.MakeRequest("DELETE", "/networks/"+url.PathEscape(networkID)+"/routers/"+url.PathEscape(routerID), nil)
 	if err != nil {
 		return err
 	}

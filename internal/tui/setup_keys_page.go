@@ -25,21 +25,60 @@ const (
 
 // SetupKeysPage manages setup keys list and detail views
 type SetupKeysPage struct {
-	keys      []models.SetupKey
-	filtered  []models.SetupKey
-	cursor    int
-	loading   bool
-	err       error
-	state     setupKeysViewState
-	form      *huh.Form
-	formData  setupKeyFormData
-	focused   bool
-	search    string
-	searching bool
+	keys       []models.SetupKey
+	filtered   []models.SetupKey
+	cursor     int
+	loading    bool
+	err        error
+	state      setupKeysViewState
+	form       *huh.Form
+	formData   setupKeyFormData
+	focused    bool
+	search     string
+	searching  bool
+	groupNames map[string]string
 }
 
 func NewSetupKeysPage() *SetupKeysPage {
 	return &SetupKeysPage{loading: true}
+}
+
+type setupKeysDataLoadedMsg struct {
+	keys       []models.SetupKey
+	groupNames map[string]string
+	err        error
+}
+
+func fetchSetupKeysData(c *client.Client) tea.Cmd {
+	return func() tea.Msg {
+		// Fetch groups for name resolution
+		groupResp, err := c.MakeRequest("GET", "/groups", nil)
+		if err != nil {
+			return setupKeysDataLoadedMsg{err: err}
+		}
+		defer groupResp.Body.Close()
+		var allGroups []models.PolicyGroup
+		if err := jsonDecode(groupResp.Body, &allGroups); err != nil {
+			return setupKeysDataLoadedMsg{err: err}
+		}
+		nameMap := make(map[string]string, len(allGroups))
+		for _, g := range allGroups {
+			nameMap[g.ID] = g.Name
+		}
+
+		// Fetch setup keys
+		keysResp, err := c.MakeRequest("GET", "/setup-keys", nil)
+		if err != nil {
+			return setupKeysDataLoadedMsg{err: err}
+		}
+		defer keysResp.Body.Close()
+		var keys []models.SetupKey
+		if err := jsonDecode(keysResp.Body, &keys); err != nil {
+			return setupKeysDataLoadedMsg{err: err}
+		}
+
+		return setupKeysDataLoadedMsg{keys: keys, groupNames: nameMap}
+	}
 }
 
 func (s *SetupKeysPage) Title() string { return "Setup Keys" }
@@ -57,7 +96,7 @@ func (s *SetupKeysPage) Init(c *client.Client) tea.Cmd {
 	}
 	s.loading = true
 	s.err = nil
-	return FetchSetupKeys(c)
+	return fetchSetupKeysData(c)
 }
 
 func (s *SetupKeysPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
@@ -103,27 +142,28 @@ func (s *SetupKeysPage) Update(msg tea.Msg, c *client.Client) (Page, tea.Cmd) {
 		// Only refresh if in list view and not in form
 		if s.state == setupKeysViewList && s.form == nil {
 			s.loading = true
-			return s, FetchSetupKeys(c)
+			return s, fetchSetupKeysData(c)
 		}
 		return s, nil
 
-	case SetupKeysLoadedMsg:
+	case setupKeysDataLoadedMsg:
 		s.loading = false
-		if msg.Err != nil {
-			s.err = msg.Err
+		if msg.err != nil {
+			s.err = msg.err
 			return s, nil
 		}
-		s.keys = msg.Keys
+		s.keys = msg.keys
+		s.groupNames = msg.groupNames
 		s.applyFilter()
 		return s, nil
 
 	case formCompleteMsg:
 		s.loading = true
-		return s, FetchSetupKeys(c)
+		return s, fetchSetupKeysData(c)
 
 	case ToastMsg:
 		s.loading = true
-		return s, FetchSetupKeys(c)
+		return s, fetchSetupKeysData(c)
 
 	case APIErrorMsg:
 		s.err = msg.Err
@@ -150,7 +190,9 @@ func (s *SetupKeysPage) View(width, height int) string {
 			{Label: "Type", Value: s.formData.keyType},
 			{Label: "Expires In", Value: s.formData.expiresIn},
 			{Label: "Usage Limit", Value: s.formData.usageLimit},
+			{Label: "Auto Groups", Value: resolveGroupNames(s.formData.selectedGroups, s.groupNames)},
 			{Label: "Ephemeral", Value: fmt.Sprintf("%v", s.formData.ephemeral)},
+			{Label: "Extra DNS Labels", Value: fmt.Sprintf("%v", s.formData.allowExtraDNSLabels)},
 		})
 	}
 	if s.state == setupKeysViewForm && s.form != nil {
@@ -222,7 +264,7 @@ func (s *SetupKeysPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, 
 		return s, FetchSetupKeys(c)
 	case "c":
 		s.formData = setupKeyFormData{}
-		s.form = newSetupKeyCreateForm(&s.formData)
+		s.form = newSetupKeyCreateForm(&s.formData, s.groupNames)
 		s.state = setupKeysViewForm
 		return s, s.form.Init()
 	case "d":
@@ -377,9 +419,14 @@ func (s *SetupKeysPage) viewDetail(width int) string {
 	b.WriteString(detailTitleStyle.Render(fmt.Sprintf("  %s  %s", sk.Name, stateBadge)))
 	b.WriteString("\n\n")
 
-	groupsStr := "None"
-	if len(sk.AutoGroups) > 0 {
-		groupsStr = strings.Join(sk.AutoGroups, ", ")
+	groupsStr := resolveGroupNames(sk.AutoGroups, s.groupNames)
+	if groupsStr == "" {
+		groupsStr = "(none)"
+	}
+
+	usageLimit := "Unlimited"
+	if sk.UsageLimit > 0 {
+		usageLimit = fmt.Sprintf("%d", sk.UsageLimit)
 	}
 
 	fields := []struct{ label, value string }{
@@ -388,9 +435,10 @@ func (s *SetupKeysPage) viewDetail(width int) string {
 		{"Type", sk.Type},
 		{"State", state},
 		{"Used Times", fmt.Sprintf("%d", sk.UsedTimes)},
-		{"Usage Limit", fmt.Sprintf("%d", sk.UsageLimit)},
+		{"Usage Limit", usageLimit},
 		{"Expires", sk.Expires},
 		{"Ephemeral", fmt.Sprintf("%v", sk.Ephemeral)},
+		{"Extra DNS Labels", fmt.Sprintf("%v", sk.AllowExtraDNSLabels)},
 		{"Auto Groups", groupsStr},
 		{"Updated At", sk.UpdatedAt},
 	}

@@ -24,8 +24,8 @@ const (
 	SectionPostureChecks
 	SectionEvents
 	SectionSettings
-	SectionIngress
 	SectionExportImport
+	SectionReverseProxy
 )
 
 // NavItem holds display info for a navigation section
@@ -45,11 +45,11 @@ var navItems = []NavItem{
 	{SectionUsers, "Users", "7"},
 	{SectionGroups, "Groups", "8"},
 	{SectionPostureChecks, "Posture", "9"},
-	{SectionSetupKeys, "Keys", "0"},
+	{SectionReverseProxy, "Proxy", "0"},
 	{SectionEvents, "Events", ""},
 	{SectionServiceUsers, "Service Users", ""},
+	{SectionSetupKeys, "Keys", ""},
 	{SectionSettings, "Settings", ""},
-	{SectionIngress, "Ingress", ""},
 	{SectionExportImport, "Export", ""},
 }
 

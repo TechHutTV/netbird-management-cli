@@ -201,15 +201,52 @@ type BulkGroupAssignMsg struct {
 
 // DashboardCountsMsg carries management API counts for the dashboard
 type DashboardCountsMsg struct {
-	PeersOnline int
-	PeersTotal  int
-	Groups      int
-	Networks    int
-	Policies    int
-	Routes      int
-	SetupKeys   int
-	DNSGroups   int
-	Posture     int
+	PeersOnline   int
+	PeersTotal    int
+	Groups        int
+	Networks      int
+	Policies      int
+	Routes        int
+	SetupKeys     int
+	DNSGroups     int
+	Posture       int
 	AccountDomain string
-	Err         error
+	Err           error
+}
+
+// ReverseProxiesLoadedMsg carries the list view's full dataset: services, plus
+// the lookup maps used to resolve target_id → peer name and bearer groups → names.
+type ReverseProxiesLoadedMsg struct {
+	Services []models.ReverseProxyService
+	Clusters []models.ReverseProxyCluster
+	Groups   map[string]string // group id → name
+	Peers    map[string]string // peer id → name
+	Err      error
+}
+
+// ReverseProxyUpdatedMsg carries the result of a create/update/delete/toggle.
+type ReverseProxyUpdatedMsg struct {
+	Err error
+}
+
+// ReverseProxyDomainsLoadedMsg carries the custom-domain list for a single service.
+type ReverseProxyDomainsLoadedMsg struct {
+	ServiceID string
+	Domains   []models.ReverseProxyDomain
+	Err       error
+}
+
+// ReverseProxyDomainChangedMsg is emitted after an add/delete/validate action.
+type ReverseProxyDomainChangedMsg struct {
+	Message string
+	Err     error
+}
+
+// ReverseProxyEventsLoadedMsg carries the proxy access-log result set.
+// ServiceID is the service the fetch was scoped to, so late-arriving responses
+// for a previously-viewed service can be discarded.
+type ReverseProxyEventsLoadedMsg struct {
+	ServiceID string
+	Events    []models.ReverseProxyEvent
+	Err       error
 }

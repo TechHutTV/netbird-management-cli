@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -27,6 +28,36 @@ func formatBytes(b int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+// formatLocation formats country code and city into a location string
+func formatLocation(countryCode, cityName string) string {
+	if countryCode == "" && cityName == "" {
+		return ""
+	}
+	if cityName != "" && countryCode != "" {
+		return fmt.Sprintf("%s, %s", cityName, countryCode)
+	}
+	if countryCode != "" {
+		return countryCode
+	}
+	return cityName
+}
+
+// resolveGroupNames converts group IDs to human-readable names using a lookup map
+func resolveGroupNames(ids []string, groupNames map[string]string) string {
+	names := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if name, ok := groupNames[id]; ok {
+			names = append(names, name)
+		} else {
+			names = append(names, id)
+		}
+	}
+	if len(names) == 0 {
+		return "(none)"
+	}
+	return strings.Join(names, ", ")
 }
 
 // formatLastSeen formats an ISO timestamp into a human-readable relative time

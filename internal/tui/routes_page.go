@@ -233,31 +233,13 @@ func (r *RoutesPage) View(width, height int) string {
 	}
 
 	if r.state == routesViewEditConfirm {
-		return RenderConfirm("Confirm: Edit Route", []ConfirmField{
-			{Label: "Network ID", Value: r.editData.networkID},
-			{Label: "Network CIDR", Value: r.editData.network},
-			{Label: "Description", Value: r.editData.description},
-			{Label: "Peer Groups", Value: r.resolveGroupNames(r.editData.selectedPeerGrps)},
-			{Label: "Dist Groups", Value: r.resolveGroupNames(r.editData.selectedDistGrps)},
-			{Label: "Metric", Value: r.editData.metric},
-			{Label: "Masquerade", Value: fmt.Sprintf("%v", r.editData.masquerade)},
-			{Label: "Enabled", Value: fmt.Sprintf("%v", r.editData.enabled)},
-		})
+		return RenderConfirm("Confirm: Edit Route", r.routeConfirmFields(r.editData))
 	}
 	if r.state == routesViewEdit && r.editForm != nil {
 		return pageTitleStyle.Render("Edit Route") + "\n\n" + r.editForm.View()
 	}
 	if r.state == routesViewConfirm {
-		return RenderConfirm("Confirm: Create Route", []ConfirmField{
-			{Label: "Network ID", Value: r.formData.networkID},
-			{Label: "Network CIDR", Value: r.formData.network},
-			{Label: "Description", Value: r.formData.description},
-			{Label: "Peer Groups", Value: r.resolveGroupNames(r.formData.selectedPeerGrps)},
-			{Label: "Dist Groups", Value: r.resolveGroupNames(r.formData.selectedDistGrps)},
-			{Label: "Metric", Value: r.formData.metric},
-			{Label: "Masquerade", Value: fmt.Sprintf("%v", r.formData.masquerade)},
-			{Label: "Enabled", Value: fmt.Sprintf("%v", r.formData.enabled)},
-		})
+		return RenderConfirm("Confirm: Create Route", r.routeConfirmFields(r.formData))
 	}
 	if r.state == routesViewForm && r.form != nil {
 		return pageTitleStyle.Render("Create Route") + "\n\n" + r.form.View()
@@ -294,9 +276,16 @@ func (r *RoutesPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea
 			if r.cursor < len(r.filtered) {
 				route := r.filtered[r.cursor]
 				r.editRoute = route
+				routeType := "ip-range"
+				if len(route.Domains) > 0 {
+					routeType = "domains"
+				}
 				r.editData = routeFormData{
 					networkID:        route.NetworkID,
+					routeType:        routeType,
 					network:          route.Network,
+					domains:          strings.Join(route.Domains, ", "),
+					keepRoute:        route.KeepRoute,
 					description:      route.Description,
 					metric:           fmt.Sprintf("%d", route.Metric),
 					masquerade:       route.Masquerade,
@@ -524,16 +513,26 @@ func (r *RoutesPage) viewDetail(width int) string {
 	return b.String()
 }
 
-func (r *RoutesPage) resolveGroupNames(ids []string) string {
-	names := make([]string, 0, len(ids))
-	for _, id := range ids {
-		if name, ok := r.groupNames[id]; ok {
-			names = append(names, name)
-		} else {
-			names = append(names, id)
-		}
+func (r *RoutesPage) routeConfirmFields(data routeFormData) []ConfirmField {
+	fields := []ConfirmField{
+		{Label: "Network ID", Value: data.networkID},
+		{Label: "Type", Value: data.routeType},
 	}
-	return strings.Join(names, ", ")
+	if data.routeType == "domains" {
+		fields = append(fields, ConfirmField{Label: "Domains", Value: data.domains})
+		fields = append(fields, ConfirmField{Label: "Keep Route", Value: fmt.Sprintf("%v", data.keepRoute)})
+	} else {
+		fields = append(fields, ConfirmField{Label: "Network CIDR", Value: data.network})
+	}
+	fields = append(fields,
+		ConfirmField{Label: "Description", Value: data.description},
+		ConfirmField{Label: "Peer Groups", Value: resolveGroupNames(data.selectedPeerGrps, r.groupNames)},
+		ConfirmField{Label: "Dist Groups", Value: resolveGroupNames(data.selectedDistGrps, r.groupNames)},
+		ConfirmField{Label: "Metric", Value: data.metric},
+		ConfirmField{Label: "Masquerade", Value: fmt.Sprintf("%v", data.masquerade)},
+		ConfirmField{Label: "Enabled", Value: fmt.Sprintf("%v", data.enabled)},
+	)
+	return fields
 }
 
 func deleteRoute(c *client.Client, routeID string) tea.Cmd {

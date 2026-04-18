@@ -22,7 +22,7 @@ internal/
   commands/                          — CLI command handlers (one file per resource)
     service.go, usage.go, peers.go, groups.go, networks.go, policies.go,
     setup_keys.go, users.go, tokens.go, routes.go, dns.go, posture_checks.go,
-    events.go, geo_locations.go, accounts.go, ingress_ports.go,
+    events.go, geo_locations.go, accounts.go,
     migrate.go, export.go, import.go
   tui/                               — Terminal UI (Charm/bubbletea v2)
     app.go                           — Root model, navigation, focus management
@@ -34,7 +34,7 @@ internal/
     peers_page.go                    — Peers (list, detail, search, accessible peers)
     groups_page.go, networks_page.go, policies_page.go, routes_page.go,
     setup_keys_page.go, users_page.go, service_users_page.go, dns_page.go,
-    posture_checks_page.go, events_page.go, accounts_page.go, ingress_page.go,
+    posture_checks_page.go, events_page.go, accounts_page.go,
     export_import_page.go            — Entity pages (list + detail + create forms)
     forms.go                         — huh/v2 form constructors for all create operations
     confirm.go                       — Confirmation screen renderer (y/n before submit)
@@ -94,7 +94,6 @@ All through `client.MakeRequest(method, endpoint, body)`:
 | Posture | GET/POST/PUT/DELETE `/posture-checks` | posture_checks.go | posture_checks_page.go |
 | Events | GET `/events/audit` | events.go | events_page.go |
 | Accounts | GET/PUT/DELETE `/accounts` | accounts.go | accounts_page.go |
-| Ingress | `/ingress/peers`, `/peers/{id}/ingress/ports` (cloud-only) | ingress_ports.go | ingress_page.go |
 
 ## Dependencies
 
@@ -112,4 +111,3 @@ All through `client.MakeRequest(method, endpoint, body)`:
 - Config file uses `0600` permissions
 - All user IDs in URLs must use `url.PathEscape`
 - `json.Marshal` errors must be checked (not discarded with `_`)
-- Ingress endpoints return 404 on self-hosted — handle gracefully

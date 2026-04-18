@@ -232,6 +232,7 @@ func (p *PeersPage) View(width, height int) string {
 	case peersViewEditConfirm:
 		return RenderConfirm("Confirm: Edit Peer", []ConfirmField{
 			{Label: "Name", Value: p.editData.name},
+			{Label: "IP Address", Value: p.editData.ip},
 			{Label: "SSH Enabled", Value: fmt.Sprintf("%v", p.editData.sshEnabled)},
 			{Label: "Login Expiration", Value: fmt.Sprintf("%v", p.editData.loginExpirationEnabled)},
 			{Label: "Inactivity Expiration", Value: fmt.Sprintf("%v", p.editData.inactivityExpirationEnabled)},
@@ -360,6 +361,7 @@ func (p *PeersPage) handleKey(msg tea.KeyPressMsg, c *client.Client) (Page, tea.
 				peer := p.filtered[p.cursor]
 				p.editData = peerEditFormData{
 					name:                        peer.Name,
+					ip:                          peer.IP,
 					sshEnabled:                  peer.SSHEnabled,
 					loginExpirationEnabled:      peer.LoginExpirationEnabled,
 					inactivityExpirationEnabled: peer.InactivityExpirationEnabled,
@@ -447,7 +449,12 @@ func (p *PeersPage) applyFilter() {
 	} else {
 		filtered := make([]models.Peer, 0)
 		for _, peer := range p.peers {
-			if matchesQuery(p.search, peer.Name, peer.IP, peer.Hostname) {
+			groupNames := make([]string, len(peer.Groups))
+			for i, g := range peer.Groups {
+				groupNames[i] = g.Name
+			}
+			searchFields := append([]string{peer.Name, peer.IP, peer.Hostname, peer.DNSLabel}, groupNames...)
+			if matchesQuery(p.search, searchFields...) {
 				filtered = append(filtered, peer)
 			}
 		}
@@ -512,21 +519,21 @@ func (p *PeersPage) viewList(width, height int) string {
 			peer.IP,
 			status,
 			peer.OS,
-			peer.Version,
+			fmt.Sprintf("%d", len(peer.Groups)),
 			formatLastSeen(peer.LastSeen),
 		})
 	}
 
 	// Build the lipgloss table
 	tableWidth := width
-	if tableWidth > 100 {
-		tableWidth = 100
+	if tableWidth > 110 {
+		tableWidth = 110
 	}
 
 	t := table.New().
 		Border(lipgloss.RoundedBorder()).
 		BorderStyle(tableBorderStyle).
-		Headers("NAME", "IP", "STATUS", "OS", "VERSION", "LAST SEEN").
+		Headers("NAME", "IP", "STATUS", "OS", "GROUPS", "LAST SEEN").
 		Rows(rows...).
 		Width(tableWidth).
 		StyleFunc(func(row, col int) lipgloss.Style {
@@ -655,13 +662,34 @@ func (p *PeersPage) viewDetail(width int) string {
 		{"ID", peer.ID},
 		{"Name", peer.Name},
 		{"IP Address", peer.IP},
+		{"DNS Label", peer.DNSLabel},
 		{"Hostname", peer.Hostname},
 		{"OS", peer.OS},
 		{"Version", peer.Version},
-		{"Last Seen", peer.LastSeen},
-		{"SSH Enabled", fmt.Sprintf("%v", peer.SSHEnabled)},
-		{"Login Exp.", fmt.Sprintf("%v", peer.LoginExpirationEnabled)},
 	}
+	if peer.KernelVersion != "" {
+		fields = append(fields, struct{ label, value string }{"Kernel", peer.KernelVersion})
+	}
+	if peer.SerialNumber != "" {
+		fields = append(fields, struct{ label, value string }{"Serial Number", peer.SerialNumber})
+	}
+	location := formatLocation(peer.CountryCode, peer.CityName)
+	if location != "" {
+		fields = append(fields, struct{ label, value string }{"Location", location})
+	}
+	if peer.ConnectionIP != "" {
+		fields = append(fields, struct{ label, value string }{"Public IP", peer.ConnectionIP})
+	}
+	if peer.CreatedAt != "" {
+		fields = append(fields, struct{ label, value string }{"Created", peer.CreatedAt})
+	}
+	fields = append(fields,
+		struct{ label, value string }{"Last Seen", formatLastSeen(peer.LastSeen)},
+		struct{ label, value string }{"SSH Enabled", fmt.Sprintf("%v", peer.SSHEnabled)},
+		struct{ label, value string }{"Login Exp.", fmt.Sprintf("%v", peer.LoginExpirationEnabled)},
+		struct{ label, value string }{"Login Expired", fmt.Sprintf("%v", peer.LoginExpired)},
+		struct{ label, value string }{"Ephemeral", fmt.Sprintf("%v", peer.Ephemeral)},
+	)
 
 	for _, f := range fields {
 		label := detailLabelStyle.Render(f.label)

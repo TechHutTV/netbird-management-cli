@@ -67,7 +67,6 @@ netbird-manage --help         # Shows all available commands
 | [Events](docs/events.md) | Audit logs and traffic monitoring |
 | [Geo-Locations](docs/geo-locations.md) | Geographic location data |
 | [Accounts](docs/accounts.md) | Account settings and configuration |
-| [Ingress Ports](docs/ingress-ports.md) | Port forwarding (Cloud-only) |
 | [Export & Import](docs/export-import.md) | YAML/JSON configuration management |
 | [Migrate](docs/migrate.md) | Migration between NetBird accounts |
 
@@ -90,7 +89,6 @@ netbird-manage --help         # Shows all available commands
 | Events | Read |
 | Geo-Locations | Read |
 | Accounts | Full CRUD |
-| Ingress Ports | Full CRUD (Cloud-only) |
 
 ## Roadmap
 

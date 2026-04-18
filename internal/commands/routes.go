@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -253,7 +254,7 @@ func (s *Service) listRoutes(filters *RouteFilters, outputFormat string) error {
 
 // inspectRoute implements the "route --inspect" command
 func (s *Service) inspectRoute(routeID string, outputFormat string) error {
-	resp, err := s.Client.MakeRequest("GET", "/routes/"+routeID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/routes/"+url.PathEscape(routeID), nil)
 	if err != nil {
 		return err
 	}
@@ -383,7 +384,7 @@ func (s *Service) createRoute(network, networkID, description, peer, peerGroups 
 // updateRoute implements the "route --update" command
 func (s *Service) updateRoute(routeID, networkID, description, peer, peerGroups string, metric int, masquerade, enabled *bool, groups string) error {
 	// First, get the current route
-	resp, err := s.Client.MakeRequest("GET", "/routes/"+routeID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/routes/"+url.PathEscape(routeID), nil)
 	if err != nil {
 		return err
 	}
@@ -445,7 +446,7 @@ func (s *Service) updateRoute(routeID, networkID, description, peer, peerGroups 
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err = s.Client.MakeRequest("PUT", "/routes/"+routeID, bytes.NewReader(bodyBytes))
+	resp, err = s.Client.MakeRequest("PUT", "/routes/"+url.PathEscape(routeID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
@@ -458,7 +459,7 @@ func (s *Service) updateRoute(routeID, networkID, description, peer, peerGroups 
 // deleteRoute implements the "route --delete" command
 func (s *Service) deleteRoute(routeID string) error {
 	// Fetch route details first
-	resp, err := s.Client.MakeRequest("GET", "/routes/"+routeID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/routes/"+url.PathEscape(routeID), nil)
 	if err != nil {
 		return err
 	}
@@ -489,7 +490,7 @@ func (s *Service) deleteRoute(routeID string) error {
 		return nil // User cancelled
 	}
 
-	resp, err = s.Client.MakeRequest("DELETE", "/routes/"+routeID, nil)
+	resp, err = s.Client.MakeRequest("DELETE", "/routes/"+url.PathEscape(routeID), nil)
 	if err != nil {
 		return err
 	}
@@ -502,7 +503,7 @@ func (s *Service) deleteRoute(routeID string) error {
 // toggleRoute enables or disables a route
 func (s *Service) toggleRoute(routeID string, enable bool) error {
 	// First, get the current route
-	resp, err := s.Client.MakeRequest("GET", "/routes/"+routeID, nil)
+	resp, err := s.Client.MakeRequest("GET", "/routes/"+url.PathEscape(routeID), nil)
 	if err != nil {
 		return err
 	}
@@ -533,7 +534,7 @@ func (s *Service) toggleRoute(routeID string, enable bool) error {
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err = s.Client.MakeRequest("PUT", "/routes/"+routeID, bytes.NewReader(bodyBytes))
+	resp, err = s.Client.MakeRequest("PUT", "/routes/"+url.PathEscape(routeID), bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}

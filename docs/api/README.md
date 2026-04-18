@@ -35,7 +35,6 @@ All 14 NetBird API resource types are fully implemented in the CLI:
 | **Accounts** | [accounts.md](resources/accounts.md) | `account --list`, `--inspect`, `--update`, `--delete`, `--output json` | 4/4 endpoints |
 | **Events** | [events.md](resources/events.md) | `event --audit`, `--traffic` (with filters), `--output json` | 2/2 endpoints |
 | **Geo-Locations** | [geo-locations.md](resources/geo-locations.md) | `geo --countries`, `--cities`, `--output json` | 2/2 endpoints |
-| **Ingress Ports** | [ingress-ports.md](resources/ingress-ports.md) | `ingress-port` and `ingress-peer` (Cloud-only), `--output json` | 10/10 endpoints |
 
 **Total API Coverage: 14/14 resource types (100%)** 🎉 - 75 total endpoints implemented
 
@@ -182,9 +181,6 @@ GET /events/network-traffic   → client.listTrafficEvents()   → events.go
 GET /locations/countries      → client.listCountries()       → geo_locations.go
 GET /locations/countries/{c}/cities → client.listCities()    → geo_locations.go
 
-# Ingress Ports (10/10 endpoints - Cloud only)
-GET /peers/{id}/ingress/ports → client.listIngressPorts()    → ingress_ports.go
-# ... plus 9 more endpoints for ports and ingress peers
 ```
 
 ## External Resources
