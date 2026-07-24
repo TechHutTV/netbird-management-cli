@@ -21,6 +21,7 @@ func (s *Service) HandleUsersCommand(args []string) error {
 
 	// Query flags
 	listFlag := userCmd.Bool("list", false, "List all users")
+	inspectFlag := userCmd.String("inspect", "", "Inspect a user by ID")
 	meFlag := userCmd.Bool("me", false, "Get current user information")
 	serviceUserFilter := userCmd.Bool("service-users", false, "List only service users")
 	regularUserFilter := userCmd.Bool("regular-users", false, "List only regular users")
@@ -68,6 +69,10 @@ func (s *Service) HandleUsersCommand(args []string) error {
 	// Handle commands
 	if *meFlag {
 		return s.getCurrentUser(*outputFlag)
+	}
+
+	if *inspectFlag != "" {
+		return s.inspectUser(*inspectFlag, *outputFlag)
 	}
 
 	if *listFlag || *serviceUserFilter || *regularUserFilter {
@@ -191,7 +196,11 @@ func (s *Service) listUsers(filterType string, outputFormat string) error {
 	}
 
 	if len(users) == 0 {
-		fmt.Println("No users found")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No users found")
+		}
 		return nil
 	}
 
@@ -236,6 +245,36 @@ func (s *Service) listUsers(filterType string, outputFormat string) error {
 	}
 
 	w.Flush()
+	return nil
+}
+
+// inspectUser shows a single user selected from the users list endpoint.
+func (s *Service) inspectUser(userID string, outputFormat string) error {
+	user, err := s.getUserByID(userID)
+	if err != nil {
+		return err
+	}
+
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(user, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
+	}
+
+	fmt.Printf("User ID:        %s\n", user.ID)
+	fmt.Printf("Email:          %s\n", user.Email)
+	fmt.Printf("Name:           %s\n", user.Name)
+	fmt.Printf("Role:           %s\n", user.Role)
+	fmt.Printf("Status:         %s\n", user.Status)
+	fmt.Printf("Service User:   %t\n", user.IsServiceUser)
+	fmt.Printf("Blocked:        %t\n", user.IsBlocked)
+	fmt.Printf("Last Login:     %s\n", user.LastLogin)
+	if len(user.AutoGroups) > 0 {
+		fmt.Printf("Auto Groups:    %s\n", strings.Join(user.AutoGroups, ", "))
+	}
 	return nil
 }
 
@@ -499,7 +538,11 @@ func (s *Service) listUserInvites(outputFormat string) error {
 	}
 
 	if len(invites) == 0 {
-		fmt.Println("No pending invites found")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No pending invites found")
+		}
 		return nil
 	}
 

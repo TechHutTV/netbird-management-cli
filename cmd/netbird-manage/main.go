@@ -269,7 +269,7 @@ func handleConnectCommand(args []string) error {
 	urlFlag := connectCmd.String("management-url", "", "Your self-hosted management URL (optional, defaults to NetBird cloud)")
 
 	if err := connectCmd.Parse(args[1:]); err != nil {
-		return nil // flag package will print error
+		return err
 	}
 
 	// If no flags are provided, show status

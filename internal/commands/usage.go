@@ -362,7 +362,7 @@ func PrintDNSUsage() {
 	fmt.Println("\nQuery Flags:")
 	fmt.Println("  --list                           List all DNS nameserver groups")
 	fmt.Println("  --inspect <group-id>             Inspect a specific DNS group")
-	fmt.Println("  --settings                       Show DNS settings")
+	fmt.Println("  --get-settings                   Show DNS settings")
 	fmt.Println()
 	fmt.Println("Modification Flags:")
 	fmt.Println("  --create <name>                  Create a DNS nameserver group")
@@ -436,10 +436,10 @@ func PrintGeoLocationUsage() {
 	fmt.Println("Usage: netbird-manage geo <flag> [arguments]")
 	fmt.Println("\nRetrieve geographic location data for posture checks.")
 	fmt.Println("\nQuery Flags:")
-	fmt.Println("  --countries                      List all available country codes")
-	fmt.Println("  --cities <country-code>          List cities for a country (e.g., --cities US)")
+	fmt.Println("  --countries                      List all available countries")
+	fmt.Println("  --cities --country <country-code> List cities for a country")
 	fmt.Println()
-	fmt.Println("  --json                           Output in JSON format")
+	fmt.Println("  --output <table|json>            Output format (default: table)")
 }
 
 // PrintAccountUsage provides specific help for the 'account' command

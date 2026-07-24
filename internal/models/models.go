@@ -1,6 +1,8 @@
 // Package models defines all data types for the NetBird Management CLI
 package models
 
+import "encoding/json"
+
 // Config holds the client configuration
 type Config struct {
 	Token         string `json:"token"`
@@ -527,6 +529,21 @@ type GeoLocationCheck struct {
 type Location struct {
 	CountryCode string `json:"country_code"` // ISO 3166-1 alpha-2
 	CityName    string `json:"city_name,omitempty"`
+}
+
+// Country represents a country returned by the geo-locations API.
+type Country struct {
+	CountryCode string `json:"country_code"`
+	CountryName string `json:"country_name"`
+}
+
+// UnmarshalJSON supports both current country objects and legacy string codes.
+func (c *Country) UnmarshalJSON(data []byte) error {
+	if len(data) > 0 && data[0] == '"' {
+		return json.Unmarshal(data, &c.CountryCode)
+	}
+	type countryAlias Country
+	return json.Unmarshal(data, (*countryAlias)(c))
 }
 
 // PeerNetworkRangeCheck checks peer network ranges

@@ -96,7 +96,7 @@ func HandleMigrateCommand(args []string, debug bool) error {
 	}
 
 	if err := migrateCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	// Validate required flags

@@ -37,7 +37,7 @@ netbird-manage geo --cities --country US --output json > us-cities.json
 ## Notes
 
 - Country codes follow ISO 3166-1 alpha-2 standard (e.g., US, GB, DE, FR)
-- `--countries` returns country codes only (the API no longer returns country names)
+- `--countries` returns country codes and country names
 - City data includes geoname IDs for precise location matching
 - Use geo-location data when creating posture checks with `--type geo-location`
 

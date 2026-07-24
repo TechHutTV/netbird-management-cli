@@ -59,7 +59,7 @@ func (s *Service) HandleDNSZonesCommand(args []string) error {
 	}
 
 	if err := zoneCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	if *listFlag {
@@ -173,7 +173,11 @@ func (s *Service) listDNSZones(outputFormat string) error {
 	}
 
 	if len(zones) == 0 {
-		fmt.Println("No DNS zones found")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No DNS zones found")
+		}
 		return nil
 	}
 
@@ -369,7 +373,11 @@ func (s *Service) listDNSRecords(zoneID string, outputFormat string) error {
 	}
 
 	if len(records) == 0 {
-		fmt.Println("No records found in this zone")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No records found in this zone")
+		}
 		return nil
 	}
 

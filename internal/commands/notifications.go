@@ -47,7 +47,7 @@ func (s *Service) HandleNotificationsCommand(args []string) error {
 	}
 
 	if err := notifCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	if *listTypesFlag {
@@ -174,7 +174,11 @@ func (s *Service) listNotificationChannels(outputFormat string) error {
 	}
 
 	if len(channels) == 0 {
-		fmt.Println("No notification channels found")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No notification channels found")
+		}
 		return nil
 	}
 

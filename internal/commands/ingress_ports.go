@@ -51,8 +51,7 @@ func (s *Service) HandleIngressPortsCommand(args []string) error {
 
 	// Parse the flags (all args *after* 'ingress-port')
 	if err := ingressPortCmd.Parse(args[1:]); err != nil {
-		// The flag package will print an error, so we just return
-		return nil
+		return err
 	}
 
 	// Handle the flags
@@ -250,8 +249,7 @@ func (s *Service) HandleIngressPeersCommand(args []string) error {
 
 	// Parse the flags (all args *after* 'ingress-peer')
 	if err := ingressPeerCmd.Parse(args[1:]); err != nil {
-		// The flag package will print an error, so we just return
-		return nil
+		return err
 	}
 
 	// Handle the flags
@@ -329,7 +327,11 @@ func (s *Service) listIngressPorts(peerID, filterName, outputFormat string) erro
 	}
 
 	if len(allocations) == 0 {
-		fmt.Println("No ingress port allocations found for this peer")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No ingress port allocations found for this peer")
+		}
 		return nil
 	}
 
@@ -552,7 +554,11 @@ func (s *Service) listIngressPeers(outputFormat string) error {
 	}
 
 	if len(peers) == 0 {
-		fmt.Println("No ingress peers found")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No ingress peers found")
+		}
 		return nil
 	}
 

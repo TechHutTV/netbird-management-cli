@@ -43,7 +43,7 @@ func (s *Service) HandleGroupsCommand(args []string) error {
 	}
 
 	if err := groupCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	if *listFlag {
@@ -129,7 +129,9 @@ func (s *Service) listGroups(filterName, outputFormat string) error {
 	}
 
 	if len(filteredGroups) == 0 {
-		if filterName != "" {
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else if filterName != "" {
 			fmt.Println("No groups found matching the specified filter.")
 		} else {
 			fmt.Println("No groups found.")

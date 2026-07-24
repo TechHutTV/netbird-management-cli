@@ -75,7 +75,7 @@ func (s *Service) HandleRoutesCommand(args []string) error {
 
 	// Parse the flags
 	if err := routeCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	// Handle the flags in priority order
@@ -223,7 +223,11 @@ func (s *Service) listRoutes(filters *RouteFilters, outputFormat string) error {
 	}
 
 	if len(filtered) == 0 {
-		fmt.Println("No routes found.")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No routes found.")
+		}
 		return nil
 	}
 

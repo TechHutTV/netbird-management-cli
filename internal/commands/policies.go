@@ -89,7 +89,7 @@ func (s *Service) HandlePoliciesCommand(args []string) error {
 
 	// Parse the flags (all args *after* 'policy')
 	if err := policyCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	// Handle the flags in priority order
@@ -243,7 +243,11 @@ func (s *Service) listPolicies(filters *policyFilters, outputFormat string) erro
 	}
 
 	if len(filteredPolicies) == 0 {
-		fmt.Println("No policies found.")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No policies found.")
+		}
 		return nil
 	}
 

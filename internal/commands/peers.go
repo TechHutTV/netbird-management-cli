@@ -54,7 +54,7 @@ func (s *Service) HandlePeersCommand(args []string) error {
 	}
 
 	if err := peerCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	if *listFlag {
@@ -189,10 +189,10 @@ func (s *Service) handlePeerUpdate(peerID, rename, ssh, loginExp, inactivityExp,
 func (s *Service) listPeers(filterName, filterIP, outputFormat string) error {
 	// Build query parameters for server-side filtering
 	params := url.Values{}
-	if filterName != "" {
+	if filterName != "" && !strings.Contains(filterName, "*") {
 		params.Add("name", filterName)
 	}
-	if filterIP != "" {
+	if filterIP != "" && !strings.Contains(filterIP, "*") {
 		params.Add("ip", filterIP)
 	}
 
@@ -225,7 +225,9 @@ func (s *Service) listPeers(filterName, filterIP, outputFormat string) error {
 	}
 
 	if len(filteredPeers) == 0 {
-		if filterName != "" || filterIP != "" {
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else if filterName != "" || filterIP != "" {
 			fmt.Println("No peers found matching the specified filters.")
 		} else {
 			fmt.Println("No peers found in your network.")

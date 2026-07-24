@@ -65,7 +65,7 @@ func (s *Service) HandleDNSCommand(args []string) error {
 
 	// Parse the flags
 	if err := dnsCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	// Handle the flags in priority order
@@ -188,7 +188,11 @@ func (s *Service) listDNSGroups(filters *DNSFilters, outputFormat string) error 
 	}
 
 	if len(filtered) == 0 {
-		fmt.Println("No DNS nameserver groups found.")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No DNS nameserver groups found.")
+		}
 		return nil
 	}
 

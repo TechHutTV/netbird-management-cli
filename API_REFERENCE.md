@@ -190,7 +190,7 @@ Authorization: Bearer <YOUR_TOKEN>
 | CLI Command | API Endpoint | Implementation File |
 |-------------|--------------|---------------------|
 | `account --list` | `GET /accounts` | `accounts.go` |
-| `account --inspect <id>` | `GET /accounts/{id}` | `accounts.go` |
+| `account --inspect <id>` | `GET /accounts` (select by ID) | `accounts.go` |
 | `account --update <id>` | `PUT /accounts/{id}` | `accounts.go` |
 | `account --delete <id>` | `DELETE /accounts/{id}` | `accounts.go` |
 
@@ -411,9 +411,9 @@ Plus 7 additional endpoints for network resources and routers - **ALL FULLY IMPL
 - **Routes** (5 endpoints) - [`docs/api/resources/routes.md`](docs/api/resources/routes.md) - See `route` commands (CIDR or domain-based routes, `keep_route`, `skip_auto_apply`, access control groups)
 - **Setup Keys** (5 endpoints) - [`docs/api/resources/setup-keys.md`](docs/api/resources/setup-keys.md) - See `setup-key` commands
 - **Posture Checks** (5 endpoints) - [`docs/api/resources/posture-checks.md`](docs/api/resources/posture-checks.md) - See `posture-check` commands
-- **Accounts** (4 endpoints) - [`docs/api/resources/accounts.md`](docs/api/resources/accounts.md) - See `account` commands (current settings schema incl. IPv6, lazy connection, auto-update, JWT groups)
+- **Accounts** (3 endpoints) - [`docs/api/resources/accounts.md`](docs/api/resources/accounts.md) - See `account` commands (current settings schema incl. IPv6, lazy connection, auto-update, JWT groups)
 - **Events** (3 endpoints) - [`docs/api/resources/events.md`](docs/api/resources/events.md) - See `event` commands (`/events/audit`, `/events/network-traffic`, `/events/proxy`)
-- **Geo-Locations** (2 endpoints) - [`docs/api/resources/geo-locations.md`](docs/api/resources/geo-locations.md) - See `geo` commands (`/locations/countries` returns a plain string array of country codes)
+- **Geo-Locations** (2 endpoints) - [`docs/api/resources/geo-locations.md`](docs/api/resources/geo-locations.md) - See `geo` commands (`/locations/countries` returns country code/name objects)
 - **Ingress Ports** (10 endpoints) - [`docs/api/resources/ingress-ports.md`](docs/api/resources/ingress-ports.md) - See `ingress-port`/`ingress-peer` commands (Cloud only)
 - **Peer Jobs** (3 endpoints) - Debug bundle collection - See `job` commands
 - **Notifications** (6 endpoints) - Email/webhook notification channels - See `notification` commands

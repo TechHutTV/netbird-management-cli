@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"netbird-manage/internal/models"
 )
@@ -66,7 +67,7 @@ func (s *Service) HandleEventsCommand(args []string) error {
 
 	// Parse the flags (all args *after* 'event')
 	if err := eventCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	// Handle the flags in priority order
@@ -127,35 +128,15 @@ func (s *Service) HandleEventsCommand(args []string) error {
 	return nil
 }
 
-// listAuditEvents lists all audit events with optional filters
+// listAuditEvents lists all audit events with optional local filters.
+// The audit API does not currently document or apply query parameters.
 func (s *Service) listAuditEvents(filters models.AuditEventFilters, outputFormat string) error {
-	// Build query parameters
-	params := url.Values{}
-	if filters.UserID != "" {
-		params.Add("user_id", filters.UserID)
-	}
-	if filters.TargetID != "" {
-		params.Add("target_id", filters.TargetID)
-	}
-	if filters.ActivityCode != "" {
-		params.Add("activity_code", filters.ActivityCode)
-	}
-	if filters.StartDate != "" {
-		params.Add("start_date", filters.StartDate)
-	}
-	if filters.EndDate != "" {
-		params.Add("end_date", filters.EndDate)
-	}
-	if filters.Search != "" {
-		params.Add("search", filters.Search)
+	bounds, err := parseAuditFilterBounds(filters)
+	if err != nil {
+		return err
 	}
 
-	endpoint := "/events/audit"
-	if len(params) > 0 {
-		endpoint += "?" + params.Encode()
-	}
-
-	resp, err := s.Client.MakeRequest("GET", endpoint, nil)
+	resp, err := s.Client.MakeRequest("GET", "/events/audit", nil)
 	if err != nil {
 		return err
 	}
@@ -165,6 +146,18 @@ func (s *Service) listAuditEvents(filters models.AuditEventFilters, outputFormat
 	if err := json.NewDecoder(resp.Body).Decode(&events); err != nil {
 		return fmt.Errorf("failed to decode response: %v", err)
 	}
+
+	filteredEvents := make([]models.AuditEvent, 0, len(events))
+	for _, event := range events {
+		matches, err := auditEventMatchesFilters(event, filters, bounds)
+		if err != nil {
+			return err
+		}
+		if matches {
+			filteredEvents = append(filteredEvents, event)
+		}
+	}
+	events = filteredEvents
 
 	// JSON output
 	if outputFormat == "json" {
@@ -207,6 +200,72 @@ func (s *Service) listAuditEvents(filters models.AuditEventFilters, outputFormat
 	fmt.Printf("\nTotal events: %d\n", len(events))
 
 	return nil
+}
+
+type auditFilterBounds struct {
+	start *time.Time
+	end   *time.Time
+}
+
+func parseAuditFilterBounds(filters models.AuditEventFilters) (auditFilterBounds, error) {
+	var bounds auditFilterBounds
+	if filters.StartDate != "" {
+		parsed, err := time.Parse(time.RFC3339Nano, filters.StartDate)
+		if err != nil {
+			return auditFilterBounds{}, fmt.Errorf("invalid audit start date %q: expected RFC3339: %w", filters.StartDate, err)
+		}
+		bounds.start = &parsed
+	}
+	if filters.EndDate != "" {
+		parsed, err := time.Parse(time.RFC3339Nano, filters.EndDate)
+		if err != nil {
+			return auditFilterBounds{}, fmt.Errorf("invalid audit end date %q: expected RFC3339: %w", filters.EndDate, err)
+		}
+		bounds.end = &parsed
+	}
+	if bounds.start != nil && bounds.end != nil && bounds.start.After(*bounds.end) {
+		return auditFilterBounds{}, fmt.Errorf("audit start date must not be after end date")
+	}
+	return bounds, nil
+}
+
+func auditEventMatchesFilters(event models.AuditEvent, filters models.AuditEventFilters, bounds auditFilterBounds) (bool, error) {
+	if filters.UserID != "" && event.InitiatorID != filters.UserID {
+		return false, nil
+	}
+	if filters.TargetID != "" && event.TargetID != filters.TargetID {
+		return false, nil
+	}
+	if filters.ActivityCode != "" && !strings.EqualFold(event.ActivityCode, filters.ActivityCode) {
+		return false, nil
+	}
+	if bounds.start != nil || bounds.end != nil {
+		timestamp, err := time.Parse(time.RFC3339Nano, event.Timestamp)
+		if err != nil {
+			return false, fmt.Errorf("invalid timestamp %q for audit event %s: %w", event.Timestamp, event.ID, err)
+		}
+		if bounds.start != nil && timestamp.Before(*bounds.start) {
+			return false, nil
+		}
+		if bounds.end != nil && timestamp.After(*bounds.end) {
+			return false, nil
+		}
+	}
+	if filters.Search == "" {
+		return true, nil
+	}
+
+	meta, _ := json.Marshal(event.Meta)
+	haystack := strings.ToLower(strings.Join([]string{
+		event.Activity,
+		event.ActivityCode,
+		event.InitiatorID,
+		event.InitiatorName,
+		event.InitiatorEmail,
+		event.TargetID,
+		string(meta),
+	}, " "))
+	return strings.Contains(haystack, strings.ToLower(filters.Search)), nil
 }
 
 // listTrafficEvents lists network traffic events with pagination and filters
@@ -381,20 +440,15 @@ func (s *Service) listProxyEvents(filters models.ProxyEventFilters, outputFormat
 		}
 	}
 
-	endpoint := "/events/proxy"
-	if len(params) > 0 {
-		endpoint += "?" + params.Encode()
+	var response models.ProxyEventResponse
+	var err error
+	if filters.SourceIP != "" {
+		response, err = s.fetchProxyEventsBySourceIP(params, filters)
+	} else {
+		response, err = s.fetchProxyEventPage(params)
 	}
-
-	resp, err := s.Client.MakeRequest("GET", endpoint, nil)
 	if err != nil {
 		return err
-	}
-	defer resp.Body.Close()
-
-	var response models.ProxyEventResponse
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return fmt.Errorf("failed to decode response: %v", err)
 	}
 
 	// JSON output
@@ -446,4 +500,149 @@ func (s *Service) listProxyEvents(filters models.ProxyEventFilters, outputFormat
 	)
 
 	return nil
+}
+
+func (s *Service) fetchProxyEventPage(params url.Values) (models.ProxyEventResponse, error) {
+	endpoint := "/events/proxy"
+	if len(params) > 0 {
+		endpoint += "?" + params.Encode()
+	}
+
+	resp, err := s.Client.MakeRequest("GET", endpoint, nil)
+	if err != nil {
+		return models.ProxyEventResponse{}, err
+	}
+	defer resp.Body.Close()
+
+	var response models.ProxyEventResponse
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return models.ProxyEventResponse{}, fmt.Errorf("failed to decode response: %v", err)
+	}
+	return response, nil
+}
+
+// fetchProxyEventsBySourceIP uses native server pagination when source_ip is
+// demonstrably selective. Servers known to ignore the parameter fall back to
+// bounded search plus exact local filtering.
+func (s *Service) fetchProxyEventsBySourceIP(params url.Values, filters models.ProxyEventFilters) (models.ProxyEventResponse, error) {
+	nativeResponse, err := s.fetchProxyEventPage(params)
+	if err != nil {
+		return models.ProxyEventResponse{}, err
+	}
+	if nativeResponse.TotalRecords > 0 && proxyEventsMatchSourceIP(nativeResponse.Data, filters.SourceIP) {
+		probeParams := cloneURLValues(params)
+		probeParams.Del("source_ip")
+		unfilteredResponse, err := s.fetchProxyEventPage(probeParams)
+		if err != nil {
+			return models.ProxyEventResponse{}, err
+		}
+		if nativeResponse.TotalRecords < unfilteredResponse.TotalRecords {
+			return nativeResponse, nil
+		}
+	}
+	return s.fetchAndFilterProxyEventsBySourceIP(params, filters)
+}
+
+func proxyEventsMatchSourceIP(events []models.ProxyEvent, sourceIP string) bool {
+	if len(events) == 0 {
+		return false
+	}
+	for _, event := range events {
+		if event.SourceIP != sourceIP {
+			return false
+		}
+	}
+	return true
+}
+
+func cloneURLValues(values url.Values) url.Values {
+	clone := make(url.Values, len(values))
+	for key, entries := range values {
+		clone[key] = append([]string(nil), entries...)
+	}
+	return clone
+}
+
+// fetchAndFilterProxyEventsBySourceIP provides compatibility with management
+// servers that ignore source_ip by using the API's general search index as a
+// bounded fallback, then enforcing an exact source-IP match locally.
+func (s *Service) fetchAndFilterProxyEventsBySourceIP(params url.Values, filters models.ProxyEventFilters) (models.ProxyEventResponse, error) {
+	const (
+		fallbackPageSize   = 100
+		maxFallbackPages   = 20
+		maxFallbackRecords = fallbackPageSize * maxFallbackPages
+	)
+
+	fallbackParams := cloneURLValues(params)
+	fallbackParams.Del("source_ip")
+	if fallbackParams.Get("search") == "" {
+		fallbackParams.Set("search", filters.SourceIP)
+	}
+	fallbackParams.Set("page", "1")
+	fallbackParams.Set("page_size", strconv.Itoa(fallbackPageSize))
+
+	matches := make([]models.ProxyEvent, 0)
+	candidateCount := 0
+	for page := 1; page <= maxFallbackPages; page++ {
+		fallbackParams.Set("page", strconv.Itoa(page))
+		pageResponse, err := s.fetchProxyEventPage(fallbackParams)
+		if err != nil {
+			return models.ProxyEventResponse{}, err
+		}
+		if len(pageResponse.Data) > fallbackPageSize || pageResponse.TotalPages > maxFallbackPages || pageResponse.TotalRecords > maxFallbackRecords || len(pageResponse.Data) > maxFallbackRecords-candidateCount {
+			return models.ProxyEventResponse{}, fmt.Errorf(
+				"proxy source-IP fallback matched too many candidates (%d records across %d pages); narrow the query with additional filters",
+				pageResponse.TotalRecords,
+				pageResponse.TotalPages,
+			)
+		}
+		candidateCount += len(pageResponse.Data)
+		for _, event := range pageResponse.Data {
+			if event.SourceIP == filters.SourceIP {
+				matches = append(matches, event)
+			}
+		}
+		if pageResponse.TotalPages <= page || len(pageResponse.Data) == 0 {
+			break
+		}
+	}
+
+	page := filters.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := filters.PageSize
+	if pageSize < 1 {
+		pageSize = 50
+	}
+	if page > maxFallbackRecords || pageSize > maxFallbackRecords {
+		return models.ProxyEventResponse{}, fmt.Errorf(
+			"proxy source-IP fallback pagination exceeds the maximum page or page size of %d",
+			maxFallbackRecords,
+		)
+	}
+	totalRecords := len(matches)
+	totalPages := 0
+	if totalRecords > 0 {
+		totalPages = (totalRecords + pageSize - 1) / pageSize
+	}
+	start := totalRecords
+	if page-1 <= totalRecords/pageSize {
+		start = (page - 1) * pageSize
+	}
+	if start > totalRecords {
+		start = totalRecords
+	}
+	end := totalRecords
+	if pageSize <= totalRecords-start {
+		end = start + pageSize
+	}
+
+	return models.ProxyEventResponse{
+		Data:         matches[start:end],
+		Page:         page,
+		PageSize:     pageSize,
+		TotalRecords: totalRecords,
+		TotalPages:   totalPages,
+	}, nil
 }

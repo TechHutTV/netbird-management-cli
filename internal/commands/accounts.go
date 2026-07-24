@@ -62,8 +62,7 @@ func (s *Service) HandleAccountsCommand(args []string) error {
 
 	// Parse the flags (all args *after* 'account')
 	if err := accountCmd.Parse(args[1:]); err != nil {
-		// The flag package will print an error, so we just return
-		return nil
+		return err
 	}
 
 	// Handle the flags
@@ -103,7 +102,11 @@ func (s *Service) listAccounts(outputFormat string) error {
 	}
 
 	if len(accounts) == 0 {
-		fmt.Println("No accounts found")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No accounts found")
+		}
 		return nil
 	}
 
@@ -140,6 +143,28 @@ func (s *Service) listAccounts(outputFormat string) error {
 	}
 
 	return nil
+}
+
+// getAccountByID finds an account via the list endpoint. Self-hosted
+// management servers do not expose GET /accounts/{id}.
+func (s *Service) getAccountByID(accountID string) (*models.Account, error) {
+	resp, err := s.Client.MakeRequest("GET", "/accounts", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var accounts []models.Account
+	if err := json.NewDecoder(resp.Body).Decode(&accounts); err != nil {
+		return nil, fmt.Errorf("failed to decode accounts response: %v", err)
+	}
+
+	for i := range accounts {
+		if accounts[i].ID == accountID {
+			return &accounts[i], nil
+		}
+	}
+	return nil, fmt.Errorf("no account found with ID: %s", accountID)
 }
 
 // printAccountSettings prints the settings and onboarding blocks of an account
@@ -196,16 +221,11 @@ func printAccountSettings(account models.Account) {
 
 // inspectAccount shows detailed information about an account
 func (s *Service) inspectAccount(accountID string, outputFormat string) error {
-	resp, err := s.Client.MakeRequest("GET", "/accounts/"+accountID, nil)
+	accountPtr, err := s.getAccountByID(accountID)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-
-	var account models.Account
-	if err := json.NewDecoder(resp.Body).Decode(&account); err != nil {
-		return fmt.Errorf("failed to decode response: %v", err)
-	}
+	account := *accountPtr
 
 	// JSON output
 	if outputFormat == "json" {
@@ -269,16 +289,11 @@ func parseBoolFlag(value, flagName string, dest *bool) error {
 // updateAccountFromFlags updates an account based on provided flags
 func (s *Service) updateAccountFromFlags(accountID string, uf accountUpdateFlags) error {
 	// First, fetch the current account state
-	resp, err := s.Client.MakeRequest("GET", "/accounts/"+accountID, nil)
+	accountPtr, err := s.getAccountByID(accountID)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-
-	var account models.Account
-	if err := json.NewDecoder(resp.Body).Decode(&account); err != nil {
-		return fmt.Errorf("failed to decode current account: %v", err)
-	}
+	account := *accountPtr
 
 	// Update only the fields that were provided
 	if uf.peerLoginExp != "" {
@@ -376,16 +391,11 @@ func (s *Service) updateAccountFromFlags(accountID string, uf accountUpdateFlags
 // deleteAccount deletes an account and all its resources
 func (s *Service) deleteAccount(accountID string) error {
 	// Fetch account details first
-	resp, err := s.Client.MakeRequest("GET", "/accounts/"+accountID, nil)
+	accountPtr, err := s.getAccountByID(accountID)
 	if err != nil {
 		return err
 	}
-	var account models.Account
-	if err := json.NewDecoder(resp.Body).Decode(&account); err != nil {
-		resp.Body.Close()
-		return fmt.Errorf("failed to decode account: %v", err)
-	}
-	resp.Body.Close()
+	account := *accountPtr
 
 	// Build details map
 	details := map[string]string{
@@ -400,7 +410,7 @@ func (s *Service) deleteAccount(accountID string) error {
 		return nil // User cancelled
 	}
 
-	resp, err = s.Client.MakeRequest("DELETE", "/accounts/"+accountID, nil)
+	resp, err := s.Client.MakeRequest("DELETE", "/accounts/"+accountID, nil)
 	if err != nil {
 		return err
 	}

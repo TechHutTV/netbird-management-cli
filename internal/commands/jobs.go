@@ -41,7 +41,7 @@ func (s *Service) HandleJobsCommand(args []string) error {
 	}
 
 	if err := jobCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	if *peerFlag == "" && (*listFlag || *inspectFlag != "" || *createFlag) {
@@ -92,7 +92,11 @@ func (s *Service) listPeerJobs(peerID, outputFormat string) error {
 	}
 
 	if len(jobs) == 0 {
-		fmt.Println("No jobs found for this peer")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No jobs found for this peer")
+		}
 		return nil
 	}
 
