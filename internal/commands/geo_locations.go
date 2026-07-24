@@ -36,7 +36,7 @@ func (s *Service) HandleGeoLocationsCommand(args []string) error {
 
 	// Parse the flags (all args *after* 'geo')
 	if err := geoCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	// Handle the flags in priority order
@@ -66,7 +66,8 @@ func (s *Service) listCountryCodes(outputFormat string) error {
 	}
 	defer resp.Body.Close()
 
-	var countries []models.CountryCode
+	// The API returns country objects containing ISO codes and display names.
+	var countries []models.Country
 	if err := json.NewDecoder(resp.Body).Decode(&countries); err != nil {
 		return fmt.Errorf("failed to decode response: %v", err)
 	}
@@ -83,12 +84,14 @@ func (s *Service) listCountryCodes(outputFormat string) error {
 
 	// Table output
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "CODE\tCOUNTRY NAME")
-	fmt.Fprintln(w, "----\t------------")
+	fmt.Fprintln(w, "COUNTRY CODE	COUNTRY NAME")
+	fmt.Fprintln(w, "------------	------------")
 	for _, country := range countries {
-		fmt.Fprintf(w, "%s\t%s\n", country.Code, country.Name)
+		fmt.Fprintf(w, "%s	%s\n", country.CountryCode, country.CountryName)
 	}
 	w.Flush()
+
+	fmt.Printf("\nTotal countries: %d\n", len(countries))
 
 	return nil
 }

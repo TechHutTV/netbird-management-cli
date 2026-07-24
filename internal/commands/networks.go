@@ -76,7 +76,7 @@ func (s *Service) HandleNetworkCommand(args []string) error {
 
 	// Parse the flags (all args *after* 'network')
 	if err := networkCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	// Handle network CRUD operations
@@ -227,7 +227,9 @@ func (s *Service) listNetworks(filterName string, outputFormat string) error {
 	}
 
 	if len(networks) == 0 {
-		if filterName != "" {
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else if filterName != "" {
 			fmt.Println("No networks found matching the specified filter.")
 		} else {
 			fmt.Println("No networks found.")

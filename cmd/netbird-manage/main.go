@@ -94,6 +94,15 @@ func main() {
 		case "dns":
 			commands.PrintDNSUsage()
 			os.Exit(0)
+		case "dns-zone", "dns-zones":
+			commands.PrintDNSZoneUsage()
+			os.Exit(0)
+		case "job", "jobs":
+			commands.PrintJobUsage()
+			os.Exit(0)
+		case "notification", "notifications":
+			commands.PrintNotificationUsage()
+			os.Exit(0)
 		case "posture-check", "posture":
 			commands.PrintPostureCheckUsage()
 			os.Exit(0)
@@ -188,6 +197,21 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+	case "dns-zone", "dns-zones":
+		if err := svc.HandleDNSZonesCommand(args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "job", "jobs":
+		if err := svc.HandleJobsCommand(args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "notification", "notifications":
+		if err := svc.HandleNotificationsCommand(args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	case "posture-check", "posture":
 		if err := svc.HandlePostureChecksCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -245,7 +269,7 @@ func handleConnectCommand(args []string) error {
 	urlFlag := connectCmd.String("management-url", "", "Your self-hosted management URL (optional, defaults to NetBird cloud)")
 
 	if err := connectCmd.Parse(args[1:]); err != nil {
-		return nil // flag package will print error
+		return err
 	}
 
 	// If no flags are provided, show status

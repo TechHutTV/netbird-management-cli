@@ -85,6 +85,13 @@ netbird-manage policy --add-rule "ssh-access" \
   --destinations "all-servers" \
   --ports "22" \
   --rule-description "Allow SSH access for administrators"
+
+# Add a rule for NetBird SSH access
+netbird-manage policy --add-rule "netbird-ssh-access" \
+  --policy-id <policy-id> \
+  --protocol netbird-ssh \
+  --sources "admins" \
+  --destinations "all-servers"
 ```
 
 ### Edit Rules
@@ -127,7 +134,7 @@ netbird-manage policy --remove-rule <rule-id> --policy-id <policy-id>
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--action` | `accept` or `drop` | accept |
-| `--protocol` | `tcp`, `udp`, `icmp`, or `all` | all |
+| `--protocol` | `tcp`, `udp`, `icmp`, `netbird-ssh`, or `all` | all |
 | `--sources` | Comma-separated group names or IDs | - |
 | `--destinations` | Comma-separated group names or IDs | - |
 | `--ports` | Comma-separated port list (e.g., `80,443,8080`) | - |
@@ -140,6 +147,7 @@ netbird-manage policy --remove-rule <rule-id> --policy-id <policy-id>
 
 - Group names are automatically resolved to IDs, so you can use friendly names
 - Rules can be identified by either name or ID for editing/removal
+- The `netbird-ssh` protocol controls access via NetBird's built-in SSH server
 - Bidirectional rules apply the same action in both source→destination and destination→source directions
 
 ---
@@ -157,8 +165,11 @@ netbird-manage policy --remove-rule <rule-id> --policy-id <policy-id>
 | [Networks](networks.md) | Networks, resources, and routers |
 | [Routes](routes.md) | Network routing configuration |
 | [DNS](dns.md) | DNS nameserver groups and settings |
+| [DNS Zones](dns-zones.md) | Custom DNS zones and records |
 | [Posture Checks](posture-checks.md) | Device compliance validation |
 | [Events](events.md) | Audit logs and traffic monitoring |
+| [Jobs](jobs.md) | Peer jobs and debug bundles |
+| [Notifications](notifications.md) | Notification channels (email/webhook) |
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
 | [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |

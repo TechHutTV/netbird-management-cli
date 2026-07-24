@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"netbird-manage/internal/helpers"
@@ -41,7 +43,7 @@ func (s *Service) HandleGroupsCommand(args []string) error {
 	}
 
 	if err := groupCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	if *listFlag {
@@ -101,7 +103,13 @@ func (s *Service) HandleGroupsCommand(args []string) error {
 }
 
 func (s *Service) listGroups(filterName, outputFormat string) error {
-	resp, err := s.Client.MakeRequest("GET", "/groups", nil)
+	// Use the server-side exact-match filter when the pattern has no wildcards
+	endpoint := "/groups"
+	if filterName != "" && !strings.ContainsAny(filterName, "*?") {
+		endpoint += "?name=" + url.QueryEscape(filterName)
+	}
+
+	resp, err := s.Client.MakeRequest("GET", endpoint, nil)
 	if err != nil {
 		return err
 	}
@@ -121,7 +129,9 @@ func (s *Service) listGroups(filterName, outputFormat string) error {
 	}
 
 	if len(filteredGroups) == 0 {
-		if filterName != "" {
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else if filterName != "" {
 			fmt.Println("No groups found matching the specified filter.")
 		} else {
 			fmt.Println("No groups found.")
@@ -158,7 +168,8 @@ func (s *Service) listGroups(filterName, outputFormat string) error {
 }
 
 func (s *Service) getGroupByName(name string) (*models.GroupDetail, error) {
-	resp, err := s.Client.MakeRequest("GET", "/groups", nil)
+	// Server-side exact-match lookup via the name query parameter
+	resp, err := s.Client.MakeRequest("GET", "/groups?name="+url.QueryEscape(name), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -239,14 +250,12 @@ func (s *Service) inspectGroup(groupIdentifier, outputFormat string) error {
 	if len(group.Peers) > 0 {
 		fmt.Println("\n  Peers:")
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-		fmt.Fprintln(w, "    ID\tNAME\tIP\tCONNECTED")
-		fmt.Fprintln(w, "    --\t----\t--\t---------")
+		fmt.Fprintln(w, "    ID\tNAME")
+		fmt.Fprintln(w, "    --\t----")
 		for _, peer := range group.Peers {
-			fmt.Fprintf(w, "    %s\t%s\t%s\t%t\n",
+			fmt.Fprintf(w, "    %s\t%s\n",
 				peer.ID,
 				peer.Name,
-				peer.IP,
-				peer.Connected,
 			)
 		}
 		w.Flush()

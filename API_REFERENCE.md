@@ -56,6 +56,7 @@ Authorization: Bearer <YOUR_TOKEN>
 | `peer --update <id>` | `PUT /peers/{id}` | `peers.go` |
 | `peer --remove <id>` | `DELETE /peers/{id}` | `peers.go` |
 | `peer --accessible-peers <id>` | `GET /peers/{id}/accessible-peers` | `peers.go` |
+| `peer --temporary-access <id>` | `POST /peers/{id}/temporary-access` | `peers.go` |
 | `peer --edit --add/remove-group` | `PUT /groups/{id}` | `groups.go` |
 
 #### Groups
@@ -111,6 +112,13 @@ Authorization: Bearer <YOUR_TOKEN>
 | `user --update <id>` | `PUT /users/{id}` | `users.go` |
 | `user --remove <id>` | `DELETE /users/{id}` | `users.go` |
 | `user --resend-invite <id>` | `POST /users/{id}/invite` | `users.go` |
+| `user --approve <id>` | `POST /users/{id}/approve` | `users.go` |
+| `user --reject <id>` | `DELETE /users/{id}/reject` | `users.go` |
+| `user --change-password <id>` | `PUT /users/{id}/password` | `users.go` |
+| `user --list-invites` | `GET /users/invites` | `users.go` |
+| `user --create-invite` | `POST /users/invites` | `users.go` |
+| `user --delete-invite <id>` | `DELETE /users/invites/{id}` | `users.go` |
+| `user --regenerate-invite <id>` | `POST /users/invites/{id}/regenerate` | `users.go` |
 
 #### Tokens
 | CLI Command | API Endpoint | Implementation File |
@@ -142,6 +150,20 @@ Authorization: Bearer <YOUR_TOKEN>
 | `dns --get-settings` | `GET /dns/settings` | `dns.go` |
 | `dns --update-settings` | `PUT /dns/settings` | `dns.go` |
 
+#### DNS Zones
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `dns-zone --list` | `GET /dns/zones` | `dns_zones.go` |
+| `dns-zone --inspect <id>` | `GET /dns/zones/{id}` | `dns_zones.go` |
+| `dns-zone --create` | `POST /dns/zones` | `dns_zones.go` |
+| `dns-zone --update <id>` | `PUT /dns/zones/{id}` | `dns_zones.go` |
+| `dns-zone --delete <id>` | `DELETE /dns/zones/{id}` | `dns_zones.go` |
+| `dns-zone --list-records <zoneId>` | `GET /dns/zones/{zoneId}/records` | `dns_zones.go` |
+| `dns-zone --inspect-record <id> --zone <zoneId>` | `GET /dns/zones/{zoneId}/records/{id}` | `dns_zones.go` |
+| `dns-zone --add-record <zoneId>` | `POST /dns/zones/{zoneId}/records` | `dns_zones.go` |
+| `dns-zone --update-record <id> --zone <zoneId>` | `PUT /dns/zones/{zoneId}/records/{id}` | `dns_zones.go` |
+| `dns-zone --delete-record <id> --zone <zoneId>` | `DELETE /dns/zones/{zoneId}/records/{id}` | `dns_zones.go` |
+
 #### Posture Checks
 | CLI Command | API Endpoint | Implementation File |
 |-------------|--------------|---------------------|
@@ -154,8 +176,9 @@ Authorization: Bearer <YOUR_TOKEN>
 #### Events
 | CLI Command | API Endpoint | Implementation File |
 |-------------|--------------|---------------------|
-| `event --audit` | `GET /events` | `events.go` |
-| `event --traffic` | `GET /events/traffic` | `events.go` |
+| `event --audit` | `GET /events/audit` | `events.go` |
+| `event --traffic` | `GET /events/network-traffic` | `events.go` |
+| `event --proxy` | `GET /events/proxy` | `events.go` |
 
 #### Geo-Locations
 | CLI Command | API Endpoint | Implementation File |
@@ -167,7 +190,7 @@ Authorization: Bearer <YOUR_TOKEN>
 | CLI Command | API Endpoint | Implementation File |
 |-------------|--------------|---------------------|
 | `account --list` | `GET /accounts` | `accounts.go` |
-| `account --inspect <id>` | `GET /accounts/{id}` | `accounts.go` |
+| `account --inspect <id>` | `GET /accounts` (select by ID) | `accounts.go` |
 | `account --update <id>` | `PUT /accounts/{id}` | `accounts.go` |
 | `account --delete <id>` | `DELETE /accounts/{id}` | `accounts.go` |
 
@@ -185,9 +208,28 @@ Authorization: Bearer <YOUR_TOKEN>
 | `ingress-peer --update <id>` | `PUT /ingress/peers/{id}` | `ingress-ports.go` |
 | `ingress-peer --delete <id>` | `DELETE /ingress/peers/{id}` | `ingress-ports.go` |
 
+**Note:** Ingress port allocations use the current API schema: allocations are created with `name`, `enabled`, `port_ranges`, and an optional `direct_port`, and the API returns `ingress_ip`, `region`, and `port_range_mappings`. Ingress peers are created from a `peer_id` with `enabled`/`fallback` flags.
+
+#### Peer Jobs
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `job --list --peer <peerId>` | `GET /peers/{peerId}/jobs` | `jobs.go` |
+| `job --inspect <jobId> --peer <peerId>` | `GET /peers/{peerId}/jobs/{jobId}` | `jobs.go` |
+| `job --create --peer <peerId>` | `POST /peers/{peerId}/jobs` | `jobs.go` |
+
+#### Notifications
+| CLI Command | API Endpoint | Implementation File |
+|-------------|--------------|---------------------|
+| `notification --list-types` | `GET /integrations/notifications/types` | `notifications.go` |
+| `notification --list` | `GET /integrations/notifications/channels` | `notifications.go` |
+| `notification --inspect <id>` | `GET /integrations/notifications/channels/{id}` | `notifications.go` |
+| `notification --create` | `POST /integrations/notifications/channels` | `notifications.go` |
+| `notification --update <id>` | `PUT /integrations/notifications/channels/{id}` | `notifications.go` |
+| `notification --delete <id>` | `DELETE /integrations/notifications/channels/{id}` | `notifications.go` |
+
 ### ✅ Full API Coverage
 
-**All 14 NetBird API resource types are now fully implemented!** 🎉
+**All 17 NetBird API resource types are now fully implemented!** 🎉
 
 For complete feature documentation and examples, see [README.md](README.md).
 
@@ -285,6 +327,10 @@ curl -X DELETE https://api.netbird.io/api/peers/peer-id \
 | PUT | `/peers/{id}` | Update peer settings | ✅ `peer --update` |
 | DELETE | `/peers/{id}` | Remove peer | ✅ `peer --remove` |
 | GET | `/peers/{id}/accessible-peers` | List accessible peers | ✅ `peer --accessible-peers` |
+| POST | `/peers/{id}/temporary-access` | Create temporary access peer | ✅ `peer --temporary-access` |
+| GET | `/peers/{id}/jobs` | List peer jobs | ✅ `job --list --peer` |
+| POST | `/peers/{id}/jobs` | Create peer job (e.g., debug bundle) | ✅ `job --create --peer` |
+| GET | `/peers/{id}/jobs/{jobId}` | Get job details | ✅ `job --inspect --peer` |
 
 **Docs:** [`docs/api/resources/peers.md`](docs/api/resources/peers.md)
 
@@ -327,7 +373,7 @@ Plus 7 additional endpoints for network resources and routers - **ALL FULLY IMPL
 **Features:**
 - Full CRUD operations for policies
 - Rule management (add, edit, remove)
-- Protocol, port, and port range configuration
+- Protocol, port, and port range configuration (protocols: all, tcp, udp, icmp, netbird-ssh)
 - Bidirectional traffic support
 - Group name resolution (use friendly names instead of IDs)
 - List filtering (enabled/disabled, name search)
@@ -344,6 +390,15 @@ Plus 7 additional endpoints for network resources and routers - **ALL FULLY IMPL
 | DELETE | `/users/{id}` | Delete user | ✅ `user --remove` |
 | POST | `/users/{id}/invite` | Resend invitation | ✅ `user --resend-invite` |
 | GET | `/users/current` | Get current user | ✅ `user --me` |
+| POST | `/users/{id}/approve` | Approve pending user (Cloud) | ✅ `user --approve` |
+| DELETE | `/users/{id}/reject` | Reject pending user (Cloud) | ✅ `user --reject` |
+| PUT | `/users/{id}/password` | Change password (embedded IdP) | ✅ `user --change-password` |
+| GET | `/users/invites` | List pending invites | ✅ `user --list-invites` |
+| POST | `/users/invites` | Create user invite | ✅ `user --create-invite` |
+| DELETE | `/users/invites/{id}` | Delete invite | ✅ `user --delete-invite` |
+| POST | `/users/invites/{id}/regenerate` | Regenerate invite | ✅ `user --regenerate-invite` |
+
+**Note:** User permissions now use the `is_restricted` + `modules` model (the old `dashboard_view` field was removed). There is no `GET /users/{id}` endpoint; single-user lookups filter the `GET /users` list.
 
 **Docs:** [`docs/api/resources/users.md`](docs/api/resources/users.md)
 
@@ -351,16 +406,17 @@ Plus 7 additional endpoints for network resources and routers - **ALL FULLY IMPL
 
 **✅ Fully Implemented:**
 - **Tokens** (4 endpoints) - [`docs/api/resources/tokens.md`](docs/api/resources/tokens.md) - See `token` commands
-- **DNS** (6 endpoints) - [`docs/api/resources/dns.md`](docs/api/resources/dns.md) - See `dns` commands
-- **Routes** (5 endpoints) - [`docs/api/resources/routes.md`](docs/api/resources/routes.md) - See `route` commands
+- **DNS** (6 endpoints) - [`docs/api/resources/dns.md`](docs/api/resources/dns.md) - See `dns` commands (GET `/dns/settings` returns the documented `items{}` wrapper)
+- **DNS Zones** (10 endpoints) - Custom DNS zones and records - See `dns-zone` commands
+- **Routes** (5 endpoints) - [`docs/api/resources/routes.md`](docs/api/resources/routes.md) - See `route` commands (CIDR or domain-based routes, `keep_route`, `skip_auto_apply`, access control groups)
 - **Setup Keys** (5 endpoints) - [`docs/api/resources/setup-keys.md`](docs/api/resources/setup-keys.md) - See `setup-key` commands
 - **Posture Checks** (5 endpoints) - [`docs/api/resources/posture-checks.md`](docs/api/resources/posture-checks.md) - See `posture-check` commands
-
-**❌ Not Yet Implemented:**
-- **Accounts** (3 endpoints) - [`docs/api/resources/accounts.md`](docs/api/resources/accounts.md) - Account settings
-- **Events** (2 endpoints) - [`docs/api/resources/events.md`](docs/api/resources/events.md) - Audit logs and monitoring
-- **Geo-Locations** (2 endpoints) - [`docs/api/resources/geo-locations.md`](docs/api/resources/geo-locations.md) - Location data
-- **Ingress Ports** (10 endpoints) - [`docs/api/resources/ingress-ports.md`](docs/api/resources/ingress-ports.md) - Port forwarding (Cloud only)
+- **Accounts** (3 endpoints) - [`docs/api/resources/accounts.md`](docs/api/resources/accounts.md) - See `account` commands (current settings schema incl. IPv6, lazy connection, auto-update, JWT groups)
+- **Events** (3 endpoints) - [`docs/api/resources/events.md`](docs/api/resources/events.md) - See `event` commands (`/events/audit`, `/events/network-traffic`, `/events/proxy`)
+- **Geo-Locations** (2 endpoints) - [`docs/api/resources/geo-locations.md`](docs/api/resources/geo-locations.md) - See `geo` commands (`/locations/countries` returns country code/name objects)
+- **Ingress Ports** (10 endpoints) - [`docs/api/resources/ingress-ports.md`](docs/api/resources/ingress-ports.md) - See `ingress-port`/`ingress-peer` commands (Cloud only)
+- **Peer Jobs** (3 endpoints) - Debug bundle collection - See `job` commands
+- **Notifications** (6 endpoints) - Email/webhook notification channels - See `notification` commands
 
 ---
 
@@ -450,7 +506,7 @@ client.listPolicies()    → GET /policies
 
 ---
 
-**Last Updated:** 2025-11-15
+**Last Updated:** 2026-07-23
 **API Version:** v1 (Beta)
 **CLI Version:** netbird-manage v0.1
 

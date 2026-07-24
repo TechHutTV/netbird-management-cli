@@ -62,7 +62,7 @@ func (s *Service) HandleSetupKeysCommand(args []string) error {
 
 	// Parse the flags
 	if err := setupKeyCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	// Handle the flags
@@ -258,7 +258,11 @@ func (s *Service) listSetupKeys(filterName, filterType string, validOnly bool, o
 	}
 
 	if len(filtered) == 0 {
-		fmt.Println("No setup keys found.")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No setup keys found.")
+		}
 		return nil
 	}
 

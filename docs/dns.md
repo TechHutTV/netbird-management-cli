@@ -102,8 +102,11 @@ netbird-manage dns --delete <group-id>
 | [Networks](networks.md) | Networks, resources, and routers |
 | [Policies](policies.md) | Access control policies and firewall rules |
 | [Routes](routes.md) | Network routing configuration |
+| [DNS Zones](dns-zones.md) | Custom DNS zones and records |
 | [Posture Checks](posture-checks.md) | Device compliance validation |
 | [Events](events.md) | Audit logs and traffic monitoring |
+| [Jobs](jobs.md) | Peer jobs and debug bundles |
+| [Notifications](notifications.md) | Notification channels (email/webhook) |
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
 | [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |

@@ -22,14 +22,29 @@ netbird-manage account --inspect <account-id>
 # Update peer login expiration
 netbird-manage account --update <account-id> --peer-login-expiration 48h
 
+# Enable/disable peer login expiration
+netbird-manage account --update <account-id> --peer-login-expiration-enabled true
+
 # Update peer inactivity expiration
 netbird-manage account --update <account-id> --peer-inactivity-expiration 30d
+
+# Enable/disable peer inactivity expiration
+netbird-manage account --update <account-id> --peer-inactivity-expiration-enabled true
 
 # Update DNS domain
 netbird-manage account --update <account-id> --dns-domain nb.local
 
 # Update network range
 netbird-manage account --update <account-id> --network-range 100.64.0.0/10
+
+# Update IPv6 network range
+netbird-manage account --update <account-id> --network-range-v6 "fd00:b14d::/48"
+
+# Enable DNS resolution on routing peers
+netbird-manage account --update <account-id> --routing-peer-dns-resolution-enabled true
+
+# Enable lazy connections
+netbird-manage account --update <account-id> --lazy-connection-enabled true
 
 # Enable JWT groups
 netbird-manage account --update <account-id> --jwt-groups-enabled true
@@ -41,11 +56,33 @@ netbird-manage account --update <account-id> \
   --jwt-groups-enabled true
 ```
 
+### Update Flags
+
+| Flag | Description |
+|------|-------------|
+| `--peer-login-expiration <dur>` | Peer login expiration (e.g., `24h`, `7d`) |
+| `--peer-login-expiration-enabled <true\|false>` | Enable/disable peer login expiration |
+| `--peer-inactivity-expiration <dur>` | Peer inactivity timeout (e.g., `30d`) |
+| `--peer-inactivity-expiration-enabled <true\|false>` | Enable/disable peer inactivity expiration |
+| `--dns-domain <domain>` | Network DNS domain |
+| `--network-range <cidr>` | Network IP range (e.g., `100.64.0.0/10`) |
+| `--network-range-v6 <cidr>` | IPv6 network range |
+| `--routing-peer-dns-resolution-enabled <true\|false>` | Enable DNS resolution on routing peers |
+| `--jwt-groups-enabled <true\|false>` | Enable JWT group claims |
+| `--jwt-groups-claim <name>` | JWT claim name for groups (API field `jwt_groups_claim_name`) |
+| `--jwt-allow-groups <groups>` | Comma-separated allowed groups |
+| `--groups-propagation-enabled <true\|false>` | Enable groups propagation |
+| `--regular-users-view-blocked <true\|false>` | Block regular users view |
+| `--lazy-connection-enabled <true\|false>` | Enable lazy connections |
+| `--peer-approval-enabled <true\|false>` | Enable peer approval (Cloud-only) |
+| `--user-approval-required <true\|false>` | Require user approval (Cloud-only) |
+| `--traffic-logging <true\|false>` | Enable network traffic logging (Cloud-only) |
+
 ## Delete Operations
 
 ```bash
 # Delete account (requires confirmation, deletes ALL resources)
-netbird-manage account --delete <account-id> --confirm
+netbird-manage account --delete <account-id>
 ```
 
 ## Examples
@@ -67,7 +104,9 @@ netbird-manage account --update d10vfhbl0ubs73e6p8ig \
 ## Notes
 
 - Duration format: `24h` (hours), `7d` (days), `30d` (days)
-- Some settings like `peer-approval-enabled` and `traffic-logging` are Cloud-only
+- `--jwt-groups-claim` maps to the API's `jwt_groups_claim_name` settings field
+- The Cloud-only settings (`--peer-approval-enabled`, `--user-approval-required`, `--traffic-logging`) live in the account's nested `extra` settings object; the CLI updates them there automatically
+- `account --list` and `account --inspect` also display the `extra` Cloud settings and onboarding status when present
 - Deleting an account is permanent and removes ALL associated resources
 
 ---
@@ -86,8 +125,11 @@ netbird-manage account --update d10vfhbl0ubs73e6p8ig \
 | [Policies](policies.md) | Access control policies and firewall rules |
 | [Routes](routes.md) | Network routing configuration |
 | [DNS](dns.md) | DNS nameserver groups and settings |
+| [DNS Zones](dns-zones.md) | Custom DNS zones and records |
 | [Posture Checks](posture-checks.md) | Device compliance validation |
 | [Events](events.md) | Audit logs and traffic monitoring |
+| [Jobs](jobs.md) | Peer jobs and debug bundles |
+| [Notifications](notifications.md) | Notification channels (email/webhook) |
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |
 | [Export & Import](export-import.md) | YAML/JSON configuration management |

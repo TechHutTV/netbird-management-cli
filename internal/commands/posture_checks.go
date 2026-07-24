@@ -65,7 +65,7 @@ func (s *Service) HandlePostureChecksCommand(args []string) error {
 
 	// Parse the flags
 	if err := postureCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	// Handle the flags in priority order
@@ -144,7 +144,11 @@ func (s *Service) listPostureChecks(filters *PostureCheckFilters, outputFormat s
 	}
 
 	if len(filtered) == 0 {
-		fmt.Println("No posture checks found.")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No posture checks found.")
+		}
 		return nil
 	}
 

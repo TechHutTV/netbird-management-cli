@@ -35,17 +35,24 @@ func (s *Service) HandleAccountsCommand(args []string) error {
 	outputFlag := accountCmd.String("output", "table", "Output format: table or json")
 
 	// Update flags (use with --update)
-	peerLoginExpFlag := accountCmd.String("peer-login-expiration", "", "Peer login expiration (e.g., 24h, 7d)")
-	peerInactivityExpFlag := accountCmd.String("peer-inactivity-expiration", "", "Peer inactivity timeout (e.g., 30d)")
-	dnsDomainFlag := accountCmd.String("dns-domain", "", "Network DNS domain")
-	networkRangeFlag := accountCmd.String("network-range", "", "Network IP range (CIDR, e.g., 100.64.0.0/10)")
-	jwtGroupsEnabledFlag := accountCmd.String("jwt-groups-enabled", "", "Enable JWT group claims (true/false)")
-	jwtGroupsClaimFlag := accountCmd.String("jwt-groups-claim", "", "JWT claim name for groups")
-	jwtAllowGroupsFlag := accountCmd.String("jwt-allow-groups", "", "Comma-separated allowed groups")
-	groupsPropagationFlag := accountCmd.String("groups-propagation-enabled", "", "Enable groups propagation (true/false)")
-	regularUsersViewFlag := accountCmd.String("regular-users-view-blocked", "", "Block regular users view (true/false)")
-	peerApprovalFlag := accountCmd.String("peer-approval-enabled", "", "Enable peer approval (true/false, Cloud-only)")
-	trafficLoggingFlag := accountCmd.String("traffic-logging", "", "Enable traffic logging (true/false, Cloud-only)")
+	var uf accountUpdateFlags
+	accountCmd.StringVar(&uf.peerLoginExp, "peer-login-expiration", "", "Peer login expiration (e.g., 24h, 7d)")
+	accountCmd.StringVar(&uf.peerLoginExpEnabled, "peer-login-expiration-enabled", "", "Enable peer login expiration (true/false)")
+	accountCmd.StringVar(&uf.peerInactivityExp, "peer-inactivity-expiration", "", "Peer inactivity timeout (e.g., 30d)")
+	accountCmd.StringVar(&uf.peerInactivityExpEnabled, "peer-inactivity-expiration-enabled", "", "Enable peer inactivity expiration (true/false)")
+	accountCmd.StringVar(&uf.dnsDomain, "dns-domain", "", "Network DNS domain")
+	accountCmd.StringVar(&uf.networkRange, "network-range", "", "Network IP range (CIDR, e.g., 100.64.0.0/10)")
+	accountCmd.StringVar(&uf.networkRangeV6, "network-range-v6", "", "IPv6 network range (CIDR)")
+	accountCmd.StringVar(&uf.routingPeerDNS, "routing-peer-dns-resolution-enabled", "", "Enable DNS resolution on routing peers (true/false)")
+	accountCmd.StringVar(&uf.jwtGroupsEnabled, "jwt-groups-enabled", "", "Enable JWT group claims (true/false)")
+	accountCmd.StringVar(&uf.jwtGroupsClaim, "jwt-groups-claim", "", "JWT claim name for groups")
+	accountCmd.StringVar(&uf.jwtAllowGroups, "jwt-allow-groups", "", "Comma-separated allowed groups")
+	accountCmd.StringVar(&uf.groupsPropagation, "groups-propagation-enabled", "", "Enable groups propagation (true/false)")
+	accountCmd.StringVar(&uf.regularUsersView, "regular-users-view-blocked", "", "Block regular users view (true/false)")
+	accountCmd.StringVar(&uf.lazyConnection, "lazy-connection-enabled", "", "Enable lazy connections (true/false)")
+	accountCmd.StringVar(&uf.peerApproval, "peer-approval-enabled", "", "Enable peer approval (true/false, Cloud-only)")
+	accountCmd.StringVar(&uf.userApproval, "user-approval-required", "", "Require user approval (true/false, Cloud-only)")
+	accountCmd.StringVar(&uf.trafficLogging, "traffic-logging", "", "Enable network traffic logging (true/false, Cloud-only)")
 
 	// If no flags are provided (just 'netbird-manage account'), show usage
 	if len(args) == 1 {
@@ -55,8 +62,7 @@ func (s *Service) HandleAccountsCommand(args []string) error {
 
 	// Parse the flags (all args *after* 'account')
 	if err := accountCmd.Parse(args[1:]); err != nil {
-		// The flag package will print an error, so we just return
-		return nil
+		return err
 	}
 
 	// Handle the flags
@@ -70,19 +76,7 @@ func (s *Service) HandleAccountsCommand(args []string) error {
 
 	if *updateFlag != "" {
 		// Build update request from flags
-		return s.updateAccountFromFlags(*updateFlag,
-			*peerLoginExpFlag,
-			*peerInactivityExpFlag,
-			*dnsDomainFlag,
-			*networkRangeFlag,
-			*jwtGroupsEnabledFlag,
-			*jwtGroupsClaimFlag,
-			*jwtAllowGroupsFlag,
-			*groupsPropagationFlag,
-			*regularUsersViewFlag,
-			*peerApprovalFlag,
-			*trafficLoggingFlag,
-		)
+		return s.updateAccountFromFlags(*updateFlag, uf)
 	}
 
 	if *deleteFlag != "" {
@@ -108,7 +102,11 @@ func (s *Service) listAccounts(outputFormat string) error {
 	}
 
 	if len(accounts) == 0 {
-		fmt.Println("No accounts found")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No accounts found")
+		}
 		return nil
 	}
 
@@ -141,43 +139,93 @@ func (s *Service) listAccounts(outputFormat string) error {
 	// Show detailed settings for each account
 	for _, account := range accounts {
 		fmt.Println("\nAccount Settings:")
-		fmt.Printf("  Peer Login Expiration:        %s\n", formatSeconds(account.Settings.PeerLoginExpiration))
-		fmt.Printf("  Peer Inactivity Expiration:   %s\n", formatSeconds(account.Settings.PeerInactivityExpiration))
-		fmt.Printf("  DNS Domain:                   %s\n", account.Settings.DNSDomain)
-		fmt.Printf("  Network Range:                %s\n", account.Settings.NetworkRange)
-		fmt.Printf("  JWT Groups Enabled:           %t\n", account.Settings.JWTGroupsEnabled)
-		fmt.Printf("  JWT Groups Claim:             %s\n", account.Settings.JWTGroupsClaim)
-		fmt.Printf("  Groups Propagation Enabled:   %t\n", account.Settings.GroupsPropagationEnabled)
-		fmt.Printf("  Regular Users View Blocked:   %t\n", account.Settings.RegularUsersViewBlocked)
-		fmt.Printf("  Peer Approval Enabled:        %t\n", account.Settings.PeerApprovalEnabled)
-		fmt.Printf("  Traffic Logging:              %t\n", account.Settings.TrafficLogging)
-
-		if len(account.Settings.JWTAllowGroups) > 0 {
-			fmt.Printf("  JWT Allow Groups:             %s\n", strings.Join(account.Settings.JWTAllowGroups, ", "))
-		}
-
-		if account.Onboarding != nil {
-			fmt.Println("\nOnboarding Status:")
-			fmt.Printf("  Signup Form Completed:        %t\n", account.Onboarding.SignupFormCompleted)
-			fmt.Printf("  Flow Completed:               %t\n", account.Onboarding.FlowCompleted)
-		}
+		printAccountSettings(account)
 	}
 
 	return nil
 }
 
-// inspectAccount shows detailed information about an account
-func (s *Service) inspectAccount(accountID string, outputFormat string) error {
-	resp, err := s.Client.MakeRequest("GET", "/accounts/"+accountID, nil)
+// getAccountByID finds an account via the list endpoint. Self-hosted
+// management servers do not expose GET /accounts/{id}.
+func (s *Service) getAccountByID(accountID string) (*models.Account, error) {
+	resp, err := s.Client.MakeRequest("GET", "/accounts", nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	var account models.Account
-	if err := json.NewDecoder(resp.Body).Decode(&account); err != nil {
-		return fmt.Errorf("failed to decode response: %v", err)
+	var accounts []models.Account
+	if err := json.NewDecoder(resp.Body).Decode(&accounts); err != nil {
+		return nil, fmt.Errorf("failed to decode accounts response: %v", err)
 	}
+
+	for i := range accounts {
+		if accounts[i].ID == accountID {
+			return &accounts[i], nil
+		}
+	}
+	return nil, fmt.Errorf("no account found with ID: %s", accountID)
+}
+
+// printAccountSettings prints the settings and onboarding blocks of an account
+func printAccountSettings(account models.Account) {
+	settings := account.Settings
+	fmt.Printf("  Peer Login Expiration Enabled:      %t\n", settings.PeerLoginExpirationEnabled)
+	fmt.Printf("  Peer Login Expiration:              %s\n", formatSeconds(settings.PeerLoginExpiration))
+	fmt.Printf("  Peer Inactivity Expiration Enabled: %t\n", settings.PeerInactivityExpirationEnabled)
+	fmt.Printf("  Peer Inactivity Expiration:         %s\n", formatSeconds(settings.PeerInactivityExpiration))
+	fmt.Printf("  DNS Domain:                         %s\n", settings.DNSDomain)
+	fmt.Printf("  Network Range:                      %s\n", settings.NetworkRange)
+	if settings.NetworkRangeV6 != "" {
+		fmt.Printf("  Network Range (IPv6):               %s\n", settings.NetworkRangeV6)
+	}
+	fmt.Printf("  Routing Peer DNS Resolution:        %t\n", settings.RoutingPeerDNSResolutionEnabled)
+	fmt.Printf("  JWT Groups Enabled:                 %t\n", settings.JWTGroupsEnabled)
+	fmt.Printf("  JWT Groups Claim Name:              %s\n", settings.JWTGroupsClaimName)
+	fmt.Printf("  Groups Propagation Enabled:         %t\n", settings.GroupsPropagationEnabled)
+	fmt.Printf("  Regular Users View Blocked:         %t\n", settings.RegularUsersViewBlocked)
+	fmt.Printf("  Peer Expose Enabled:                %t\n", settings.PeerExposeEnabled)
+	fmt.Printf("  Lazy Connection Enabled:            %t\n", settings.LazyConnectionEnabled)
+	if settings.AutoUpdateVersion != "" {
+		fmt.Printf("  Auto Update Version:                %s\n", settings.AutoUpdateVersion)
+	}
+	fmt.Printf("  Auto Update Always:                 %t\n", settings.AutoUpdateAlways)
+
+	if len(settings.JWTAllowGroups) > 0 {
+		fmt.Printf("  JWT Allow Groups:                   %s\n", strings.Join(settings.JWTAllowGroups, ", "))
+	}
+	if len(settings.PeerExposeGroups) > 0 {
+		fmt.Printf("  Peer Expose Groups:                 %s\n", strings.Join(settings.PeerExposeGroups, ", "))
+	}
+	if len(settings.IPv6EnabledGroups) > 0 {
+		fmt.Printf("  IPv6 Enabled Groups:                %s\n", strings.Join(settings.IPv6EnabledGroups, ", "))
+	}
+
+	if settings.Extra != nil {
+		fmt.Println("\nCloud Settings (extra):")
+		fmt.Printf("  Peer Approval Enabled:              %t\n", settings.Extra.PeerApprovalEnabled)
+		fmt.Printf("  User Approval Required:             %t\n", settings.Extra.UserApprovalRequired)
+		fmt.Printf("  Network Traffic Logs Enabled:       %t\n", settings.Extra.NetworkTrafficLogsEnabled)
+		fmt.Printf("  Network Traffic Packet Counter:     %t\n", settings.Extra.NetworkTrafficPacketCounterEnabled)
+		if len(settings.Extra.NetworkTrafficLogsGroups) > 0 {
+			fmt.Printf("  Network Traffic Logs Groups:        %s\n", strings.Join(settings.Extra.NetworkTrafficLogsGroups, ", "))
+		}
+	}
+
+	if account.Onboarding != nil {
+		fmt.Println("\nOnboarding Status:")
+		fmt.Printf("  Signup Form Pending:                %t\n", account.Onboarding.SignupFormPending)
+		fmt.Printf("  Onboarding Flow Pending:            %t\n", account.Onboarding.OnboardingFlowPending)
+	}
+}
+
+// inspectAccount shows detailed information about an account
+func (s *Service) inspectAccount(accountID string, outputFormat string) error {
+	accountPtr, err := s.getAccountByID(accountID)
+	if err != nil {
+		return err
+	}
+	account := *accountPtr
 
 	// JSON output
 	if outputFormat == "json" {
@@ -190,115 +238,132 @@ func (s *Service) inspectAccount(accountID string, outputFormat string) error {
 	}
 
 	// Display account details
-	fmt.Printf("Account ID:     %s\n", account.ID)
-	fmt.Printf("Domain:         %s\n", account.Domain)
-	fmt.Printf("Created By:     %s\n", account.CreatedBy)
-	fmt.Printf("Created At:     %s\n", account.CreatedAt)
+	fmt.Printf("Account ID:      %s\n", account.ID)
+	fmt.Printf("Domain:          %s\n", account.Domain)
+	if account.DomainCategory != "" {
+		fmt.Printf("Domain Category: %s\n", account.DomainCategory)
+	}
+	fmt.Printf("Created By:      %s\n", account.CreatedBy)
+	fmt.Printf("Created At:      %s\n", account.CreatedAt)
 
 	fmt.Println("\nSettings:")
-	fmt.Printf("  Peer Login Expiration:        %s\n", formatSeconds(account.Settings.PeerLoginExpiration))
-	fmt.Printf("  Peer Inactivity Expiration:   %s\n", formatSeconds(account.Settings.PeerInactivityExpiration))
-	fmt.Printf("  DNS Domain:                   %s\n", account.Settings.DNSDomain)
-	fmt.Printf("  Network Range:                %s\n", account.Settings.NetworkRange)
-	fmt.Printf("  JWT Groups Enabled:           %t\n", account.Settings.JWTGroupsEnabled)
-	fmt.Printf("  JWT Groups Claim:             %s\n", account.Settings.JWTGroupsClaim)
-	fmt.Printf("  Groups Propagation Enabled:   %t\n", account.Settings.GroupsPropagationEnabled)
-	fmt.Printf("  Regular Users View Blocked:   %t\n", account.Settings.RegularUsersViewBlocked)
-	fmt.Printf("  Peer Approval Enabled:        %t\n", account.Settings.PeerApprovalEnabled)
-	fmt.Printf("  Traffic Logging:              %t\n", account.Settings.TrafficLogging)
-
-	if len(account.Settings.JWTAllowGroups) > 0 {
-		fmt.Printf("  JWT Allow Groups:             %s\n", strings.Join(account.Settings.JWTAllowGroups, ", "))
-	}
-
-	if account.Onboarding != nil {
-		fmt.Println("\nOnboarding:")
-		fmt.Printf("  Signup Form Completed:        %t\n", account.Onboarding.SignupFormCompleted)
-		fmt.Printf("  Flow Completed:               %t\n", account.Onboarding.FlowCompleted)
-	}
+	printAccountSettings(account)
 
 	return nil
 }
 
-// updateAccountFromFlags updates an account based on provided flags
-func (s *Service) updateAccountFromFlags(accountID string,
-	peerLoginExp, peerInactivityExp, dnsDomain, networkRange,
-	jwtGroupsEnabled, jwtGroupsClaim, jwtAllowGroups,
-	groupsPropagation, regularUsersView, peerApproval, trafficLogging string) error {
+// accountUpdateFlags holds the raw string values of all --update sub-flags
+type accountUpdateFlags struct {
+	peerLoginExp             string
+	peerLoginExpEnabled      string
+	peerInactivityExp        string
+	peerInactivityExpEnabled string
+	dnsDomain                string
+	networkRange             string
+	networkRangeV6           string
+	routingPeerDNS           string
+	jwtGroupsEnabled         string
+	jwtGroupsClaim           string
+	jwtAllowGroups           string
+	groupsPropagation        string
+	regularUsersView         string
+	lazyConnection           string
+	peerApproval             string
+	userApproval             string
+	trafficLogging           string
+}
 
+// parseBoolFlag parses a true/false string flag into dest, leaving it unchanged when empty
+func parseBoolFlag(value, flagName string, dest *bool) error {
+	if value == "" {
+		return nil
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return fmt.Errorf("invalid value for %s: %v", flagName, err)
+	}
+	*dest = parsed
+	return nil
+}
+
+// updateAccountFromFlags updates an account based on provided flags
+func (s *Service) updateAccountFromFlags(accountID string, uf accountUpdateFlags) error {
 	// First, fetch the current account state
-	resp, err := s.Client.MakeRequest("GET", "/accounts/"+accountID, nil)
+	accountPtr, err := s.getAccountByID(accountID)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-
-	var account models.Account
-	if err := json.NewDecoder(resp.Body).Decode(&account); err != nil {
-		return fmt.Errorf("failed to decode current account: %v", err)
-	}
+	account := *accountPtr
 
 	// Update only the fields that were provided
-	if peerLoginExp != "" {
-		seconds, err := helpers.ParseDuration(peerLoginExp, nil)
+	if uf.peerLoginExp != "" {
+		seconds, err := helpers.ParseDuration(uf.peerLoginExp, nil)
 		if err != nil {
 			return fmt.Errorf("invalid peer-login-expiration: %v", err)
 		}
 		account.Settings.PeerLoginExpiration = seconds
 	}
-	if peerInactivityExp != "" {
-		seconds, err := helpers.ParseDuration(peerInactivityExp, nil)
+	if uf.peerInactivityExp != "" {
+		seconds, err := helpers.ParseDuration(uf.peerInactivityExp, nil)
 		if err != nil {
 			return fmt.Errorf("invalid peer-inactivity-expiration: %v", err)
 		}
 		account.Settings.PeerInactivityExpiration = seconds
 	}
-	if dnsDomain != "" {
-		account.Settings.DNSDomain = dnsDomain
+	if uf.dnsDomain != "" {
+		account.Settings.DNSDomain = uf.dnsDomain
 	}
-	if networkRange != "" {
-		account.Settings.NetworkRange = networkRange
+	if uf.networkRange != "" {
+		account.Settings.NetworkRange = uf.networkRange
 	}
-	if jwtGroupsEnabled != "" {
-		enabled, err := strconv.ParseBool(jwtGroupsEnabled)
-		if err != nil {
-			return fmt.Errorf("invalid value for jwt-groups-enabled: %v", err)
+	if uf.networkRangeV6 != "" {
+		account.Settings.NetworkRangeV6 = uf.networkRangeV6
+	}
+	if uf.jwtGroupsClaim != "" {
+		account.Settings.JWTGroupsClaimName = uf.jwtGroupsClaim
+	}
+	if uf.jwtAllowGroups != "" {
+		account.Settings.JWTAllowGroups = strings.Split(uf.jwtAllowGroups, ",")
+	}
+
+	boolFlags := []struct {
+		value string
+		name  string
+		dest  *bool
+	}{
+		{uf.peerLoginExpEnabled, "peer-login-expiration-enabled", &account.Settings.PeerLoginExpirationEnabled},
+		{uf.peerInactivityExpEnabled, "peer-inactivity-expiration-enabled", &account.Settings.PeerInactivityExpirationEnabled},
+		{uf.routingPeerDNS, "routing-peer-dns-resolution-enabled", &account.Settings.RoutingPeerDNSResolutionEnabled},
+		{uf.jwtGroupsEnabled, "jwt-groups-enabled", &account.Settings.JWTGroupsEnabled},
+		{uf.groupsPropagation, "groups-propagation-enabled", &account.Settings.GroupsPropagationEnabled},
+		{uf.regularUsersView, "regular-users-view-blocked", &account.Settings.RegularUsersViewBlocked},
+		{uf.lazyConnection, "lazy-connection-enabled", &account.Settings.LazyConnectionEnabled},
+	}
+	for _, bf := range boolFlags {
+		if err := parseBoolFlag(bf.value, bf.name, bf.dest); err != nil {
+			return err
 		}
-		account.Settings.JWTGroupsEnabled = enabled
 	}
-	if jwtGroupsClaim != "" {
-		account.Settings.JWTGroupsClaim = jwtGroupsClaim
-	}
-	if jwtAllowGroups != "" {
-		account.Settings.JWTAllowGroups = strings.Split(jwtAllowGroups, ",")
-	}
-	if groupsPropagation != "" {
-		enabled, err := strconv.ParseBool(groupsPropagation)
-		if err != nil {
-			return fmt.Errorf("invalid value for groups-propagation-enabled: %v", err)
+
+	// Cloud-only settings live in the nested "extra" object
+	if uf.peerApproval != "" || uf.userApproval != "" || uf.trafficLogging != "" {
+		if account.Settings.Extra == nil {
+			account.Settings.Extra = &models.AccountSettingsExtra{}
 		}
-		account.Settings.GroupsPropagationEnabled = enabled
-	}
-	if regularUsersView != "" {
-		blocked, err := strconv.ParseBool(regularUsersView)
-		if err != nil {
-			return fmt.Errorf("invalid value for regular-users-view-blocked: %v", err)
+		extraFlags := []struct {
+			value string
+			name  string
+			dest  *bool
+		}{
+			{uf.peerApproval, "peer-approval-enabled", &account.Settings.Extra.PeerApprovalEnabled},
+			{uf.userApproval, "user-approval-required", &account.Settings.Extra.UserApprovalRequired},
+			{uf.trafficLogging, "traffic-logging", &account.Settings.Extra.NetworkTrafficLogsEnabled},
 		}
-		account.Settings.RegularUsersViewBlocked = blocked
-	}
-	if peerApproval != "" {
-		enabled, err := strconv.ParseBool(peerApproval)
-		if err != nil {
-			return fmt.Errorf("invalid value for peer-approval-enabled: %v", err)
+		for _, bf := range extraFlags {
+			if err := parseBoolFlag(bf.value, bf.name, bf.dest); err != nil {
+				return err
+			}
 		}
-		account.Settings.PeerApprovalEnabled = enabled
-	}
-	if trafficLogging != "" {
-		enabled, err := strconv.ParseBool(trafficLogging)
-		if err != nil {
-			return fmt.Errorf("invalid value for traffic-logging: %v", err)
-		}
-		account.Settings.TrafficLogging = enabled
 	}
 
 	// Build update request
@@ -326,16 +391,11 @@ func (s *Service) updateAccountFromFlags(accountID string,
 // deleteAccount deletes an account and all its resources
 func (s *Service) deleteAccount(accountID string) error {
 	// Fetch account details first
-	resp, err := s.Client.MakeRequest("GET", "/accounts/"+accountID, nil)
+	accountPtr, err := s.getAccountByID(accountID)
 	if err != nil {
 		return err
 	}
-	var account models.Account
-	if err := json.NewDecoder(resp.Body).Decode(&account); err != nil {
-		resp.Body.Close()
-		return fmt.Errorf("failed to decode account: %v", err)
-	}
-	resp.Body.Close()
+	account := *accountPtr
 
 	// Build details map
 	details := map[string]string{
@@ -350,7 +410,7 @@ func (s *Service) deleteAccount(accountID string) error {
 		return nil // User cancelled
 	}
 
-	resp, err = s.Client.MakeRequest("DELETE", "/accounts/"+accountID, nil)
+	resp, err := s.Client.MakeRequest("DELETE", "/accounts/"+accountID, nil)
 	if err != nil {
 		return err
 	}

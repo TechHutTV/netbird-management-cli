@@ -21,6 +21,7 @@ func (s *Service) HandleUsersCommand(args []string) error {
 
 	// Query flags
 	listFlag := userCmd.Bool("list", false, "List all users")
+	inspectFlag := userCmd.String("inspect", "", "Inspect a user by ID")
 	meFlag := userCmd.Bool("me", false, "Get current user information")
 	serviceUserFilter := userCmd.Bool("service-users", false, "List only service users")
 	regularUserFilter := userCmd.Bool("regular-users", false, "List only regular users")
@@ -45,6 +46,22 @@ func (s *Service) HandleUsersCommand(args []string) error {
 	// Resend invite flag
 	resendInviteFlag := userCmd.String("resend-invite", "", "Resend invitation to user by ID")
 
+	// Approval flags (Cloud user approval flow)
+	approveFlag := userCmd.String("approve", "", "Approve a pending user by ID")
+	rejectFlag := userCmd.String("reject", "", "Reject a pending user by ID")
+
+	// Password flags (embedded IdP)
+	passwordFlag := userCmd.String("change-password", "", "Change password for user by ID (requires --old-password and --new-password)")
+	oldPasswordFlag := userCmd.String("old-password", "", "Current password (use with --change-password)")
+	newPasswordFlag := userCmd.String("new-password", "", "New password, min 8 characters (use with --change-password)")
+
+	// Invite management flags (pre-provisioned invites)
+	listInvitesFlag := userCmd.Bool("list-invites", false, "List pending user invites")
+	createInviteFlag := userCmd.Bool("create-invite", false, "Create a user invite (requires --email and --name)")
+	deleteInviteFlag := userCmd.String("delete-invite", "", "Delete a user invite by ID")
+	regenerateInviteFlag := userCmd.String("regenerate-invite", "", "Regenerate a user invite by ID")
+	expiresInFlag := userCmd.Int("expires-in", 0, "Invite expiration in seconds (use with --create-invite or --regenerate-invite)")
+
 	if err := userCmd.Parse(args[1:]); err != nil {
 		return err
 	}
@@ -52,6 +69,10 @@ func (s *Service) HandleUsersCommand(args []string) error {
 	// Handle commands
 	if *meFlag {
 		return s.getCurrentUser(*outputFlag)
+	}
+
+	if *inspectFlag != "" {
+		return s.inspectUser(*inspectFlag, *outputFlag)
 	}
 
 	if *listFlag || *serviceUserFilter || *regularUserFilter {
@@ -109,6 +130,47 @@ func (s *Service) HandleUsersCommand(args []string) error {
 		return s.resendUserInvite(*resendInviteFlag)
 	}
 
+	if *approveFlag != "" {
+		return s.approveUser(*approveFlag)
+	}
+
+	if *rejectFlag != "" {
+		return s.rejectUser(*rejectFlag)
+	}
+
+	if *passwordFlag != "" {
+		if *oldPasswordFlag == "" || *newPasswordFlag == "" {
+			return fmt.Errorf("--change-password requires --old-password and --new-password")
+		}
+		return s.changeUserPassword(*passwordFlag, *oldPasswordFlag, *newPasswordFlag)
+	}
+
+	if *listInvitesFlag {
+		return s.listUserInvites(*outputFlag)
+	}
+
+	if *createInviteFlag {
+		if *email == "" || *name == "" {
+			return fmt.Errorf("--create-invite requires --email and --name")
+		}
+		var groups []string
+		if *autoGroups != "" {
+			groups = strings.Split(*autoGroups, ",")
+			for i := range groups {
+				groups[i] = strings.TrimSpace(groups[i])
+			}
+		}
+		return s.createUserInvite(*email, *name, *role, groups, *expiresInFlag)
+	}
+
+	if *deleteInviteFlag != "" {
+		return s.deleteUserInvite(*deleteInviteFlag)
+	}
+
+	if *regenerateInviteFlag != "" {
+		return s.regenerateUserInvite(*regenerateInviteFlag, *expiresInFlag)
+	}
+
 	userCmd.Usage()
 	return nil
 }
@@ -134,7 +196,11 @@ func (s *Service) listUsers(filterType string, outputFormat string) error {
 	}
 
 	if len(users) == 0 {
-		fmt.Println("No users found")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No users found")
+		}
 		return nil
 	}
 
@@ -182,6 +248,36 @@ func (s *Service) listUsers(filterType string, outputFormat string) error {
 	return nil
 }
 
+// inspectUser shows a single user selected from the users list endpoint.
+func (s *Service) inspectUser(userID string, outputFormat string) error {
+	user, err := s.getUserByID(userID)
+	if err != nil {
+		return err
+	}
+
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(user, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
+	}
+
+	fmt.Printf("User ID:        %s\n", user.ID)
+	fmt.Printf("Email:          %s\n", user.Email)
+	fmt.Printf("Name:           %s\n", user.Name)
+	fmt.Printf("Role:           %s\n", user.Role)
+	fmt.Printf("Status:         %s\n", user.Status)
+	fmt.Printf("Service User:   %t\n", user.IsServiceUser)
+	fmt.Printf("Blocked:        %t\n", user.IsBlocked)
+	fmt.Printf("Last Login:     %s\n", user.LastLogin)
+	if len(user.AutoGroups) > 0 {
+		fmt.Printf("Auto Groups:    %s\n", strings.Join(user.AutoGroups, ", "))
+	}
+	return nil
+}
+
 // getCurrentUser retrieves the current authenticated user's information
 func (s *Service) getCurrentUser(outputFormat string) error {
 	resp, err := s.Client.MakeRequest("GET", "/users/current", nil)
@@ -217,7 +313,14 @@ func (s *Service) getCurrentUser(outputFormat string) error {
 	fmt.Printf("  Status:         %s\n", user.Status)
 	fmt.Printf("  Service User:   %t\n", user.IsServiceUser)
 	fmt.Printf("  Blocked:        %t\n", user.IsBlocked)
+	if user.PendingApproval {
+		fmt.Printf("  Pending Approval: true\n")
+	}
+	if user.Issued != "" {
+		fmt.Printf("  Issued:         %s\n", user.Issued)
+	}
 	fmt.Printf("  Last Login:     %s\n", user.LastLogin)
+	fmt.Printf("  Restricted:     %t\n", user.Permissions.IsRestricted)
 
 	if len(user.AutoGroups) > 0 {
 		fmt.Printf("  Auto Groups:    %s\n", strings.Join(user.AutoGroups, ", "))
@@ -308,19 +411,35 @@ func (s *Service) updateUser(userID, role string, autoGroups []string, isBlocked
 	return nil
 }
 
+// getUserByID finds a user via the list endpoint (the API has no GET /users/{id})
+func (s *Service) getUserByID(userID string) (*models.User, error) {
+	resp, err := s.Client.MakeRequest("GET", "/users", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var users []models.User
+	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
+		return nil, fmt.Errorf("failed to decode users response: %v", err)
+	}
+
+	for i := range users {
+		if users[i].ID == userID {
+			return &users[i], nil
+		}
+	}
+	return nil, fmt.Errorf("no user found with ID: %s", userID)
+}
+
 // removeUser deletes a user from the account
 func (s *Service) removeUser(userID string) error {
-	// Fetch user details first
-	resp, err := s.Client.MakeRequest("GET", "/users/"+userID, nil)
+	// Fetch user details first (via list; the API has no single-user GET)
+	userPtr, err := s.getUserByID(userID)
 	if err != nil {
 		return err
 	}
-	var user models.User
-	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
-		resp.Body.Close()
-		return fmt.Errorf("failed to decode user: %v", err)
-	}
-	resp.Body.Close()
+	user := *userPtr
 
 	// Build details map
 	details := map[string]string{
@@ -337,7 +456,7 @@ func (s *Service) removeUser(userID string) error {
 		return nil // User cancelled
 	}
 
-	resp, err = s.Client.MakeRequest("DELETE", "/users/"+userID, nil)
+	resp, err := s.Client.MakeRequest("DELETE", "/users/"+userID, nil)
 	if err != nil {
 		return err
 	}
@@ -356,5 +475,190 @@ func (s *Service) resendUserInvite(userID string) error {
 	defer resp.Body.Close()
 
 	fmt.Printf("✓ Invitation resent successfully to user: %s\n", userID)
+	return nil
+}
+
+// approveUser approves a pending user (Cloud user approval flow)
+func (s *Service) approveUser(userID string) error {
+	resp, err := s.Client.MakeRequest("POST", "/users/"+userID+"/approve", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("✓ User approved: %s\n", userID)
+	return nil
+}
+
+// rejectUser rejects a pending user (Cloud user approval flow)
+func (s *Service) rejectUser(userID string) error {
+	resp, err := s.Client.MakeRequest("DELETE", "/users/"+userID+"/reject", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("✓ User rejected: %s\n", userID)
+	return nil
+}
+
+// changeUserPassword updates a user's password (embedded IdP)
+func (s *Service) changeUserPassword(userID, oldPassword, newPassword string) error {
+	req := struct {
+		OldPassword string `json:"old_password"`
+		NewPassword string `json:"new_password"`
+	}{OldPassword: oldPassword, NewPassword: newPassword}
+
+	bodyBytes, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %v", err)
+	}
+
+	resp, err := s.Client.MakeRequest("PUT", "/users/"+userID+"/password", bytes.NewReader(bodyBytes))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("✓ Password updated for user: %s\n", userID)
+	return nil
+}
+
+// listUserInvites lists pending user invites
+func (s *Service) listUserInvites(outputFormat string) error {
+	resp, err := s.Client.MakeRequest("GET", "/users/invites", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var invites []models.UserInvite
+	if err := json.NewDecoder(resp.Body).Decode(&invites); err != nil {
+		return fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	if len(invites) == 0 {
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No pending invites found")
+		}
+		return nil
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(invites, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "ID\tEMAIL\tNAME\tROLE\tEXPIRES AT\tEXPIRED")
+	fmt.Fprintln(w, "--\t-----\t----\t----\t----------\t-------")
+
+	for _, invite := range invites {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%t\n",
+			invite.ID,
+			invite.Email,
+			invite.Name,
+			invite.Role,
+			invite.ExpiresAt,
+			invite.Expired,
+		)
+	}
+	w.Flush()
+	return nil
+}
+
+// createUserInvite creates a pre-provisioned user invite
+func (s *Service) createUserInvite(email, name, role string, autoGroups []string, expiresIn int) error {
+	if autoGroups == nil {
+		autoGroups = []string{}
+	}
+
+	req := models.UserInviteCreateRequest{
+		Email:      email,
+		Name:       name,
+		Role:       role,
+		AutoGroups: autoGroups,
+		ExpiresIn:  expiresIn,
+	}
+
+	bodyBytes, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %v", err)
+	}
+
+	resp, err := s.Client.MakeRequest("POST", "/users/invites", bytes.NewReader(bodyBytes))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var invite models.UserInvite
+	if err := json.NewDecoder(resp.Body).Decode(&invite); err != nil {
+		return fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	fmt.Printf("✓ Invite created successfully!\n")
+	fmt.Printf("  Invite ID:  %s\n", invite.ID)
+	fmt.Printf("  Email:      %s\n", invite.Email)
+	fmt.Printf("  Name:       %s\n", invite.Name)
+	fmt.Printf("  Role:       %s\n", invite.Role)
+	fmt.Printf("  Expires At: %s\n", invite.ExpiresAt)
+	if invite.InviteToken != "" {
+		fmt.Printf("  Token:      %s\n", invite.InviteToken)
+	}
+
+	return nil
+}
+
+// deleteUserInvite deletes a pending user invite
+func (s *Service) deleteUserInvite(inviteID string) error {
+	resp, err := s.Client.MakeRequest("DELETE", "/users/invites/"+inviteID, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("✓ Invite deleted: %s\n", inviteID)
+	return nil
+}
+
+// regenerateUserInvite regenerates a pending user invite (new token/expiry)
+func (s *Service) regenerateUserInvite(inviteID string, expiresIn int) error {
+	var body *bytes.Reader
+	if expiresIn > 0 {
+		bodyBytes, err := json.Marshal(struct {
+			ExpiresIn int `json:"expires_in"`
+		}{ExpiresIn: expiresIn})
+		if err != nil {
+			return fmt.Errorf("failed to marshal request: %v", err)
+		}
+		body = bytes.NewReader(bodyBytes)
+	} else {
+		body = bytes.NewReader([]byte("{}"))
+	}
+
+	resp, err := s.Client.MakeRequest("POST", "/users/invites/"+inviteID+"/regenerate", body)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var invite models.UserInvite
+	if err := json.NewDecoder(resp.Body).Decode(&invite); err != nil {
+		return fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	fmt.Printf("✓ Invite regenerated: %s\n", invite.ID)
+	fmt.Printf("  Expires At: %s\n", invite.ExpiresAt)
+	if invite.InviteToken != "" {
+		fmt.Printf("  Token:      %s\n", invite.InviteToken)
+	}
 	return nil
 }

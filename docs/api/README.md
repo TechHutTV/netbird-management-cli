@@ -168,9 +168,9 @@ DELETE /policies/{id}         → client.deletePolicy()        → policies.go
 # Plus: Setup Keys, Users, Tokens, Routes, DNS, Posture Checks
 # See individual resource docs for details
 
-# Accounts (4/4 endpoints)
+# Accounts (3/3 endpoints)
 GET /accounts                 → client.listAccounts()        → accounts.go
-GET /accounts/{id}            → client.inspectAccount()      → accounts.go
+GET /accounts                 → client.inspectAccount()      → accounts.go (select by ID)
 PUT /accounts/{id}            → client.updateAccount()       → accounts.go
 DELETE /accounts/{id}         → client.deleteAccount()       → accounts.go
 

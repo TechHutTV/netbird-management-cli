@@ -44,8 +44,11 @@ netbird-manage group --create "Production-Servers"
 # Create a group with initial peers
 netbird-manage group --create "Dev-Team" --peers "peer-id-1,peer-id-2,peer-id-3"
 
-# List all groups containing "prod" in the name
+# List all groups containing "prod" in the name (wildcard, matched locally)
 netbird-manage group --list --filter-name "prod*"
+
+# Look up a group by its exact name (server-side filter)
+netbird-manage group --list --filter-name "Production-Servers"
 
 # Inspect a specific group
 netbird-manage group --inspect d2l17grl0ubs73bh4vpg
@@ -66,6 +69,11 @@ netbird-manage group --delete d2l17grl0ubs73bh4vpg
 netbird-manage group --delete-unused
 ```
 
+## Notes
+
+- `--filter-name` with an exact name (no wildcards) is filtered server-side via the API's `name` query parameter; patterns with `*` or `?` are matched locally
+- Group inspect lists member peers with their ID and name only (the group API no longer returns full peer details)
+
 ---
 
 ## Documentation
@@ -81,8 +89,11 @@ netbird-manage group --delete-unused
 | [Policies](policies.md) | Access control policies and firewall rules |
 | [Routes](routes.md) | Network routing configuration |
 | [DNS](dns.md) | DNS nameserver groups and settings |
+| [DNS Zones](dns-zones.md) | Custom DNS zones and records |
 | [Posture Checks](posture-checks.md) | Device compliance validation |
 | [Events](events.md) | Audit logs and traffic monitoring |
+| [Jobs](jobs.md) | Peer jobs and debug bundles |
+| [Notifications](notifications.md) | Notification channels (email/webhook) |
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
 | [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |

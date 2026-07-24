@@ -113,7 +113,11 @@ func (s *Service) listTokens(userID string, outputFormat string) error {
 	}
 
 	if len(tokens) == 0 {
-		fmt.Println("No tokens found")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No tokens found")
+		}
 		return nil
 	}
 

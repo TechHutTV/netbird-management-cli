@@ -36,6 +36,12 @@ func (s *Service) HandlePeersCommand(args []string) error {
 	inactivityExpFlag := peerCmd.String("inactivity-expiration", "", "Enable/disable inactivity expiration (true/false, requires --update)")
 	approvalFlag := peerCmd.String("approval-required", "", "Enable/disable approval requirement (true/false, requires --update, cloud-only)")
 	ipFlag := peerCmd.String("ip", "", "Set peer IP address (requires --update)")
+	ipv6Flag := peerCmd.String("ipv6", "", "Set peer IPv6 address (requires --update)")
+
+	tempAccessFlag := peerCmd.String("temporary-access", "", "Create a temporary access peer for the specified peer ID")
+	tempNameFlag := peerCmd.String("name", "", "Name for the temporary access peer (requires --temporary-access)")
+	wgPubKeyFlag := peerCmd.String("wg-pub-key", "", "WireGuard public key for the temporary access peer (requires --temporary-access)")
+	rulesFlag := peerCmd.String("rules", "", "Comma-separated rules for the temporary access peer (requires --temporary-access)")
 
 	accessiblePeersFlag := peerCmd.String("accessible-peers", "", "List peers accessible from the specified peer ID")
 	filterNameFlag := peerCmd.String("filter-name", "", "Filter peers by name pattern (use with --list)")
@@ -48,7 +54,7 @@ func (s *Service) HandlePeersCommand(args []string) error {
 	}
 
 	if err := peerCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	if *listFlag {
@@ -83,7 +89,14 @@ func (s *Service) HandlePeersCommand(args []string) error {
 	}
 
 	if *updateFlag != "" {
-		return s.handlePeerUpdate(*updateFlag, *renameFlag, *sshFlag, *loginExpFlag, *inactivityExpFlag, *approvalFlag, *ipFlag)
+		return s.handlePeerUpdate(*updateFlag, *renameFlag, *sshFlag, *loginExpFlag, *inactivityExpFlag, *approvalFlag, *ipFlag, *ipv6Flag)
+	}
+
+	if *tempAccessFlag != "" {
+		if *tempNameFlag == "" || *wgPubKeyFlag == "" || *rulesFlag == "" {
+			return fmt.Errorf("--temporary-access requires --name, --wg-pub-key, and --rules")
+		}
+		return s.createTemporaryAccessPeer(*tempAccessFlag, *tempNameFlag, *wgPubKeyFlag, helpers.SplitCommaList(*rulesFlag), *outputFlag)
 	}
 
 	fmt.Fprintln(os.Stderr, "Error: Invalid or missing flags for 'peer' command.")
@@ -91,7 +104,7 @@ func (s *Service) HandlePeersCommand(args []string) error {
 	return nil
 }
 
-func (s *Service) handlePeerUpdate(peerID, rename, ssh, loginExp, inactivityExp, approval, ip string) error {
+func (s *Service) handlePeerUpdate(peerID, rename, ssh, loginExp, inactivityExp, approval, ip, ipv6 string) error {
 	peer, err := s.getPeerByID(peerID)
 	if err != nil {
 		return fmt.Errorf("failed to get peer: %v", err)
@@ -156,8 +169,13 @@ func (s *Service) handlePeerUpdate(peerID, rename, ssh, loginExp, inactivityExp,
 		changes = append(changes, fmt.Sprintf("ip: %s -> %s", peer.IP, ip))
 	}
 
+	if ipv6 != "" {
+		updateReq.IPv6 = ipv6
+		changes = append(changes, fmt.Sprintf("ipv6: %s -> %s", peer.IPv6, ipv6))
+	}
+
 	if len(changes) == 0 {
-		return fmt.Errorf("no update flags provided (use --rename, --ssh-enabled, --login-expiration, --inactivity-expiration, --approval-required, or --ip)")
+		return fmt.Errorf("no update flags provided (use --rename, --ssh-enabled, --login-expiration, --inactivity-expiration, --approval-required, --ip, or --ipv6)")
 	}
 
 	fmt.Printf("Updating peer %s (%s):\n", peer.Name, peerID)
@@ -171,10 +189,10 @@ func (s *Service) handlePeerUpdate(peerID, rename, ssh, loginExp, inactivityExp,
 func (s *Service) listPeers(filterName, filterIP, outputFormat string) error {
 	// Build query parameters for server-side filtering
 	params := url.Values{}
-	if filterName != "" {
+	if filterName != "" && !strings.Contains(filterName, "*") {
 		params.Add("name", filterName)
 	}
-	if filterIP != "" {
+	if filterIP != "" && !strings.Contains(filterIP, "*") {
 		params.Add("ip", filterIP)
 	}
 
@@ -207,7 +225,9 @@ func (s *Service) listPeers(filterName, filterIP, outputFormat string) error {
 	}
 
 	if len(filteredPeers) == 0 {
-		if filterName != "" || filterIP != "" {
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else if filterName != "" || filterIP != "" {
 			fmt.Println("No peers found matching the specified filters.")
 		} else {
 			fmt.Println("No peers found in your network.")
@@ -377,11 +397,59 @@ func (s *Service) inspectPeer(peerID, outputFormat string) error {
 	fmt.Printf("Inspecting Peer: %s (%s)\n", peer.Name, peer.ID)
 	fmt.Println("---------------------------------")
 	fmt.Printf("  IP:          %s\n", peer.IP)
+	if peer.IPv6 != "" {
+		fmt.Printf("  IPv6:        %s\n", peer.IPv6)
+	}
+	if peer.ConnectionIP != "" {
+		fmt.Printf("  Public IP:   %s\n", peer.ConnectionIP)
+	}
 	fmt.Printf("  Hostname:    %s\n", peer.Hostname)
+	if peer.DNSLabel != "" {
+		fmt.Printf("  DNS Label:   %s\n", peer.DNSLabel)
+	}
+	if len(peer.ExtraDNSLabels) > 0 {
+		fmt.Printf("  Extra DNS:   %s\n", strings.Join(peer.ExtraDNSLabels, ", "))
+	}
 	fmt.Printf("  OS:          %s\n", helpers.FormatOS(peer.OS))
+	if peer.KernelVersion != "" {
+		fmt.Printf("  Kernel:      %s\n", peer.KernelVersion)
+	}
 	fmt.Printf("  Version:     %s\n", peer.Version)
+	if peer.UIVersion != "" {
+		fmt.Printf("  UI Version:  %s\n", peer.UIVersion)
+	}
+	if peer.SerialNumber != "" {
+		fmt.Printf("  Serial No:   %s\n", peer.SerialNumber)
+	}
 	fmt.Printf("  Connected:   %t\n", peer.Connected)
 	fmt.Printf("  Last Seen:   %s\n", peer.LastSeen)
+	if peer.CountryCode != "" {
+		location := peer.CountryCode
+		if peer.CityName != "" {
+			location = peer.CityName + ", " + peer.CountryCode
+		}
+		fmt.Printf("  Location:    %s\n", location)
+	}
+	if peer.UserID != "" {
+		fmt.Printf("  User ID:     %s\n", peer.UserID)
+	}
+	fmt.Printf("  SSH Enabled: %t\n", peer.SSHEnabled)
+	fmt.Printf("  Login Exp:   %t (expired: %t)\n", peer.LoginExpirationEnabled, peer.LoginExpired)
+	if peer.LastLogin != "" {
+		fmt.Printf("  Last Login:  %s\n", peer.LastLogin)
+	}
+	if peer.Ephemeral {
+		fmt.Printf("  Ephemeral:   true\n")
+	}
+	if peer.ApprovalRequired != nil {
+		fmt.Printf("  Approval:    required=%t\n", *peer.ApprovalRequired)
+		if peer.DisapprovalReason != "" {
+			fmt.Printf("  Disapproval: %s\n", peer.DisapprovalReason)
+		}
+	}
+	if peer.CreatedAt != "" {
+		fmt.Printf("  Created At:  %s\n", peer.CreatedAt)
+	}
 
 	if len(peer.Groups) > 0 {
 		fmt.Println("  Groups:")
@@ -391,6 +459,61 @@ func (s *Service) inspectPeer(peerID, outputFormat string) error {
 	} else {
 		fmt.Println("  Groups:      None")
 	}
+
+	if peer.LocalFlags != nil {
+		flags := peer.LocalFlags
+		fmt.Println("  Local Flags:")
+		fmt.Printf("    Rosenpass Enabled:     %t (permissive: %t)\n", flags.RosenpassEnabled, flags.RosenpassPermissive)
+		fmt.Printf("    Server SSH Allowed:    %t\n", flags.ServerSSHAllowed)
+		fmt.Printf("    Disable Client Routes: %t\n", flags.DisableClientRoutes)
+		fmt.Printf("    Disable Server Routes: %t\n", flags.DisableServerRoutes)
+		fmt.Printf("    Disable DNS:           %t\n", flags.DisableDNS)
+		fmt.Printf("    Disable Firewall:      %t\n", flags.DisableFirewall)
+		fmt.Printf("    Block LAN Access:      %t\n", flags.BlockLANAccess)
+		fmt.Printf("    Block Inbound:         %t\n", flags.BlockInbound)
+		fmt.Printf("    Lazy Connection:       %t\n", flags.LazyConnectionEnabled)
+	}
+	return nil
+}
+
+// createTemporaryAccessPeer creates a temporary access peer via POST /peers/{peerId}/temporary-access
+func (s *Service) createTemporaryAccessPeer(peerID, name, wgPubKey string, rules []string, outputFormat string) error {
+	req := models.TemporaryAccessRequest{
+		Name:     name,
+		WGPubKey: wgPubKey,
+		Rules:    rules,
+	}
+
+	payload, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %v", err)
+	}
+
+	resp, err := s.Client.MakeRequest("POST", "/peers/"+peerID+"/temporary-access", bytes.NewBuffer(payload))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var tempPeer models.TemporaryAccessPeer
+	if err := json.NewDecoder(resp.Body).Decode(&tempPeer); err != nil {
+		return fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(tempPeer, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
+	}
+
+	fmt.Println("Temporary access peer created successfully")
+	fmt.Printf("  ID:    %s\n", tempPeer.ID)
+	fmt.Printf("  Name:  %s\n", tempPeer.Name)
+	fmt.Printf("  Rules: %s\n", strings.Join(tempPeer.Rules, ", "))
 	return nil
 }
 

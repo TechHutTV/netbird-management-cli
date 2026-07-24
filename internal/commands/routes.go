@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -37,7 +38,7 @@ func (s *Service) HandleRoutesCommand(args []string) error {
 	disabledOnlyFlag := routeCmd.Bool("disabled-only", false, "Show only disabled routes")
 
 	// Create flags
-	createFlag := routeCmd.String("create", "", "Create a new route with the given network CIDR")
+	createFlag := routeCmd.String("create", "", "Create a new route with the given network CIDR or comma-separated domain list")
 	networkIDFlag := routeCmd.String("network-id", "", "Target network ID (required for create)")
 	descriptionFlag := routeCmd.String("description", "", "Route description")
 	peerFlag := routeCmd.String("peer", "", "Single routing peer ID (use OR --peer-groups)")
@@ -48,6 +49,10 @@ func (s *Service) HandleRoutesCommand(args []string) error {
 	groupsFlag := routeCmd.String("groups", "", "Access group IDs (comma-separated, required for create)")
 	enabledFlag := routeCmd.Bool("enabled", true, "Enable route")
 	disabledFlag := routeCmd.Bool("disabled", false, "Disable route")
+	domainsFlag := routeCmd.String("domains", "", "Domain list for domain-based routes (comma-separated, use with --update)")
+	keepRouteFlag := routeCmd.String("keep-route", "", "Keep routes for resolved domain IPs (true/false)")
+	aclGroupsFlag := routeCmd.String("access-control-groups", "", "Access control group IDs (comma-separated)")
+	skipAutoApplyFlag := routeCmd.String("skip-auto-apply", "", "Skip auto-applying this exit node route on clients (true/false)")
 
 	// Update flags
 	updateFlag := routeCmd.String("update", "", "Update a route by ID")
@@ -70,7 +75,7 @@ func (s *Service) HandleRoutesCommand(args []string) error {
 
 	// Parse the flags
 	if err := routeCmd.Parse(args[1:]); err != nil {
-		return nil
+		return err
 	}
 
 	// Handle the flags in priority order
@@ -94,7 +99,16 @@ func (s *Service) HandleRoutesCommand(args []string) error {
 			enabled = false
 		}
 
-		return s.createRoute(*createFlag, *networkIDFlag, *descriptionFlag, *peerFlag, *peerGroupsFlag, *metricFlag, masquerade, enabled, *groupsFlag)
+		keepRoute, err := parseOptionalBool(*keepRouteFlag, "keep-route")
+		if err != nil {
+			return err
+		}
+		skipAutoApply, err := parseOptionalBool(*skipAutoApplyFlag, "skip-auto-apply")
+		if err != nil {
+			return err
+		}
+
+		return s.createRoute(*createFlag, *networkIDFlag, *descriptionFlag, *peerFlag, *peerGroupsFlag, *metricFlag, masquerade, enabled, *groupsFlag, *aclGroupsFlag, keepRoute, skipAutoApply)
 	}
 
 	// Delete route
@@ -137,7 +151,16 @@ func (s *Service) HandleRoutesCommand(args []string) error {
 			enabledPtr = nil
 		}
 
-		return s.updateRoute(*updateFlag, *networkIDFlag, *descriptionFlag, *peerFlag, *peerGroupsFlag, *metricFlag, masqueradePtr, enabledPtr, *groupsFlag)
+		keepRoutePtr, err := parseOptionalBool(*keepRouteFlag, "keep-route")
+		if err != nil {
+			return err
+		}
+		skipAutoApplyPtr, err := parseOptionalBool(*skipAutoApplyFlag, "skip-auto-apply")
+		if err != nil {
+			return err
+		}
+
+		return s.updateRoute(*updateFlag, *networkIDFlag, *descriptionFlag, *peerFlag, *peerGroupsFlag, *metricFlag, masqueradePtr, enabledPtr, *groupsFlag, *aclGroupsFlag, *domainsFlag, keepRoutePtr, skipAutoApplyPtr)
 	}
 
 	// Inspect route
@@ -200,7 +223,11 @@ func (s *Service) listRoutes(filters *RouteFilters, outputFormat string) error {
 	}
 
 	if len(filtered) == 0 {
-		fmt.Println("No routes found.")
+		if outputFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No routes found.")
+		}
 		return nil
 	}
 
@@ -278,12 +305,18 @@ func (s *Service) inspectRoute(routeID string, outputFormat string) error {
 	fmt.Println("Route Details:")
 	fmt.Println("==============")
 	fmt.Printf("ID:             %s\n", route.ID)
-	fmt.Printf("Network:        %s\n", route.Network)
+	if len(route.Domains) > 0 {
+		fmt.Printf("Domains:        %s\n", strings.Join(route.Domains, ", "))
+	} else {
+		fmt.Printf("Network:        %s\n", route.Network)
+	}
 	fmt.Printf("Network Type:   %s\n", route.NetworkType)
 	fmt.Printf("Network ID:     %s\n", route.NetworkID)
 	fmt.Printf("Metric:         %d (lower = higher priority)\n", route.Metric)
 	fmt.Printf("Masquerade:     %t\n", route.Masquerade)
 	fmt.Printf("Enabled:        %t\n", route.Enabled)
+	fmt.Printf("Keep Route:     %t\n", route.KeepRoute)
+	fmt.Printf("Skip Auto Apply: %t\n", route.SkipAutoApply)
 
 	if route.Description != "" {
 		fmt.Printf("Description:    %s\n", route.Description)
@@ -311,14 +344,60 @@ func (s *Service) inspectRoute(routeID string, outputFormat string) error {
 		fmt.Println("  None")
 	}
 
+	if len(route.AccessControlGroups) > 0 {
+		fmt.Println()
+		fmt.Println("Access Control Groups:")
+		fmt.Println("----------------------")
+		for _, groupID := range route.AccessControlGroups {
+			fmt.Printf("  - %s\n", groupID)
+		}
+	}
+
 	return nil
 }
 
-// createRoute implements the "route --create" command
-func (s *Service) createRoute(network, networkID, description, peer, peerGroups string, metric int, masquerade, enabled bool, groups string) error {
-	// Validate network CIDR
+// parseOptionalBool parses an optional true/false string flag, returning nil when unset
+func parseOptionalBool(value, flagName string) (*bool, error) {
+	if value == "" {
+		return nil, nil
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return nil, fmt.Errorf("invalid value for --%s: %v", flagName, err)
+	}
+	return &parsed, nil
+}
+
+// parseDomainList validates a comma-separated domain list for domain-based routes
+func parseDomainList(spec string) ([]string, error) {
+	domains := helpers.SplitCommaList(spec)
+	if len(domains) == 0 {
+		return nil, fmt.Errorf("no domains provided")
+	}
+	if len(domains) > 32 {
+		return nil, fmt.Errorf("at most 32 domains are allowed (got %d)", len(domains))
+	}
+	for _, domain := range domains {
+		if !strings.Contains(domain, ".") || strings.ContainsAny(domain, " /") {
+			return nil, fmt.Errorf("invalid domain %q", domain)
+		}
+	}
+	return domains, nil
+}
+
+// createRoute implements the "route --create" command.
+// The network argument accepts a CIDR (network route) or a comma-separated
+// domain list (domain-based route).
+func (s *Service) createRoute(network, networkID, description, peer, peerGroups string, metric int, masquerade, enabled bool, groups, aclGroups string, keepRoute, skipAutoApply *bool) error {
+	// Decide between a CIDR route and a domain-based route
+	var domains []string
 	if err := validateCIDR(network); err != nil {
-		return err
+		parsedDomains, domainErr := parseDomainList(network)
+		if domainErr != nil {
+			return fmt.Errorf("--create must be a network CIDR or a comma-separated domain list: %v", err)
+		}
+		domains = parsedDomains
+		network = ""
 	}
 
 	// Validate metric range
@@ -347,12 +426,22 @@ func (s *Service) createRoute(network, networkID, description, peer, peerGroups 
 		Description: description,
 		NetworkID:   networkID,
 		Network:     network,
+		Domains:     domains,
 		Peer:        peer,
 		PeerGroups:  peerGroupList,
 		Metric:      metric,
 		Masquerade:  masquerade,
 		Enabled:     enabled,
 		Groups:      groupList,
+	}
+	if aclGroups != "" {
+		reqBody.AccessControlGroups = helpers.SplitCommaList(aclGroups)
+	}
+	if keepRoute != nil {
+		reqBody.KeepRoute = *keepRoute
+	}
+	if skipAutoApply != nil {
+		reqBody.SkipAutoApply = *skipAutoApply
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)
@@ -373,7 +462,11 @@ func (s *Service) createRoute(network, networkID, description, peer, peerGroups 
 
 	fmt.Printf("Route created successfully!\n")
 	fmt.Printf("  ID:         %s\n", createdRoute.ID)
-	fmt.Printf("  Network:    %s (%s)\n", createdRoute.Network, createdRoute.NetworkType)
+	if len(createdRoute.Domains) > 0 {
+		fmt.Printf("  Domains:    %s (%s)\n", strings.Join(createdRoute.Domains, ", "), createdRoute.NetworkType)
+	} else {
+		fmt.Printf("  Network:    %s (%s)\n", createdRoute.Network, createdRoute.NetworkType)
+	}
 	fmt.Printf("  Metric:     %d\n", createdRoute.Metric)
 	fmt.Printf("  Masquerade: %t\n", createdRoute.Masquerade)
 	fmt.Printf("  Enabled:    %t\n", createdRoute.Enabled)
@@ -381,7 +474,7 @@ func (s *Service) createRoute(network, networkID, description, peer, peerGroups 
 }
 
 // updateRoute implements the "route --update" command
-func (s *Service) updateRoute(routeID, networkID, description, peer, peerGroups string, metric int, masquerade, enabled *bool, groups string) error {
+func (s *Service) updateRoute(routeID, networkID, description, peer, peerGroups string, metric int, masquerade, enabled *bool, groups, aclGroups, domains string, keepRoute, skipAutoApply *bool) error {
 	// First, get the current route
 	resp, err := s.Client.MakeRequest("GET", "/routes/"+routeID, nil)
 	if err != nil {
@@ -396,15 +489,19 @@ func (s *Service) updateRoute(routeID, networkID, description, peer, peerGroups 
 
 	// Build update request (update only provided fields)
 	updateReq := models.RouteRequest{
-		Description: currentRoute.Description,
-		NetworkID:   currentRoute.NetworkID,
-		Network:     currentRoute.Network,
-		Peer:        currentRoute.Peer,
-		PeerGroups:  currentRoute.PeerGroups,
-		Metric:      currentRoute.Metric,
-		Masquerade:  currentRoute.Masquerade,
-		Enabled:     currentRoute.Enabled,
-		Groups:      currentRoute.Groups,
+		Description:         currentRoute.Description,
+		NetworkID:           currentRoute.NetworkID,
+		Network:             currentRoute.Network,
+		Domains:             currentRoute.Domains,
+		Peer:                currentRoute.Peer,
+		PeerGroups:          currentRoute.PeerGroups,
+		Metric:              currentRoute.Metric,
+		Masquerade:          currentRoute.Masquerade,
+		Enabled:             currentRoute.Enabled,
+		Groups:              currentRoute.Groups,
+		AccessControlGroups: currentRoute.AccessControlGroups,
+		KeepRoute:           currentRoute.KeepRoute,
+		SkipAutoApply:       currentRoute.SkipAutoApply,
 	}
 
 	// Update fields if provided
@@ -431,6 +528,17 @@ func (s *Service) updateRoute(routeID, networkID, description, peer, peerGroups 
 	if groups != "" {
 		updateReq.Groups = helpers.SplitCommaList(groups)
 	}
+	if aclGroups != "" {
+		updateReq.AccessControlGroups = helpers.SplitCommaList(aclGroups)
+	}
+	if domains != "" {
+		domainList, err := parseDomainList(domains)
+		if err != nil {
+			return err
+		}
+		updateReq.Domains = domainList
+		updateReq.Network = ""
+	}
 	// Update masquerade if explicitly provided
 	if masquerade != nil {
 		updateReq.Masquerade = *masquerade
@@ -438,6 +546,12 @@ func (s *Service) updateRoute(routeID, networkID, description, peer, peerGroups 
 	// Update enabled if explicitly provided
 	if enabled != nil {
 		updateReq.Enabled = *enabled
+	}
+	if keepRoute != nil {
+		updateReq.KeepRoute = *keepRoute
+	}
+	if skipAutoApply != nil {
+		updateReq.SkipAutoApply = *skipAutoApply
 	}
 
 	bodyBytes, err := json.Marshal(updateReq)

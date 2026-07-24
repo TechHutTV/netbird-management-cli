@@ -18,6 +18,8 @@ netbird-manage peer --inspect <peer-id>        # View detailed information for a
 netbird-manage peer --accessible-peers <peer-id>  # List peers accessible from the specified peer
 ```
 
+The inspect output includes the peer's IPv4 and IPv6 addresses, public (connection) IP, DNS label and extra DNS labels, OS and kernel version, client/UI version, serial number, location (city and country), user ID, SSH/login expiration status, approval status, group memberships, and the peer's local client flags (Rosenpass, server SSH, client/server routes, DNS, firewall, LAN access, inbound blocking, and lazy connection).
+
 ## Modification Operations
 
 ```bash
@@ -35,6 +37,12 @@ netbird-manage peer --update <peer-id>         # Update peer settings
   --inactivity-expiration <true|false>         # Enable/disable inactivity expiration
   --approval-required <true|false>             # Require approval (cloud-only)
   --ip <ip-address>                            # Set IP (must be in 100.64.0.0/10 range)
+  --ipv6 <ipv6-address>                        # Set IPv6 address
+
+netbird-manage peer --temporary-access <peer-id>  # Create a temporary access peer
+  --name <name>                                # Name for the temporary peer (required)
+  --wg-pub-key <key>                           # WireGuard public key (required)
+  --rules <r1,r2,...>                          # Comma-separated rules (required)
 ```
 
 ## Examples
@@ -51,6 +59,15 @@ netbird-manage peer --update d3mjakrl0ubs738ajj00 --ssh-enabled true --login-exp
 
 # Set a custom IP address
 netbird-manage peer --update d3mjakrl0ubs738ajj00 --ip 100.64.1.50
+
+# Set a custom IPv6 address
+netbird-manage peer --update d3mjakrl0ubs738ajj00 --ipv6 "fd00:b14d::1"
+
+# Create a temporary access peer for an existing peer
+netbird-manage peer --temporary-access d3mjakrl0ubs738ajj00 \
+  --name "contractor-laptop" \
+  --wg-pub-key "AAAA...=" \
+  --rules "rule-1,rule-2"
 
 # Check which peers a specific peer can access
 netbird-manage peer --accessible-peers d3mjakrl0ubs738ajj00
@@ -74,8 +91,11 @@ netbird-manage peer --remove-batch abc123,def456,ghi789
 | [Policies](policies.md) | Access control policies and firewall rules |
 | [Routes](routes.md) | Network routing configuration |
 | [DNS](dns.md) | DNS nameserver groups and settings |
+| [DNS Zones](dns-zones.md) | Custom DNS zones and records |
 | [Posture Checks](posture-checks.md) | Device compliance validation |
 | [Events](events.md) | Audit logs and traffic monitoring |
+| [Jobs](jobs.md) | Peer jobs and debug bundles |
+| [Notifications](notifications.md) | Notification channels (email/webhook) |
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
 | [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |
