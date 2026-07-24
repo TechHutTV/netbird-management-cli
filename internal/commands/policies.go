@@ -73,7 +73,7 @@ func (s *Service) HandlePoliciesCommand(args []string) error {
 	ruleNameFlag := policyCmd.String("rule-name", "", "Rule name")
 	ruleDescFlag := policyCmd.String("rule-description", "", "Rule description")
 	actionFlag := policyCmd.String("action", "accept", "Rule action: accept or drop")
-	protocolFlag := policyCmd.String("protocol", "all", "Protocol: tcp, udp, icmp, or all")
+	protocolFlag := policyCmd.String("protocol", "all", "Protocol: tcp, udp, icmp, netbird-ssh, or all")
 	sourcesFlag := policyCmd.String("sources", "", "Source group IDs or names (comma-separated)")
 	destinationsFlag := policyCmd.String("destinations", "", "Destination group IDs or names (comma-separated)")
 	portsFlag := policyCmd.String("ports", "", "Ports (comma-separated, e.g., 80,443,8080)")
@@ -758,6 +758,11 @@ func (s *Service) buildRuleFromConfig(ruleName string, config *ruleConfig) (*mod
 	// Validate required fields
 	if config.Action != "accept" && config.Action != "drop" {
 		return nil, fmt.Errorf("invalid action '%s': must be 'accept' or 'drop'", config.Action)
+	}
+	switch config.Protocol {
+	case "", "all", "tcp", "udp", "icmp", "netbird-ssh":
+	default:
+		return nil, fmt.Errorf("invalid protocol '%s': must be tcp, udp, icmp, netbird-ssh, or all", config.Protocol)
 	}
 
 	// Resolve source and destination groups

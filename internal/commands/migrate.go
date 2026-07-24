@@ -34,18 +34,18 @@ type MigrateOptions struct {
 	KeyExpiry    string
 	Cleanup      bool
 	// Full configuration migration options
-	MigrateConfig   bool
-	MigrateGroups   bool
-	MigratePolicies bool
-	MigrateNetworks bool
-	MigrateRoutes   bool
-	MigrateDNS      bool
-	MigratePosture  bool
+	MigrateConfig    bool
+	MigrateGroups    bool
+	MigratePolicies  bool
+	MigrateNetworks  bool
+	MigrateRoutes    bool
+	MigrateDNS       bool
+	MigratePosture   bool
 	MigrateSetupKeys bool
-	SkipExisting    bool
-	Update          bool
-	DryRun          bool
-	Verbose         bool
+	SkipExisting     bool
+	Update           bool
+	DryRun           bool
+	Verbose          bool
 }
 
 // HandleMigrateCommand handles the migrate command for peer and configuration migration between accounts
@@ -308,6 +308,20 @@ func migrateGroupPeers(sourceClient, destClient *client.Client, opts MigrateOpti
 
 	fmt.Printf("Found %d peers to migrate.\n\n", len(group.Peers))
 
+	// Group members only carry {id, name}; fetch full peer details for groups/IP
+	peers := make([]models.Peer, 0, len(group.Peers))
+	for _, groupPeer := range group.Peers {
+		peer, err := getPeerByID(sourceClient, groupPeer.ID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  Failed to fetch peer %s (%s): %v\n", groupPeer.Name, groupPeer.ID, err)
+			continue
+		}
+		peers = append(peers, *peer)
+	}
+	if len(peers) == 0 {
+		return fmt.Errorf("failed to fetch details for any peer in group '%s'", opts.GroupName)
+	}
+
 	fmt.Println("Connecting to destination account...")
 	fmt.Printf("  Destination: %s\n\n", opts.DestURL)
 
@@ -318,7 +332,7 @@ func migrateGroupPeers(sourceClient, destClient *client.Client, opts MigrateOpti
 
 	// Collect all unique group names from all peers (excluding "All" group)
 	allGroupNames := make(map[string]bool)
-	for _, peer := range group.Peers {
+	for _, peer := range peers {
 		for _, g := range peer.Groups {
 			if !isAllGroup(g.Name) {
 				allGroupNames[g.Name] = true
@@ -357,8 +371,8 @@ func migrateGroupPeers(sourceClient, destClient *client.Client, opts MigrateOpti
 	}
 	var migrations []migrationInfo
 
-	for i, peer := range group.Peers {
-		fmt.Printf("Peer %d/%d: %s\n", i+1, len(group.Peers), peer.Name)
+	for i, peer := range peers {
+		fmt.Printf("Peer %d/%d: %s\n", i+1, len(peers), peer.Name)
 
 		// Get auto-groups for this peer (excluding "All" group)
 		var autoGroupIDs []string

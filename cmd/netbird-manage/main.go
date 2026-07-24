@@ -94,6 +94,15 @@ func main() {
 		case "dns":
 			commands.PrintDNSUsage()
 			os.Exit(0)
+		case "dns-zone", "dns-zones":
+			commands.PrintDNSZoneUsage()
+			os.Exit(0)
+		case "job", "jobs":
+			commands.PrintJobUsage()
+			os.Exit(0)
+		case "notification", "notifications":
+			commands.PrintNotificationUsage()
+			os.Exit(0)
 		case "posture-check", "posture":
 			commands.PrintPostureCheckUsage()
 			os.Exit(0)
@@ -185,6 +194,21 @@ func main() {
 		}
 	case "dns":
 		if err := svc.HandleDNSCommand(args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "dns-zone", "dns-zones":
+		if err := svc.HandleDNSZonesCommand(args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "job", "jobs":
+		if err := svc.HandleJobsCommand(args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "notification", "notifications":
+		if err := svc.HandleNotificationsCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

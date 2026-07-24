@@ -9,19 +9,51 @@ type Config struct {
 
 // Peer represents a single NetBird peer (from peers.mdx)
 type Peer struct {
-	ID                          string        `json:"id"`
-	Name                        string        `json:"name"`
-	IP                          string        `json:"ip"`
-	Connected                   bool          `json:"connected"`
-	LastSeen                    string        `json:"last_seen"`
-	OS                          string        `json:"os"`
-	Version                     string        `json:"version"`
-	Groups                      []PolicyGroup `json:"groups"` // This uses the simplified group object
-	Hostname                    string        `json:"hostname"`
-	SSHEnabled                  bool          `json:"ssh_enabled"`
-	LoginExpirationEnabled      bool          `json:"login_expiration_enabled"`
-	InactivityExpirationEnabled bool          `json:"inactivity_expiration_enabled"`
-	ApprovalRequired            *bool         `json:"approval_required,omitempty"` // Optional, cloud-only
+	ID                          string          `json:"id"`
+	Name                        string          `json:"name"`
+	IP                          string          `json:"ip"`
+	IPv6                        string          `json:"ipv6,omitempty"`
+	ConnectionIP                string          `json:"connection_ip,omitempty"`
+	Connected                   bool            `json:"connected"`
+	LastSeen                    string          `json:"last_seen"`
+	OS                          string          `json:"os"`
+	KernelVersion               string          `json:"kernel_version,omitempty"`
+	GeonameID                   int             `json:"geoname_id,omitempty"`
+	Version                     string          `json:"version"`
+	UIVersion                   string          `json:"ui_version,omitempty"`
+	Groups                      []PolicyGroup   `json:"groups"` // This uses the simplified group object
+	Hostname                    string          `json:"hostname"`
+	DNSLabel                    string          `json:"dns_label,omitempty"`
+	ExtraDNSLabels              []string        `json:"extra_dns_labels,omitempty"`
+	UserID                      string          `json:"user_id,omitempty"`
+	SSHEnabled                  bool            `json:"ssh_enabled"`
+	LoginExpirationEnabled      bool            `json:"login_expiration_enabled"`
+	LoginExpired                bool            `json:"login_expired,omitempty"`
+	LastLogin                   string          `json:"last_login,omitempty"`
+	InactivityExpirationEnabled bool            `json:"inactivity_expiration_enabled"`
+	ApprovalRequired            *bool           `json:"approval_required,omitempty"`  // Optional, cloud-only
+	DisapprovalReason           string          `json:"disapproval_reason,omitempty"` // Cloud-only
+	CountryCode                 string          `json:"country_code,omitempty"`
+	CityName                    string          `json:"city_name,omitempty"`
+	SerialNumber                string          `json:"serial_number,omitempty"`
+	Ephemeral                   bool            `json:"ephemeral,omitempty"`
+	CreatedAt                   string          `json:"created_at,omitempty"`
+	AccessiblePeersCount        int             `json:"accessible_peers_count,omitempty"`
+	LocalFlags                  *PeerLocalFlags `json:"local_flags,omitempty"`
+}
+
+// PeerLocalFlags represents the local client flags reported by a peer
+type PeerLocalFlags struct {
+	RosenpassEnabled      bool `json:"rosenpass_enabled"`
+	RosenpassPermissive   bool `json:"rosenpass_permissive"`
+	ServerSSHAllowed      bool `json:"server_ssh_allowed"`
+	DisableClientRoutes   bool `json:"disable_client_routes"`
+	DisableServerRoutes   bool `json:"disable_server_routes"`
+	DisableDNS            bool `json:"disable_dns"`
+	DisableFirewall       bool `json:"disable_firewall"`
+	BlockLANAccess        bool `json:"block_lan_access"`
+	BlockInbound          bool `json:"block_inbound"`
+	LazyConnectionEnabled bool `json:"lazy_connection_enabled"`
 }
 
 // PeerUpdateRequest represents the request body for updating a peer
@@ -32,6 +64,21 @@ type PeerUpdateRequest struct {
 	InactivityExpirationEnabled bool   `json:"inactivity_expiration_enabled"`
 	ApprovalRequired            *bool  `json:"approval_required,omitempty"`
 	IP                          string `json:"ip,omitempty"`
+	IPv6                        string `json:"ipv6,omitempty"`
+}
+
+// TemporaryAccessRequest represents the request body for POST /peers/{peerId}/temporary-access
+type TemporaryAccessRequest struct {
+	Name     string   `json:"name"`
+	WGPubKey string   `json:"wg_pub_key"`
+	Rules    []string `json:"rules"`
+}
+
+// TemporaryAccessPeer represents the response for a temporary access peer
+type TemporaryAccessPeer struct {
+	ID    string   `json:"id"`
+	Name  string   `json:"name"`
+	Rules []string `json:"rules"`
 }
 
 // PolicyGroup represents the simplified group object found inside other resources (like Peer)
@@ -40,6 +87,13 @@ type PolicyGroup struct {
 	Name           string `json:"name"`
 	PeersCount     int    `json:"peers_count,omitempty"`
 	ResourcesCount int    `json:"resources_count,omitempty"`
+	Issued         string `json:"issued,omitempty"`
+}
+
+// GroupPeer represents the minimal peer object returned inside a group ({id, name} only)
+type GroupPeer struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // GroupDetail represents the full group object (from groups.mdx)
@@ -49,7 +103,7 @@ type GroupDetail struct {
 	PeersCount     int             `json:"peers_count"`
 	ResourcesCount int             `json:"resources_count"`
 	Issued         string          `json:"issued"`
-	Peers          []Peer          `json:"peers"` // Contains list of full Peer objects
+	Peers          []GroupPeer     `json:"peers"` // API returns only {id, name} here
 	Resources      []GroupResource `json:"resources"`
 }
 
@@ -157,19 +211,20 @@ type Policy struct {
 
 // PolicyRule is a rule within a policy
 type PolicyRule struct {
-	ID                  string          `json:"id,omitempty"`
-	Name                string          `json:"name"`
-	Description         string          `json:"description,omitempty"`
-	Enabled             bool            `json:"enabled"`
-	Action              string          `json:"action"` // "accept" or "drop"
-	Bidirectional       bool            `json:"bidirectional"`
-	Protocol            string          `json:"protocol"` // tcp, udp, icmp, all
-	Ports               []string        `json:"ports,omitempty"`
-	PortRanges          []PortRange     `json:"port_ranges,omitempty"`
-	Sources             []PolicyGroup   `json:"sources,omitempty"`
-	Destinations        []PolicyGroup   `json:"destinations,omitempty"`
-	SourceResource      *PolicyResource `json:"sourceResource,omitempty"`
-	DestinationResource *PolicyResource `json:"destinationResource,omitempty"`
+	ID                  string              `json:"id,omitempty"`
+	Name                string              `json:"name"`
+	Description         string              `json:"description,omitempty"`
+	Enabled             bool                `json:"enabled"`
+	Action              string              `json:"action"` // "accept" or "drop"
+	Bidirectional       bool                `json:"bidirectional"`
+	Protocol            string              `json:"protocol"` // tcp, udp, icmp, all
+	Ports               []string            `json:"ports,omitempty"`
+	PortRanges          []PortRange         `json:"port_ranges,omitempty"`
+	AuthorizedGroups    map[string][]string `json:"authorized_groups,omitempty"` // Map of user group IDs to local users
+	Sources             []PolicyGroup       `json:"sources,omitempty"`
+	Destinations        []PolicyGroup       `json:"destinations,omitempty"`
+	SourceResource      *PolicyResource     `json:"sourceResource,omitempty"`
+	DestinationResource *PolicyResource     `json:"destinationResource,omitempty"`
 }
 
 // PortRange represents a port range for policy rules
@@ -204,19 +259,20 @@ type PolicyUpdateRequest struct {
 
 // PolicyRuleForWrite represents a policy rule for create/update operations (uses string IDs instead of objects)
 type PolicyRuleForWrite struct {
-	ID                  string          `json:"id,omitempty"` // Include ID for updates, omit for creates
-	Name                string          `json:"name"`
-	Description         string          `json:"description,omitempty"`
-	Enabled             bool            `json:"enabled"`
-	Action              string          `json:"action"`
-	Bidirectional       bool            `json:"bidirectional"`
-	Protocol            string          `json:"protocol"`
-	Ports               []string        `json:"ports,omitempty"`
-	PortRanges          []PortRange     `json:"port_ranges,omitempty"`
-	Sources             []string        `json:"sources,omitempty"`      // String IDs for updates
-	Destinations        []string        `json:"destinations,omitempty"` // String IDs for updates
-	SourceResource      *PolicyResource `json:"sourceResource,omitempty"`
-	DestinationResource *PolicyResource `json:"destinationResource,omitempty"`
+	ID                  string              `json:"id,omitempty"` // Include ID for updates, omit for creates
+	Name                string              `json:"name"`
+	Description         string              `json:"description,omitempty"`
+	Enabled             bool                `json:"enabled"`
+	Action              string              `json:"action"`
+	Bidirectional       bool                `json:"bidirectional"`
+	Protocol            string              `json:"protocol"`
+	Ports               []string            `json:"ports,omitempty"`
+	PortRanges          []PortRange         `json:"port_ranges,omitempty"`
+	AuthorizedGroups    map[string][]string `json:"authorized_groups,omitempty"` // Map of user group IDs to local users
+	Sources             []string            `json:"sources,omitempty"`           // String IDs for updates
+	Destinations        []string            `json:"destinations,omitempty"`      // String IDs for updates
+	SourceResource      *PolicyResource     `json:"sourceResource,omitempty"`
+	DestinationResource *PolicyResource     `json:"destinationResource,omitempty"`
 }
 
 // SetupKey represents a setup key for peer registration
@@ -257,21 +313,56 @@ type SetupKeyUpdateRequest struct {
 
 // User represents a NetBird user account
 type User struct {
-	ID            string          `json:"id"`
-	Email         string          `json:"email"`
-	Name          string          `json:"name"`
-	Role          string          `json:"role"`
-	Status        string          `json:"status"`
-	LastLogin     string          `json:"last_login"`
-	AutoGroups    []string        `json:"auto_groups"`
-	IsServiceUser bool            `json:"is_service_user"`
-	IsBlocked     bool            `json:"is_blocked"`
-	Permissions   UserPermissions `json:"permissions"`
+	ID              string          `json:"id"`
+	Email           string          `json:"email"`
+	Name            string          `json:"name"`
+	Role            string          `json:"role"`
+	Status          string          `json:"status"`
+	LastLogin       string          `json:"last_login"`
+	AutoGroups      []string        `json:"auto_groups"`
+	IsCurrent       bool            `json:"is_current,omitempty"`
+	IsServiceUser   bool            `json:"is_service_user"`
+	IsBlocked       bool            `json:"is_blocked"`
+	PendingApproval bool            `json:"pending_approval,omitempty"`
+	Issued          string          `json:"issued,omitempty"`
+	IdpID           string          `json:"idp_id,omitempty"`
+	Permissions     UserPermissions `json:"permissions"`
 }
 
 // UserPermissions represents user permission settings
 type UserPermissions struct {
-	DashboardView string `json:"dashboard_view"`
+	IsRestricted bool                        `json:"is_restricted"`
+	Modules      map[string]ModulePermission `json:"modules,omitempty"` // Module name -> allowed operations
+}
+
+// ModulePermission represents per-module CRUD permissions
+type ModulePermission struct {
+	Read   bool `json:"read"`
+	Create bool `json:"create"`
+	Update bool `json:"update"`
+	Delete bool `json:"delete"`
+}
+
+// UserInvite represents a pending user invitation (from /users/invites)
+type UserInvite struct {
+	ID          string   `json:"id"`
+	Email       string   `json:"email"`
+	Name        string   `json:"name"`
+	Role        string   `json:"role"`
+	AutoGroups  []string `json:"auto_groups"`
+	ExpiresAt   string   `json:"expires_at"`
+	CreatedAt   string   `json:"created_at"`
+	Expired     bool     `json:"expired"`
+	InviteToken string   `json:"invite_token,omitempty"`
+}
+
+// UserInviteCreateRequest represents the request body for POST /users/invites
+type UserInviteCreateRequest struct {
+	Email      string   `json:"email"`
+	Name       string   `json:"name"`
+	Role       string   `json:"role"`
+	AutoGroups []string `json:"auto_groups"`
+	ExpiresIn  int      `json:"expires_in,omitempty"` // Seconds
 }
 
 // UserCreateRequest represents the request body for creating/inviting a user
@@ -328,6 +419,7 @@ type Route struct {
 	AccessControlGroups []string `json:"access_control_groups,omitempty"`
 	Description         string   `json:"description,omitempty"`
 	KeepRoute           bool     `json:"keep_route"`
+	SkipAutoApply       bool     `json:"skip_auto_apply,omitempty"` // Exit node route skips auto-application
 }
 
 // RouteRequest represents the request body for creating/updating a route
@@ -344,6 +436,7 @@ type RouteRequest struct {
 	Groups              []string `json:"groups"`
 	AccessControlGroups []string `json:"access_control_groups,omitempty"`
 	KeepRoute           bool     `json:"keep_route"`
+	SkipAutoApply       bool     `json:"skip_auto_apply,omitempty"`
 }
 
 // DNSNameserverGroup represents a DNS nameserver group
@@ -369,7 +462,7 @@ type Nameserver struct {
 // DNSNameserverGroupRequest represents the request body for creating/updating a DNS nameserver group
 type DNSNameserverGroupRequest struct {
 	Name                 string       `json:"name"`
-	Description          string       `json:"description,omitempty"`
+	Description          string       `json:"description"` // Required by the API (may be empty)
 	Nameservers          []Nameserver `json:"nameservers"`
 	Groups               []string     `json:"groups"`
 	Domains              []string     `json:"domains,omitempty"`
@@ -457,7 +550,7 @@ type Process struct {
 // PostureCheckRequest represents the request body for creating/updating a posture check
 type PostureCheckRequest struct {
 	Name        string                 `json:"name"`
-	Description string                 `json:"description,omitempty"`
+	Description string                 `json:"description"` // Required by the API (may be empty)
 	Checks      PostureCheckDefinition `json:"checks"`
 }
 
@@ -474,26 +567,64 @@ type AuditEvent struct {
 	Meta           map[string]interface{} `json:"meta"`
 }
 
-// TrafficEvent represents a network traffic event
+// TrafficEvent represents a network traffic event (flow)
 type TrafficEvent struct {
-	ID              string                 `json:"id"`
-	Timestamp       string                 `json:"timestamp"`
-	UserID          string                 `json:"user_id"`
-	UserEmail       string                 `json:"user_email"`
-	ReporterID      string                 `json:"reporter_id"`
-	ReporterName    string                 `json:"reporter_name"`
-	Protocol        int                    `json:"protocol"`
-	Type            string                 `json:"type"`
-	ConnectionType  string                 `json:"connection_type"`
-	Direction       string                 `json:"direction"`
-	SourceIP        string                 `json:"source_ip"`
-	DestinationIP   string                 `json:"destination_ip"`
-	BytesSent       int64                  `json:"bytes_sent"`
-	BytesReceived   int64                  `json:"bytes_received"`
-	PacketsSent     int64                  `json:"packets_sent"`
-	PacketsReceived int64                  `json:"packets_received"`
-	PolicyID        string                 `json:"policy_id,omitempty"`
-	Meta            map[string]interface{} `json:"meta,omitempty"`
+	FlowID      string            `json:"flow_id"`
+	ReporterID  string            `json:"reporter_id"`
+	Source      TrafficEndpoint   `json:"source"`
+	Destination TrafficEndpoint   `json:"destination"`
+	User        *TrafficUser      `json:"user,omitempty"`
+	Policy      *TrafficPolicy    `json:"policy,omitempty"`
+	ICMP        *TrafficICMP      `json:"icmp,omitempty"`
+	Protocol    int               `json:"protocol"`
+	Direction   string            `json:"direction"`
+	RxBytes     int64             `json:"rx_bytes"`
+	RxPackets   int64             `json:"rx_packets"`
+	TxBytes     int64             `json:"tx_bytes"`
+	TxPackets   int64             `json:"tx_packets"`
+	Events      []TrafficSubEvent `json:"events,omitempty"`
+}
+
+// TrafficEndpoint represents the source or destination of a traffic event
+type TrafficEndpoint struct {
+	ID          string              `json:"id"`
+	Type        string              `json:"type"`
+	Name        string              `json:"name"`
+	GeoLocation *TrafficGeoLocation `json:"geo_location,omitempty"`
+	OS          string              `json:"os,omitempty"`
+	Address     string              `json:"address"`
+	DNSLabel    string              `json:"dns_label,omitempty"`
+}
+
+// TrafficGeoLocation represents the geo location of a traffic endpoint
+type TrafficGeoLocation struct {
+	CityName    string `json:"city_name,omitempty"`
+	CountryCode string `json:"country_code,omitempty"`
+}
+
+// TrafficUser represents the user associated with a traffic event
+type TrafficUser struct {
+	ID    string `json:"id"`
+	Email string `json:"email,omitempty"`
+	Name  string `json:"name,omitempty"`
+}
+
+// TrafficPolicy represents the policy that allowed a traffic event
+type TrafficPolicy struct {
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
+}
+
+// TrafficICMP represents ICMP type/code info for a traffic event
+type TrafficICMP struct {
+	Type int `json:"type"`
+	Code int `json:"code"`
+}
+
+// TrafficSubEvent represents a lifecycle event within a traffic flow
+type TrafficSubEvent struct {
+	Type      string `json:"type"`
+	Timestamp string `json:"timestamp"`
 }
 
 // AuditEventFilters for filtering audit events
@@ -523,16 +654,63 @@ type TrafficEventFilters struct {
 
 // TrafficEventResponse for paginated traffic events
 type TrafficEventResponse struct {
-	Data       []TrafficEvent `json:"data"`
-	TotalCount int            `json:"total_count"`
-	Page       int            `json:"page"`
-	PageSize   int            `json:"page_size"`
+	Data         []TrafficEvent `json:"data"`
+	Page         int            `json:"page"`
+	PageSize     int            `json:"page_size"`
+	TotalRecords int            `json:"total_records"`
+	TotalPages   int            `json:"total_pages"`
 }
 
-// CountryCode represents a country code
-type CountryCode struct {
-	Code string `json:"country_code"` // ISO 3166-1 alpha-2
-	Name string `json:"country_name"` // Country name
+// ProxyEvent represents a reverse proxy access log entry (from /events/proxy)
+type ProxyEvent struct {
+	ID              string            `json:"id"`
+	ServiceID       string            `json:"service_id"`
+	Timestamp       string            `json:"timestamp"`
+	Method          string            `json:"method"`
+	Host            string            `json:"host"`
+	Path            string            `json:"path"`
+	DurationMS      int               `json:"duration_ms"`
+	StatusCode      int               `json:"status_code"`
+	SourceIP        string            `json:"source_ip"`
+	Reason          string            `json:"reason,omitempty"`
+	UserID          string            `json:"user_id,omitempty"`
+	AuthMethodUsed  string            `json:"auth_method_used,omitempty"`
+	CountryCode     string            `json:"country_code,omitempty"`
+	CityName        string            `json:"city_name,omitempty"`
+	SubdivisionCode string            `json:"subdivision_code,omitempty"`
+	BytesUpload     int64             `json:"bytes_upload"`
+	BytesDownload   int64             `json:"bytes_download"`
+	Protocol        string            `json:"protocol,omitempty"`
+	Metadata        map[string]string `json:"metadata,omitempty"`
+}
+
+// ProxyEventResponse for paginated reverse proxy access logs
+type ProxyEventResponse struct {
+	Data         []ProxyEvent `json:"data"`
+	Page         int          `json:"page"`
+	PageSize     int          `json:"page_size"`
+	TotalRecords int          `json:"total_records"`
+	TotalPages   int          `json:"total_pages"`
+}
+
+// ProxyEventFilters for filtering reverse proxy access logs
+type ProxyEventFilters struct {
+	Page       int
+	PageSize   int
+	SortBy     string
+	SortOrder  string
+	Search     string
+	SourceIP   string
+	Host       string
+	Path       string
+	UserID     string
+	UserEmail  string
+	UserName   string
+	Method     string
+	Status     string
+	StatusCode string
+	StartDate  string
+	EndDate    string
 }
 
 // City represents a city location
@@ -543,33 +721,56 @@ type City struct {
 
 // Account represents a NetBird account
 type Account struct {
-	ID         string             `json:"id"`
-	Settings   AccountSettings    `json:"settings"`
-	Domain     string             `json:"domain"`
-	CreatedBy  string             `json:"created_by"`
-	CreatedAt  string             `json:"created_at"`
-	Onboarding *AccountOnboarding `json:"onboarding,omitempty"`
+	ID             string             `json:"id"`
+	Settings       AccountSettings    `json:"settings"`
+	Domain         string             `json:"domain"`
+	DomainCategory string             `json:"domain_category,omitempty"`
+	CreatedBy      string             `json:"created_by"`
+	CreatedAt      string             `json:"created_at"`
+	Onboarding     *AccountOnboarding `json:"onboarding,omitempty"`
 }
 
 // AccountSettings contains account-wide configuration
 type AccountSettings struct {
-	PeerLoginExpiration      int      `json:"peer_login_expiration"`      // Seconds
-	PeerInactivityExpiration int      `json:"peer_inactivity_expiration"` // Seconds
-	DNSDomain                string   `json:"dns_domain"`
-	NetworkRange             string   `json:"network_range"`
-	JWTGroupsEnabled         bool     `json:"jwt_groups_enabled"`
-	JWTGroupsClaim           string   `json:"jwt_groups_claim"`
-	JWTAllowGroups           []string `json:"jwt_allow_groups"`
-	GroupsPropagationEnabled bool     `json:"groups_propagation_enabled"`
-	RegularUsersViewBlocked  bool     `json:"regular_users_view_blocked"`
-	PeerApprovalEnabled      bool     `json:"peer_approval_enabled,omitempty"` // Cloud-only
-	TrafficLogging           bool     `json:"traffic_logging,omitempty"`       // Cloud-only
+	PeerLoginExpirationEnabled      bool                  `json:"peer_login_expiration_enabled"`
+	PeerLoginExpiration             int                   `json:"peer_login_expiration"` // Seconds
+	PeerInactivityExpirationEnabled bool                  `json:"peer_inactivity_expiration_enabled"`
+	PeerInactivityExpiration        int                   `json:"peer_inactivity_expiration"` // Seconds
+	DNSDomain                       string                `json:"dns_domain,omitempty"`
+	NetworkRange                    string                `json:"network_range,omitempty"`
+	NetworkRangeV6                  string                `json:"network_range_v6,omitempty"`
+	RoutingPeerDNSResolutionEnabled bool                  `json:"routing_peer_dns_resolution_enabled"`
+	JWTGroupsEnabled                bool                  `json:"jwt_groups_enabled"`
+	JWTGroupsClaimName              string                `json:"jwt_groups_claim_name,omitempty"`
+	JWTAllowGroups                  []string              `json:"jwt_allow_groups,omitempty"`
+	GroupsPropagationEnabled        bool                  `json:"groups_propagation_enabled"`
+	RegularUsersViewBlocked         bool                  `json:"regular_users_view_blocked"`
+	PeerExposeEnabled               bool                  `json:"peer_expose_enabled"`
+	PeerExposeGroups                []string              `json:"peer_expose_groups"`
+	LazyConnectionEnabled           bool                  `json:"lazy_connection_enabled"`
+	AutoUpdateVersion               string                `json:"auto_update_version,omitempty"`
+	AutoUpdateAlways                bool                  `json:"auto_update_always"`
+	MetricsPushEnabled              bool                  `json:"metrics_push_enabled"`
+	EmbeddedIdpEnabled              bool                  `json:"embedded_idp_enabled,omitempty"` // Read-only
+	LocalAuthDisabled               bool                  `json:"local_auth_disabled,omitempty"`  // Read-only
+	LocalMFAEnabled                 bool                  `json:"local_mfa_enabled"`
+	IPv6EnabledGroups               []string              `json:"ipv6_enabled_groups,omitempty"`
+	Extra                           *AccountSettingsExtra `json:"extra,omitempty"` // Cloud-only
+}
+
+// AccountSettingsExtra contains Cloud-only extra account settings
+type AccountSettingsExtra struct {
+	PeerApprovalEnabled                bool     `json:"peer_approval_enabled"`
+	UserApprovalRequired               bool     `json:"user_approval_required"`
+	NetworkTrafficLogsEnabled          bool     `json:"network_traffic_logs_enabled"`
+	NetworkTrafficLogsGroups           []string `json:"network_traffic_logs_groups"`
+	NetworkTrafficPacketCounterEnabled bool     `json:"network_traffic_packet_counter_enabled"`
 }
 
 // AccountOnboarding tracks signup and onboarding progress
 type AccountOnboarding struct {
-	SignupFormCompleted bool `json:"signup_form_completed"`
-	FlowCompleted       bool `json:"flow_completed"`
+	SignupFormPending     bool `json:"signup_form_pending"`
+	OnboardingFlowPending bool `json:"onboarding_flow_pending"`
 }
 
 // AccountUpdateRequest for PUT /accounts/{id}
@@ -578,55 +779,172 @@ type AccountUpdateRequest struct {
 	Onboarding *AccountOnboarding `json:"onboarding,omitempty"`
 }
 
-// IngressPortAllocation represents a port forwarding rule
+// IngressPortAllocation represents an ingress port allocation for a peer
 type IngressPortAllocation struct {
-	ID           string `json:"id"`
-	AllocationID string `json:"allocation_id,omitempty"`
-	PeerID       string `json:"peer_id"`
-	TargetPort   int    `json:"target_port"`
-	PublicPort   int    `json:"public_port,omitempty"` // Assigned by NetBird Cloud
-	Protocol     string `json:"protocol"`              // "tcp" or "udp"
-	Description  string `json:"description,omitempty"`
-	CreatedAt    string `json:"created_at,omitempty"`
-	UpdatedAt    string `json:"updated_at,omitempty"`
-	IngressPeer  string `json:"ingress_peer,omitempty"` // Ingress peer ID
+	ID                string             `json:"id"`
+	Name              string             `json:"name"`
+	IngressPeerID     string             `json:"ingress_peer_id,omitempty"`
+	Region            string             `json:"region,omitempty"`
+	Enabled           bool               `json:"enabled"`
+	IngressIP         string             `json:"ingress_ip,omitempty"`
+	PortRangeMappings []PortRangeMapping `json:"port_range_mappings,omitempty"`
 }
 
-// IngressPeer represents a global ingress endpoint
+// PortRangeMapping maps a translated (peer) port range to an ingress port range
+type PortRangeMapping struct {
+	TranslatedStart int    `json:"translated_start"`
+	TranslatedEnd   int    `json:"translated_end"`
+	IngressStart    int    `json:"ingress_start"`
+	IngressEnd      int    `json:"ingress_end"`
+	Protocol        string `json:"protocol"` // "tcp", "udp", or "tcp/udp"
+}
+
+// IngressPortRange represents a requested port range for an allocation
+type IngressPortRange struct {
+	Start    int    `json:"start"`
+	End      int    `json:"end"`
+	Protocol string `json:"protocol"` // "tcp", "udp", or "tcp/udp"
+}
+
+// IngressDirectPort requests direct (1:1) port mappings for an allocation
+type IngressDirectPort struct {
+	Count    int    `json:"count"`
+	Protocol string `json:"protocol"` // "tcp", "udp", or "tcp/udp"
+}
+
+// IngressPortAllocationRequest for POST/PUT /peers/{id}/ingress/ports[/{allocationId}]
+type IngressPortAllocationRequest struct {
+	Name       string             `json:"name"`
+	Enabled    bool               `json:"enabled"`
+	PortRanges []IngressPortRange `json:"port_ranges,omitempty"`
+	DirectPort *IngressDirectPort `json:"direct_port,omitempty"`
+}
+
+// IngressPeer represents a peer acting as an ingress gateway
 type IngressPeer struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Location  string `json:"location,omitempty"`
-	Hostname  string `json:"hostname,omitempty"` // Public hostname
-	Enabled   bool   `json:"enabled"`
-	CreatedAt string `json:"created_at,omitempty"`
-	UpdatedAt string `json:"updated_at,omitempty"`
+	ID             string                `json:"id"`
+	PeerID         string                `json:"peer_id"`
+	IngressIP      string                `json:"ingress_ip,omitempty"`
+	AvailablePorts *IngressPeerPortsInfo `json:"available_ports,omitempty"`
+	Enabled        bool                  `json:"enabled"`
+	Connected      bool                  `json:"connected"`
+	Fallback       bool                  `json:"fallback"`
+	Region         string                `json:"region,omitempty"`
 }
 
-// IngressPortCreateRequest for POST /peers/{id}/ingress/ports
-type IngressPortCreateRequest struct {
-	TargetPort  int    `json:"target_port"`
-	Protocol    string `json:"protocol,omitempty"`
-	Description string `json:"description,omitempty"`
-}
-
-// IngressPortUpdateRequest for PUT /peers/{id}/ingress/ports/{id}
-type IngressPortUpdateRequest struct {
-	TargetPort  int    `json:"target_port"`
-	Protocol    string `json:"protocol,omitempty"`
-	Description string `json:"description,omitempty"`
+// IngressPeerPortsInfo reports available ports on an ingress peer
+type IngressPeerPortsInfo struct {
+	TCP int `json:"tcp"`
+	UDP int `json:"udp"`
 }
 
 // IngressPeerCreateRequest for POST /ingress/peers
 type IngressPeerCreateRequest struct {
-	Name     string `json:"name"`
-	Location string `json:"location,omitempty"`
-	Enabled  bool   `json:"enabled,omitempty"`
+	PeerID   string `json:"peer_id"`
+	Enabled  bool   `json:"enabled"`
+	Fallback bool   `json:"fallback"`
 }
 
 // IngressPeerUpdateRequest for PUT /ingress/peers/{id}
 type IngressPeerUpdateRequest struct {
-	Name     string `json:"name,omitempty"`
-	Location string `json:"location,omitempty"`
-	Enabled  *bool  `json:"enabled,omitempty"`
+	Enabled  bool `json:"enabled"`
+	Fallback bool `json:"fallback"`
+}
+
+// DNSZone represents a custom DNS zone (from dns-zones.mdx)
+type DNSZone struct {
+	ID                 string      `json:"id"`
+	Name               string      `json:"name"`
+	Domain             string      `json:"domain"`
+	Enabled            bool        `json:"enabled"`
+	EnableSearchDomain bool        `json:"enable_search_domain"`
+	DistributionGroups []string    `json:"distribution_groups"`
+	Records            []DNSRecord `json:"records,omitempty"`
+}
+
+// DNSZoneRequest for POST/PUT /dns/zones[/{zoneId}]
+type DNSZoneRequest struct {
+	Name               string   `json:"name"`
+	Domain             string   `json:"domain"`
+	Enabled            bool     `json:"enabled"`
+	EnableSearchDomain bool     `json:"enable_search_domain"`
+	DistributionGroups []string `json:"distribution_groups"`
+}
+
+// DNSRecord represents a record in a custom DNS zone
+type DNSRecord struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Type    string `json:"type"` // "A", "AAAA", or "CNAME"
+	Content string `json:"content"`
+	TTL     int    `json:"ttl"`
+}
+
+// DNSRecordRequest for POST/PUT /dns/zones/{zoneId}/records[/{recordId}]
+type DNSRecordRequest struct {
+	Name    string `json:"name"`
+	Type    string `json:"type"` // "A", "AAAA", or "CNAME"
+	Content string `json:"content"`
+	TTL     int    `json:"ttl"`
+}
+
+// PeerJob represents an asynchronous job run against a peer (from jobs.mdx)
+type PeerJob struct {
+	ID           string      `json:"id"`
+	CreatedAt    string      `json:"created_at"`
+	CompletedAt  string      `json:"completed_at,omitempty"`
+	TriggeredBy  string      `json:"triggered_by,omitempty"`
+	Status       string      `json:"status"`
+	FailedReason string      `json:"failed_reason,omitempty"`
+	Workload     JobWorkload `json:"workload"`
+}
+
+// JobWorkload describes the work a peer job performs (currently only "bundle")
+type JobWorkload struct {
+	Type       string               `json:"type"` // e.g. "bundle"
+	Parameters *BundleJobParameters `json:"parameters,omitempty"`
+	Result     *JobWorkloadResult   `json:"result,omitempty"`
+}
+
+// BundleJobParameters configures a debug bundle collection job
+type BundleJobParameters struct {
+	BundleFor     bool `json:"bundle_for"`
+	BundleForTime int  `json:"bundle_for_time"`
+	LogFileCount  int  `json:"log_file_count"`
+	Anonymize     bool `json:"anonymize"`
+}
+
+// JobWorkloadResult holds the output of a completed job
+type JobWorkloadResult struct {
+	UploadKey string `json:"upload_key,omitempty"`
+}
+
+// PeerJobCreateRequest for POST /peers/{peerId}/jobs
+type PeerJobCreateRequest struct {
+	Workload JobWorkload `json:"workload"`
+}
+
+// NotificationChannel represents a notification channel (from notifications.mdx)
+type NotificationChannel struct {
+	ID         string              `json:"id"`
+	Type       string              `json:"type"` // "email" or "webhook"
+	Target     *NotificationTarget `json:"target,omitempty"`
+	EventTypes []string            `json:"event_types"`
+	Enabled    bool                `json:"enabled"`
+}
+
+// NotificationTarget holds the type-dependent target of a notification channel.
+// For type "email" only Emails is set; for type "webhook" URL (and optionally Headers) are set.
+type NotificationTarget struct {
+	Emails  []string          `json:"emails,omitempty"`
+	URL     string            `json:"url,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"` // Write-only; masked in responses
+}
+
+// NotificationChannelRequest for POST/PUT /integrations/notifications/channels[/{channelId}]
+type NotificationChannelRequest struct {
+	Type       string              `json:"type"` // "email" or "webhook"
+	Target     *NotificationTarget `json:"target,omitempty"`
+	EventTypes []string            `json:"event_types"`
+	Enabled    bool                `json:"enabled"`
 }

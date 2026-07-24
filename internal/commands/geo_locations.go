@@ -66,7 +66,8 @@ func (s *Service) listCountryCodes(outputFormat string) error {
 	}
 	defer resp.Body.Close()
 
-	var countries []models.CountryCode
+	// The API returns a plain array of ISO 3166-1 alpha-2 codes, e.g. ["DE", "US"]
+	var countries []string
 	if err := json.NewDecoder(resp.Body).Decode(&countries); err != nil {
 		return fmt.Errorf("failed to decode response: %v", err)
 	}
@@ -83,12 +84,14 @@ func (s *Service) listCountryCodes(outputFormat string) error {
 
 	// Table output
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "CODE\tCOUNTRY NAME")
-	fmt.Fprintln(w, "----\t------------")
+	fmt.Fprintln(w, "COUNTRY CODE")
+	fmt.Fprintln(w, "------------")
 	for _, country := range countries {
-		fmt.Fprintf(w, "%s\t%s\n", country.Code, country.Name)
+		fmt.Fprintln(w, country)
 	}
 	w.Flush()
+
+	fmt.Printf("\nTotal countries: %d\n", len(countries))
 
 	return nil
 }

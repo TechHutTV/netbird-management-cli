@@ -11,7 +11,7 @@ This document provides comprehensive guidance for AI assistants working on the N
 - **Dependencies:** One external dependency (`gopkg.in/yaml.v3` for YAML export/import)
 - **Architecture:** Single-binary CLI with organized package structure (`cmd/`, `internal/`)
 - **API:** RESTful HTTP client with Bearer token authentication
-- **Lines of Code:** ~14,000 lines across 24 Go files
+- **Lines of Code:** ~16,500 lines across 27 Go files
 
 **Project Links:**
 - NetBird API Documentation: https://docs.netbird.io/api
@@ -36,35 +36,38 @@ This document provides comprehensive guidance for AI assistants working on the N
 netbird-management-cli/
 ├── cmd/
 │   └── netbird-manage/
-│       └── main.go              # Entry point and command router (~294 lines)
+│       └── main.go              # Entry point and command router (~318 lines)
 ├── internal/
 │   ├── client/
 │   │   └── client.go            # HTTP API client with debug logging (~154 lines)
 │   ├── config/
 │   │   └── config.go            # Configuration management (~103 lines)
 │   ├── helpers/
-│   │   └── helpers.go           # Utilities, validation, confirmations (~362 lines)
+│   │   └── helpers.go           # Utilities, validation, confirmations (~374 lines)
 │   ├── models/
-│   │   └── models.go            # Data type definitions (~626 lines)
+│   │   └── models.go            # Data type definitions (~950 lines)
 │   └── commands/
 │       ├── service.go           # Service wrapper for Client (~16 lines)
-│       ├── usage.go             # Command usage/help text (~504 lines)
-│       ├── peers.go             # Peer operations (~492 lines)
-│       ├── groups.go            # Group operations (~715 lines)
-│       ├── networks.go          # Network/resource/router operations (~963 lines)
-│       ├── policies.go          # Policy and rule operations (~916 lines)
-│       ├── setup_keys.go        # Setup key operations (~694 lines)
-│       ├── users.go             # User management (~339 lines)
-│       ├── tokens.go            # Token management (~251 lines)
-│       ├── routes.go            # Route management (~525 lines)
-│       ├── dns.go               # DNS nameserver management (~620 lines)
-│       ├── posture_checks.go    # Posture check management (~592 lines)
-│       ├── events.go            # Audit log and traffic events (~298 lines)
-│       ├── geo_locations.go     # Geographic location data (~130 lines)
-│       ├── accounts.go          # Account management (~386 lines)
-│       ├── ingress_ports.go     # Ingress ports/peers (Cloud-only) (~522 lines)
-│       ├── migrate.go           # Full migration between accounts (~2100 lines)
-│       ├── export.go            # YAML/JSON export functionality (~603 lines)
+│       ├── usage.go             # Command usage/help text (~645 lines)
+│       ├── peers.go             # Peer operations incl. temporary access (~667 lines)
+│       ├── groups.go            # Group operations (~745 lines)
+│       ├── networks.go          # Network/resource/router operations (~995 lines)
+│       ├── policies.go          # Policy and rule operations (~944 lines)
+│       ├── setup_keys.go        # Setup key operations (~714 lines)
+│       ├── users.go             # User management incl. invites (~621 lines)
+│       ├── tokens.go            # Token management (~272 lines)
+│       ├── routes.go            # Route management (~658 lines)
+│       ├── dns.go               # DNS nameserver management (~663 lines)
+│       ├── dns_zones.go         # Custom DNS zones and records (~531 lines)
+│       ├── posture_checks.go    # Posture check management (~613 lines)
+│       ├── events.go            # Audit, traffic, and proxy events (~449 lines)
+│       ├── geo_locations.go     # Geographic location data (~133 lines)
+│       ├── accounts.go          # Account management (~458 lines)
+│       ├── ingress_ports.go     # Ingress ports/peers (Cloud-only) (~737 lines)
+│       ├── jobs.go              # Peer jobs (debug bundles) (~202 lines)
+│       ├── notifications.go     # Notification channels (~342 lines)
+│       ├── migrate.go           # Full migration between accounts (~2226 lines)
+│       ├── export.go            # YAML/JSON export functionality (~631 lines)
 │       └── import.go            # YAML import functionality (~1380 lines)
 ├── go.mod                       # Go module definition
 ├── go.sum                       # Dependency checksums
@@ -102,6 +105,9 @@ netbird-management-cli/
 | `internal/commands/networks.go` | Network, resource, router operations | `HandleNetworksCommand()`, `listNetworks()`, `addResource()` |
 | `internal/commands/policies.go` | Policy and rule operations | `HandlePoliciesCommand()`, `listPolicies()`, `addRule()` |
 | `internal/commands/setup_keys.go` | Setup key operations | `HandleSetupKeysCommand()`, `listSetupKeys()`, `createSetupKey()` |
+| `internal/commands/dns_zones.go` | Custom DNS zones and records | `HandleDNSZonesCommand()`, `listDNSZones()`, `createDNSZone()`, `listDNSRecords()`, `createDNSRecord()` |
+| `internal/commands/jobs.go` | Peer jobs (debug bundles) | `HandleJobsCommand()`, `listPeerJobs()`, `createPeerJob()` |
+| `internal/commands/notifications.go` | Notification channels | `HandleNotificationsCommand()`, `listNotificationChannels()`, `createNotificationChannel()` |
 | `internal/commands/migrate.go` | Full migration between accounts | `HandleMigrateCommand()`, `migrateConfiguration()`, `migrateSinglePeer()`, `migrateGroupPeers()`, `migrateAllPeers()` |
 | `internal/commands/export.go` | YAML/JSON export functionality | `HandleExportCommand()`, `exportFullSingleFile()`, `exportSplitFiles()` |
 | `internal/commands/import.go` | YAML import functionality | `HandleImportCommand()`, `parseYAML()`, `importResources()` |
@@ -475,18 +481,40 @@ type Config struct {
 }
 ```
 
-**Peer** (`models.go`)
+**Peer** (`models.go`, abbreviated — see source for the full struct)
 ```go
 type Peer struct {
-    ID        string        `json:"id"`
-    Name      string        `json:"name"`
-    IP        string        `json:"ip"`
-    Connected bool          `json:"connected"`
-    LastSeen  string        `json:"last_seen"`
-    OS        string        `json:"os"`
-    Version   string        `json:"version"`
-    Groups    []PolicyGroup `json:"groups"`
-    Hostname  string        `json:"hostname"`
+    ID                          string          `json:"id"`
+    Name                        string          `json:"name"`
+    IP                          string          `json:"ip"`
+    IPv6                        string          `json:"ipv6,omitempty"`
+    ConnectionIP                string          `json:"connection_ip,omitempty"`
+    Connected                   bool            `json:"connected"`
+    LastSeen                    string          `json:"last_seen"`
+    OS                          string          `json:"os"`
+    KernelVersion               string          `json:"kernel_version,omitempty"`
+    GeonameID                   int             `json:"geoname_id,omitempty"`
+    Version                     string          `json:"version"`
+    UIVersion                   string          `json:"ui_version,omitempty"`
+    Groups                      []PolicyGroup   `json:"groups"`
+    Hostname                    string          `json:"hostname"`
+    DNSLabel                    string          `json:"dns_label,omitempty"`
+    ExtraDNSLabels              []string        `json:"extra_dns_labels,omitempty"`
+    UserID                      string          `json:"user_id,omitempty"`
+    SSHEnabled                  bool            `json:"ssh_enabled"`
+    LoginExpirationEnabled      bool            `json:"login_expiration_enabled"`
+    LoginExpired                bool            `json:"login_expired,omitempty"`
+    LastLogin                   string          `json:"last_login,omitempty"`
+    InactivityExpirationEnabled bool            `json:"inactivity_expiration_enabled"`
+    ApprovalRequired            *bool           `json:"approval_required,omitempty"`
+    DisapprovalReason           string          `json:"disapproval_reason,omitempty"`
+    CountryCode                 string          `json:"country_code,omitempty"`
+    CityName                    string          `json:"city_name,omitempty"`
+    SerialNumber                string          `json:"serial_number,omitempty"`
+    Ephemeral                   bool            `json:"ephemeral,omitempty"`
+    CreatedAt                   string          `json:"created_at,omitempty"`
+    AccessiblePeersCount        int             `json:"accessible_peers_count,omitempty"`
+    LocalFlags                  *PeerLocalFlags `json:"local_flags,omitempty"`
 }
 ```
 
@@ -498,8 +526,14 @@ type GroupDetail struct {
     PeersCount     int             `json:"peers_count"`
     ResourcesCount int             `json:"resources_count"`
     Issued         string          `json:"issued"`
-    Peers          []Peer          `json:"peers"`
+    Peers          []GroupPeer     `json:"peers"` // API returns only {id, name}
     Resources      []GroupResource `json:"resources"`
+}
+
+// GroupPeer is the minimal peer object returned inside group details
+type GroupPeer struct {
+    ID   string `json:"id"`
+    Name string `json:"name"`
 }
 ```
 
@@ -552,7 +586,7 @@ Peer
   └── Groups: []PolicyGroup (many-to-many)
 
 GroupDetail
-  ├── Peers: []Peer (members)
+  ├── Peers: []GroupPeer (minimal {id, name} objects)
   └── Resources: []GroupResource
 
 Policy
@@ -1124,7 +1158,7 @@ This section tracks the implementation status of CLI features and planned enhanc
   - **Implementation File:** `tokens.go`
 
 **Project Status:**
-- **API Coverage:** 14/14 resource types fully implemented (100%) 🎉
+- **API Coverage:** 17/17 resource types fully implemented (100%) 🎉
 - **Zero External Dependencies** - Pure Go stdlib implementation maintained
 - **Phase 1 Complete:** All high-priority user and access management features implemented
 - **Phase 2 Complete:** Network services including routing, DNS, and posture checks
@@ -1259,10 +1293,10 @@ This section tracks the implementation status of CLI features and planned enhanc
 - All other features implemented using pure Go standard library
 
 **API Coverage Status:**
-- ✅ **100% Coverage:** All 14 NetBird API resource types fully implemented
+- ✅ **100% Coverage:** All 17 NetBird API resource types fully implemented
   - Peers, Groups, Networks, Policies, Setup Keys, Users, Tokens
-  - Routes, DNS, Posture Checks, Events, Geo-Locations
-  - Accounts, Ingress Ports (Cloud-only)
+  - Routes, DNS, DNS Zones, Posture Checks, Events, Geo-Locations
+  - Accounts, Ingress Ports (Cloud-only), Peer Jobs, Notifications
 
 **Code Architecture:**
 - Each resource type gets its own file in `internal/commands/`
@@ -1466,6 +1500,6 @@ If you encounter unclear requirements:
 
 ---
 
-**Last Updated:** 2025-11-23
-**Document Version:** 2.0
-**Codebase Version:** ~12,100 lines of Go code across 24 files
+**Last Updated:** 2026-07-23 (API-parity refresh: added `dns-zone`, `job`, and `notification` commands; updated peer/group/policy/route/user/account/event/geo/ingress models and flags to match the current NetBird API)
+**Document Version:** 2.1
+**Codebase Version:** ~16,500 lines of Go code across 27 files

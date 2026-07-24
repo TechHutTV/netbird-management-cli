@@ -67,6 +67,50 @@ netbird-manage user --update <user-id> --unblocked
 netbird-manage user --update <user-id> --role user --blocked
 ```
 
+## Approval Operations (Cloud)
+
+```bash
+# Approve a pending user
+netbird-manage user --approve <user-id>
+
+# Reject a pending user
+netbird-manage user --reject <user-id>
+```
+
+## Password Operations
+
+```bash
+# Change a user's password (embedded IdP only)
+netbird-manage user --change-password <user-id> \
+  --old-password "current-password" \
+  --new-password "new-password"
+```
+
+Both `--old-password` and `--new-password` are required. The new password must be at least 8 characters.
+
+## Invite Management
+
+```bash
+# List pending user invites
+netbird-manage user --list-invites
+
+# Create a user invite
+netbird-manage user --create-invite \
+  --email "new-user@example.com" \
+  --name "New User" \
+  --role user \
+  --auto-groups "group-id-1,group-id-2" \
+  --expires-in 86400
+
+# Delete a pending invite
+netbird-manage user --delete-invite <invite-id>
+
+# Regenerate an invite (issues a new token and expiry)
+netbird-manage user --regenerate-invite <invite-id>
+```
+
+`--create-invite` requires `--email` and `--name`. `--expires-in` is specified in seconds and also works with `--regenerate-invite`.
+
 ## Delete Operations
 
 ```bash
@@ -90,6 +134,8 @@ netbird-manage user --resend-invite <user-id>
 - Service users are designed for API access and automation
 - Blocked users cannot access the system but their configuration is preserved
 - Auto-groups automatically assign new peers to specified groups
+- `--approve` and `--reject` apply to pending users when user approval is required (Cloud-only setting)
+- `--change-password` only works with NetBird's embedded identity provider
 
 ---
 
@@ -106,8 +152,11 @@ netbird-manage user --resend-invite <user-id>
 | [Policies](policies.md) | Access control policies and firewall rules |
 | [Routes](routes.md) | Network routing configuration |
 | [DNS](dns.md) | DNS nameserver groups and settings |
+| [DNS Zones](dns-zones.md) | Custom DNS zones and records |
 | [Posture Checks](posture-checks.md) | Device compliance validation |
 | [Events](events.md) | Audit logs and traffic monitoring |
+| [Jobs](jobs.md) | Peer jobs and debug bundles |
+| [Notifications](notifications.md) | Notification channels (email/webhook) |
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
 | [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |

@@ -24,6 +24,7 @@ func (s *Service) HandleEventsCommand(args []string) error {
 	// Define the flags for the 'event' command
 	auditFlag := eventCmd.Bool("audit", false, "List audit events")
 	trafficFlag := eventCmd.Bool("traffic", false, "List network traffic events")
+	proxyFlag := eventCmd.Bool("proxy", false, "List reverse proxy access logs")
 
 	// Audit event filters
 	userIDFlag := eventCmd.String("user-id", "", "Filter by user ID")
@@ -39,6 +40,16 @@ func (s *Service) HandleEventsCommand(args []string) error {
 	typeFlag := eventCmd.String("type", "", "Filter by event type")
 	connectionTypeFlag := eventCmd.String("connection-type", "", "Filter by connection type")
 	directionFlag := eventCmd.String("direction", "", "Filter by traffic direction")
+
+	// Proxy access log filters
+	sourceIPFlag := eventCmd.String("source-ip", "", "Filter proxy logs by source IP")
+	hostFlag := eventCmd.String("host", "", "Filter proxy logs by host")
+	pathFlag := eventCmd.String("path", "", "Filter proxy logs by path")
+	methodFlag := eventCmd.String("method", "", "Filter proxy logs by HTTP method")
+	statusFlag := eventCmd.String("status", "", "Filter proxy logs by status")
+	statusCodeFlag := eventCmd.String("status-code", "", "Filter proxy logs by status code")
+	sortByFlag := eventCmd.String("sort-by", "", "Sort proxy logs by field")
+	sortOrderFlag := eventCmd.String("sort-order", "", "Sort order: asc or desc")
 
 	// Pagination
 	pageFlag := eventCmd.Int("page", 1, "Page number")
@@ -89,6 +100,27 @@ func (s *Service) HandleEventsCommand(args []string) error {
 			EndDate:        *endDateFlag,
 		}
 		return s.listTrafficEvents(filters, *outputFlag)
+	}
+
+	// List reverse proxy access logs
+	if *proxyFlag {
+		filters := models.ProxyEventFilters{
+			Page:       *pageFlag,
+			PageSize:   *pageSizeFlag,
+			SortBy:     *sortByFlag,
+			SortOrder:  *sortOrderFlag,
+			Search:     *searchFlag,
+			SourceIP:   *sourceIPFlag,
+			Host:       *hostFlag,
+			Path:       *pathFlag,
+			UserID:     *userIDFlag,
+			Method:     *methodFlag,
+			Status:     *statusFlag,
+			StatusCode: *statusCodeFlag,
+			StartDate:  *startDateFlag,
+			EndDate:    *endDateFlag,
+		}
+		return s.listProxyEvents(filters, *outputFlag)
 	}
 
 	eventCmd.Usage()
@@ -243,13 +275,16 @@ func (s *Service) listTrafficEvents(filters models.TrafficEventFilters, outputFo
 
 	// Table output
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "TIMESTAMP\tUSER\tREPORTER\tPROTOCOL\tSRC IP\tDST IP\tBYTES OUT\tBYTES IN")
-	fmt.Fprintln(w, "---------\t----\t--------\t--------\t------\t------\t---------\t--------")
+	fmt.Fprintln(w, "LAST EVENT\tUSER\tSOURCE\tDESTINATION\tPROTOCOL\tDIRECTION\tTX BYTES\tRX BYTES")
+	fmt.Fprintln(w, "----------\t----\t------\t-----------\t--------\t---------\t--------\t--------")
 	for _, event := range response.Data {
-		// Format timestamp
-		timestamp := event.Timestamp
-		if len(timestamp) > 19 {
-			timestamp = strings.Replace(timestamp[:19], "T", " ", 1)
+		// Use the most recent flow event as the display timestamp
+		timestamp := "-"
+		if len(event.Events) > 0 {
+			timestamp = event.Events[len(event.Events)-1].Timestamp
+			if len(timestamp) > 19 {
+				timestamp = strings.Replace(timestamp[:19], "T", " ", 1)
+			}
 		}
 
 		// Format protocol
@@ -262,35 +297,151 @@ func (s *Service) listTrafficEvents(filters models.TrafficEventFilters, outputFo
 			protocol = "ICMP"
 		}
 
-		// Truncate email for display
-		user := event.UserEmail
-		if len(user) > 20 {
-			user = user[:17] + "..."
-		}
-
-		// Truncate reporter name
-		reporter := event.ReporterName
-		if len(reporter) > 15 {
-			reporter = reporter[:12] + "..."
+		user := "-"
+		if event.User != nil {
+			user = event.User.Email
+			if user == "" {
+				user = event.User.Name
+			}
+			if len(user) > 20 {
+				user = user[:17] + "..."
+			}
 		}
 
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\n",
 			timestamp,
 			user,
-			reporter,
+			formatTrafficEndpoint(event.Source),
+			formatTrafficEndpoint(event.Destination),
 			protocol,
-			event.SourceIP,
-			event.DestinationIP,
-			event.BytesSent,
-			event.BytesReceived,
+			event.Direction,
+			event.TxBytes,
+			event.RxBytes,
 		)
 	}
 	w.Flush()
 
 	fmt.Printf("\nPage %d of %d | Total events: %d | Page size: %d\n",
 		response.Page,
-		(response.TotalCount+response.PageSize-1)/response.PageSize,
-		response.TotalCount,
+		response.TotalPages,
+		response.TotalRecords,
+		response.PageSize,
+	)
+
+	return nil
+}
+
+// formatTrafficEndpoint renders a traffic endpoint as "name (address)" with fallbacks
+func formatTrafficEndpoint(endpoint models.TrafficEndpoint) string {
+	name := endpoint.Name
+	if name == "" {
+		name = endpoint.DNSLabel
+	}
+	if name == "" {
+		return endpoint.Address
+	}
+	if len(name) > 15 {
+		name = name[:12] + "..."
+	}
+	if endpoint.Address == "" {
+		return name
+	}
+	return fmt.Sprintf("%s (%s)", name, endpoint.Address)
+}
+
+// listProxyEvents lists reverse proxy access logs with pagination and filters
+func (s *Service) listProxyEvents(filters models.ProxyEventFilters, outputFormat string) error {
+	// Build query parameters
+	params := url.Values{}
+	if filters.Page > 0 {
+		params.Add("page", strconv.Itoa(filters.Page))
+	}
+	if filters.PageSize > 0 {
+		params.Add("page_size", strconv.Itoa(filters.PageSize))
+	}
+	stringParams := map[string]string{
+		"sort_by":     filters.SortBy,
+		"sort_order":  filters.SortOrder,
+		"search":      filters.Search,
+		"source_ip":   filters.SourceIP,
+		"host":        filters.Host,
+		"path":        filters.Path,
+		"user_id":     filters.UserID,
+		"user_email":  filters.UserEmail,
+		"user_name":   filters.UserName,
+		"method":      filters.Method,
+		"status":      filters.Status,
+		"status_code": filters.StatusCode,
+		"start_date":  filters.StartDate,
+		"end_date":    filters.EndDate,
+	}
+	for key, value := range stringParams {
+		if value != "" {
+			params.Add(key, value)
+		}
+	}
+
+	endpoint := "/events/proxy"
+	if len(params) > 0 {
+		endpoint += "?" + params.Encode()
+	}
+
+	resp, err := s.Client.MakeRequest("GET", endpoint, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var response models.ProxyEventResponse
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	// JSON output
+	if outputFormat == "json" {
+		output, err := json.MarshalIndent(response, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %v", err)
+		}
+		fmt.Println(string(output))
+		return nil
+	}
+
+	// Table output
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "TIMESTAMP\tMETHOD\tHOST\tPATH\tSTATUS\tDURATION\tSOURCE IP\tUSER ID")
+	fmt.Fprintln(w, "---------\t------\t----\t----\t------\t--------\t---------\t-------")
+	for _, event := range response.Data {
+		timestamp := event.Timestamp
+		if len(timestamp) > 19 {
+			timestamp = strings.Replace(timestamp[:19], "T", " ", 1)
+		}
+		path := event.Path
+		if len(path) > 30 {
+			path = path[:27] + "..."
+		}
+		userID := event.UserID
+		if userID == "" {
+			userID = "-"
+		}
+
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%dms\t%s\t%s\n",
+			timestamp,
+			event.Method,
+			event.Host,
+			path,
+			event.StatusCode,
+			event.DurationMS,
+			event.SourceIP,
+			userID,
+		)
+	}
+	w.Flush()
+
+	fmt.Printf("\nPage %d of %d | Total records: %d | Page size: %d\n",
+		response.Page,
+		response.TotalPages,
+		response.TotalRecords,
 		response.PageSize,
 	)
 

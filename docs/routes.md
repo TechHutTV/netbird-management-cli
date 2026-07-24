@@ -54,8 +54,32 @@ netbird-manage route --create "172.16.0.0/12" \
   --description "Private network route" \
   --disabled
 
+# Create a domain-based route (comma-separated domain list instead of a CIDR)
+netbird-manage route --create "app.example.com,api.example.com" \
+  --network-id <network-id> \
+  --peer <peer-id> \
+  --groups <group-id> \
+  --keep-route true
+
+# Create a route with access control groups
+netbird-manage route --create "10.10.0.0/16" \
+  --network-id <network-id> \
+  --peer <peer-id> \
+  --groups <group-id> \
+  --access-control-groups "acl-group-1,acl-group-2"
+
+# Create an exit node route that clients must opt into
+netbird-manage route --create "0.0.0.0/0" \
+  --network-id <network-id> \
+  --peer <peer-id> \
+  --groups <group-id> \
+  --skip-auto-apply true
+
 # Update route metric (priority)
 netbird-manage route --update <route-id> --metric 50
+
+# Replace the domain list on a domain-based route
+netbird-manage route --update <route-id> --domains "app.example.com,new.example.com"
 
 # Enable/disable a route
 netbird-manage route --enable <route-id>
@@ -75,12 +99,18 @@ netbird-manage route --delete <route-id>
 | `--metric` | Route priority (1-9999, lower = higher priority) | 100 |
 | `--masquerade` | Enable masquerading/NAT | false |
 | `--no-masquerade` | Disable masquerading | true |
-| `--groups` | Access group IDs (required, comma-separated) | - |
+| `--groups` | Distribution group IDs (required, comma-separated) | - |
+| `--access-control-groups` | Access control group IDs (optional, comma-separated) | - |
+| `--keep-route` | Keep routes for resolved domain IPs: `true` or `false` | - |
+| `--skip-auto-apply` | Skip auto-applying an exit node route on clients: `true` or `false` | - |
+| `--domains` | Replace a route's domain list (comma-separated, update only) | - |
 | `--description` | Route description text | - |
 
 ## Notes
 
-- Network must be in valid CIDR notation (e.g., `10.0.0.0/16`)
+- `--create` accepts either a network in CIDR notation (e.g., `10.0.0.0/16`) or a comma-separated domain list (e.g., `app.example.com,api.example.com`) for domain-based routes
+- `--update` supports the same flags as `--create`, plus `--domains` to replace a domain-based route's domain list
+- `--keep-route` keeps routes for previously resolved domain IPs even after the DNS answer changes
 - Lower metric values have higher priority (metric 10 > metric 100)
 - Masquerading enables NAT for outbound traffic
 - Routes can use either a single peer or peer groups for redundancy
@@ -100,8 +130,11 @@ netbird-manage route --delete <route-id>
 | [Networks](networks.md) | Networks, resources, and routers |
 | [Policies](policies.md) | Access control policies and firewall rules |
 | [DNS](dns.md) | DNS nameserver groups and settings |
+| [DNS Zones](dns-zones.md) | Custom DNS zones and records |
 | [Posture Checks](posture-checks.md) | Device compliance validation |
 | [Events](events.md) | Audit logs and traffic monitoring |
+| [Jobs](jobs.md) | Peer jobs and debug bundles |
+| [Notifications](notifications.md) | Notification channels (email/webhook) |
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
 | [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |

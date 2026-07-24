@@ -63,8 +63,11 @@ netbird-manage --help         # Shows all available commands
 | [Policies](docs/policies.md) | Access control policies and firewall rules |
 | [Routes](docs/routes.md) | Network routing configuration |
 | [DNS](docs/dns.md) | DNS nameserver groups and settings |
+| [DNS Zones](docs/dns-zones.md) | Custom DNS zones and records |
 | [Posture Checks](docs/posture-checks.md) | Device compliance validation |
-| [Events](docs/events.md) | Audit logs and traffic monitoring |
+| [Events](docs/events.md) | Audit logs, traffic events, and proxy logs |
+| [Jobs](docs/jobs.md) | Peer jobs and debug bundle collection |
+| [Notifications](docs/notifications.md) | Notification channels (email/webhook) |
 | [Geo-Locations](docs/geo-locations.md) | Geographic location data |
 | [Accounts](docs/accounts.md) | Account settings and configuration |
 | [Ingress Ports](docs/ingress-ports.md) | Port forwarding (Cloud-only) |
@@ -73,24 +76,27 @@ netbird-manage --help         # Shows all available commands
 
 ## API Coverage
 
-**14/14 NetBird API resource types fully implemented (100%)**
+**17/17 NetBird API resource types fully implemented (100%)**
 
 | Resource | Status |
 |----------|--------|
-| Peers | Full CRUD |
+| Peers | Full CRUD (incl. temporary access peers) |
 | Groups | Full CRUD |
 | Networks | Full CRUD |
 | Policies | Full CRUD |
 | Setup Keys | Full CRUD |
-| Users | Full CRUD |
+| Users | Full CRUD (incl. invites, approval, passwords) |
 | Tokens | Full CRUD |
-| Routes | Full CRUD |
+| Routes | Full CRUD (CIDR and domain routes) |
 | DNS | Full CRUD |
+| DNS Zones | Full CRUD |
 | Posture Checks | Full CRUD |
-| Events | Read |
+| Events | Read (audit, traffic, proxy logs) |
 | Geo-Locations | Read |
 | Accounts | Full CRUD |
 | Ingress Ports | Full CRUD (Cloud-only) |
+| Peer Jobs | Create/Read |
+| Notifications | Full CRUD |
 
 ## Roadmap
 

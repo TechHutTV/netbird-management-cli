@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 
 	"netbird-manage/internal/helpers"
@@ -24,17 +26,19 @@ func (s *Service) HandleIngressPortsCommand(args []string) error {
 	// Query flags
 	listFlag := ingressPortCmd.Bool("list", false, "List port allocations for a peer (requires --peer)")
 	inspectFlag := ingressPortCmd.String("inspect", "", "Inspect a port allocation by its ID (requires --peer)")
+	filterNameFlag := ingressPortCmd.String("filter-name", "", "Filter allocations by name (server-side)")
 
 	// Modification flags
-	createFlag := ingressPortCmd.Bool("create", false, "Create port allocation (requires --peer and --target-port)")
+	createFlag := ingressPortCmd.Bool("create", false, "Create port allocation (requires --peer and --name)")
 	updateFlag := ingressPortCmd.String("update", "", "Update port allocation by its ID (requires --peer)")
 	deleteFlag := ingressPortCmd.String("delete", "", "Delete port allocation by its ID (requires --peer)")
 
 	// Port allocation parameters
 	peerFlag := ingressPortCmd.String("peer", "", "Peer ID (required for all operations)")
-	targetPortFlag := ingressPortCmd.Int("target-port", 0, "Target port to forward (1-65535)")
-	protocolFlag := ingressPortCmd.String("protocol", "tcp", "Protocol (tcp or udp)")
-	descriptionFlag := ingressPortCmd.String("description", "", "Port allocation description")
+	nameFlag := ingressPortCmd.String("name", "", "Allocation name")
+	enabledFlag := ingressPortCmd.String("enabled", "", "Enable/disable the allocation (true/false)")
+	portRangesFlag := ingressPortCmd.String("port-ranges", "", "Comma-separated port ranges as start-end:protocol (e.g., 80:tcp,1000-2000:udp,443:tcp/udp)")
+	directPortsFlag := ingressPortCmd.String("direct-ports", "", "Direct port mapping as count:protocol (e.g., 3:tcp)")
 
 	// Output format
 	outputFlag := ingressPortCmd.String("output", "table", "Output format: table or json")
@@ -56,7 +60,7 @@ func (s *Service) HandleIngressPortsCommand(args []string) error {
 		if *peerFlag == "" {
 			return fmt.Errorf("--peer is required for --list")
 		}
-		return s.listIngressPorts(*peerFlag, *outputFlag)
+		return s.listIngressPorts(*peerFlag, *filterNameFlag, *outputFlag)
 	}
 
 	if *inspectFlag != "" {
@@ -70,18 +74,39 @@ func (s *Service) HandleIngressPortsCommand(args []string) error {
 		if *peerFlag == "" {
 			return fmt.Errorf("--peer is required for --create")
 		}
-		if *targetPortFlag == 0 {
-			return fmt.Errorf("--target-port is required for --create")
+		if *nameFlag == "" {
+			return fmt.Errorf("--name is required for --create")
 		}
-		if *targetPortFlag < 1 || *targetPortFlag > 65535 {
-			return fmt.Errorf("--target-port must be between 1 and 65535")
+		if *portRangesFlag == "" && *directPortsFlag == "" {
+			return fmt.Errorf("--port-ranges or --direct-ports is required for --create")
 		}
 
-		req := models.IngressPortCreateRequest{
-			TargetPort:  *targetPortFlag,
-			Protocol:    *protocolFlag,
-			Description: *descriptionFlag,
+		req := models.IngressPortAllocationRequest{
+			Name:    *nameFlag,
+			Enabled: true,
 		}
+		if *enabledFlag != "" {
+			enabled, err := strconv.ParseBool(*enabledFlag)
+			if err != nil {
+				return fmt.Errorf("invalid value for --enabled: %v", err)
+			}
+			req.Enabled = enabled
+		}
+		if *portRangesFlag != "" {
+			ranges, err := parseIngressPortRanges(*portRangesFlag)
+			if err != nil {
+				return err
+			}
+			req.PortRanges = ranges
+		}
+		if *directPortsFlag != "" {
+			directPort, err := parseIngressDirectPort(*directPortsFlag)
+			if err != nil {
+				return err
+			}
+			req.DirectPort = directPort
+		}
+
 		return s.createIngressPort(*peerFlag, req)
 	}
 
@@ -89,19 +114,7 @@ func (s *Service) HandleIngressPortsCommand(args []string) error {
 		if *peerFlag == "" {
 			return fmt.Errorf("--peer is required for --update")
 		}
-		if *targetPortFlag == 0 {
-			return fmt.Errorf("--target-port is required for --update")
-		}
-		if *targetPortFlag < 1 || *targetPortFlag > 65535 {
-			return fmt.Errorf("--target-port must be between 1 and 65535")
-		}
-
-		req := models.IngressPortUpdateRequest{
-			TargetPort:  *targetPortFlag,
-			Protocol:    *protocolFlag,
-			Description: *descriptionFlag,
-		}
-		return s.updateIngressPort(*peerFlag, *updateFlag, req)
+		return s.updateIngressPort(*peerFlag, *updateFlag, *nameFlag, *enabledFlag, *portRangesFlag, *directPortsFlag)
 	}
 
 	if *deleteFlag != "" {
@@ -116,6 +129,95 @@ func (s *Service) HandleIngressPortsCommand(args []string) error {
 	return nil
 }
 
+// parseIngressPortRanges parses "80:tcp,1000-2000:udp,443:tcp/udp" into port range objects
+func parseIngressPortRanges(spec string) ([]models.IngressPortRange, error) {
+	var ranges []models.IngressPortRange
+	for _, part := range strings.Split(spec, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		portPart, protocol, found := strings.Cut(part, ":")
+		if !found {
+			return nil, fmt.Errorf("invalid port range %q: expected start-end:protocol (e.g., 80:tcp or 1000-2000:udp)", part)
+		}
+		if err := validateIngressProtocol(protocol); err != nil {
+			return nil, err
+		}
+
+		startStr, endStr, isRange := strings.Cut(portPart, "-")
+		start, err := strconv.Atoi(startStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid port in range %q: %v", part, err)
+		}
+		end := start
+		if isRange {
+			end, err = strconv.Atoi(endStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid port in range %q: %v", part, err)
+			}
+		}
+		if start < 1 || start > 65535 || end < 1 || end > 65535 || end < start {
+			return nil, fmt.Errorf("invalid port range %q: ports must be 1-65535 and end >= start", part)
+		}
+
+		ranges = append(ranges, models.IngressPortRange{
+			Start:    start,
+			End:      end,
+			Protocol: protocol,
+		})
+	}
+	if len(ranges) == 0 {
+		return nil, fmt.Errorf("no valid port ranges in %q", spec)
+	}
+	return ranges, nil
+}
+
+// parseIngressDirectPort parses "3:tcp" into a direct port request
+func parseIngressDirectPort(spec string) (*models.IngressDirectPort, error) {
+	countStr, protocol, found := strings.Cut(strings.TrimSpace(spec), ":")
+	if !found {
+		return nil, fmt.Errorf("invalid direct port %q: expected count:protocol (e.g., 3:tcp)", spec)
+	}
+	count, err := strconv.Atoi(countStr)
+	if err != nil || count < 1 {
+		return nil, fmt.Errorf("invalid direct port count in %q", spec)
+	}
+	if err := validateIngressProtocol(protocol); err != nil {
+		return nil, err
+	}
+	return &models.IngressDirectPort{Count: count, Protocol: protocol}, nil
+}
+
+// validateIngressProtocol checks a protocol value against the API enum
+func validateIngressProtocol(protocol string) error {
+	switch protocol {
+	case "tcp", "udp", "tcp/udp":
+		return nil
+	}
+	return fmt.Errorf("invalid protocol %q: must be tcp, udp, or tcp/udp", protocol)
+}
+
+// formatPortRangeMappings renders port range mappings as a compact string
+func formatPortRangeMappings(mappings []models.PortRangeMapping) string {
+	if len(mappings) == 0 {
+		return "-"
+	}
+	parts := make([]string, 0, len(mappings))
+	for _, m := range mappings {
+		translated := fmt.Sprintf("%d", m.TranslatedStart)
+		if m.TranslatedEnd != m.TranslatedStart {
+			translated = fmt.Sprintf("%d-%d", m.TranslatedStart, m.TranslatedEnd)
+		}
+		ingress := fmt.Sprintf("%d", m.IngressStart)
+		if m.IngressEnd != m.IngressStart {
+			ingress = fmt.Sprintf("%d-%d", m.IngressStart, m.IngressEnd)
+		}
+		parts = append(parts, fmt.Sprintf("%s->%s/%s", ingress, translated, m.Protocol))
+	}
+	return strings.Join(parts, ", ")
+}
+
 // HandleIngressPeersCommand routes ingress peer management commands
 func (s *Service) HandleIngressPeersCommand(args []string) error {
 	// Create a new flag set for the 'ingress-peer' command
@@ -128,14 +230,14 @@ func (s *Service) HandleIngressPeersCommand(args []string) error {
 	inspectFlag := ingressPeerCmd.String("inspect", "", "Inspect an ingress peer by its ID")
 
 	// Modification flags
-	createFlag := ingressPeerCmd.Bool("create", false, "Create ingress peer (requires --name)")
+	createFlag := ingressPeerCmd.Bool("create", false, "Convert a peer into an ingress peer (requires --peer)")
 	updateFlag := ingressPeerCmd.String("update", "", "Update ingress peer by its ID")
 	deleteFlag := ingressPeerCmd.String("delete", "", "Delete ingress peer by its ID")
 
 	// Ingress peer parameters
-	nameFlag := ingressPeerCmd.String("name", "", "Ingress peer name")
-	locationFlag := ingressPeerCmd.String("location", "", "Geographic location")
+	peerFlag := ingressPeerCmd.String("peer", "", "Peer ID to convert into an ingress peer (for --create)")
 	enabledFlag := ingressPeerCmd.String("enabled", "", "Enable/disable ingress peer (true/false)")
+	fallbackFlag := ingressPeerCmd.String("fallback", "", "Mark as fallback ingress peer (true/false)")
 
 	// Output format
 	outputFlag := ingressPeerCmd.String("output", "table", "Output format: table or json")
@@ -162,45 +264,23 @@ func (s *Service) HandleIngressPeersCommand(args []string) error {
 	}
 
 	if *createFlag {
-		if *nameFlag == "" {
-			return fmt.Errorf("--name is required for --create")
+		if *peerFlag == "" {
+			return fmt.Errorf("--peer is required for --create")
 		}
 
 		req := models.IngressPeerCreateRequest{
-			Name:     *nameFlag,
-			Location: *locationFlag,
+			PeerID:  *peerFlag,
+			Enabled: true,
 		}
-
-		// Parse enabled flag if provided
-		if *enabledFlag != "" {
-			enabled, err := strconv.ParseBool(*enabledFlag)
-			if err != nil {
-				return fmt.Errorf("invalid value for --enabled: %v", err)
-			}
-			req.Enabled = enabled
-		} else {
-			req.Enabled = true // Default to enabled
+		if err := applyIngressPeerBoolFlags(*enabledFlag, *fallbackFlag, &req.Enabled, &req.Fallback); err != nil {
+			return err
 		}
 
 		return s.createIngressPeer(req)
 	}
 
 	if *updateFlag != "" {
-		req := models.IngressPeerUpdateRequest{
-			Name:     *nameFlag,
-			Location: *locationFlag,
-		}
-
-		// Parse enabled flag if provided
-		if *enabledFlag != "" {
-			enabled, err := strconv.ParseBool(*enabledFlag)
-			if err != nil {
-				return fmt.Errorf("invalid value for --enabled: %v", err)
-			}
-			req.Enabled = &enabled
-		}
-
-		return s.updateIngressPeer(*updateFlag, req)
+		return s.updateIngressPeer(*updateFlag, *enabledFlag, *fallbackFlag)
 	}
 
 	if *deleteFlag != "" {
@@ -212,9 +292,32 @@ func (s *Service) HandleIngressPeersCommand(args []string) error {
 	return nil
 }
 
+// applyIngressPeerBoolFlags parses the optional --enabled and --fallback values
+func applyIngressPeerBoolFlags(enabledValue, fallbackValue string, enabled, fallback *bool) error {
+	if enabledValue != "" {
+		parsed, err := strconv.ParseBool(enabledValue)
+		if err != nil {
+			return fmt.Errorf("invalid value for --enabled: %v", err)
+		}
+		*enabled = parsed
+	}
+	if fallbackValue != "" {
+		parsed, err := strconv.ParseBool(fallbackValue)
+		if err != nil {
+			return fmt.Errorf("invalid value for --fallback: %v", err)
+		}
+		*fallback = parsed
+	}
+	return nil
+}
+
 // listIngressPorts lists all port allocations for a peer
-func (s *Service) listIngressPorts(peerID string, outputFormat string) error {
-	resp, err := s.Client.MakeRequest("GET", "/peers/"+peerID+"/ingress/ports", nil)
+func (s *Service) listIngressPorts(peerID, filterName, outputFormat string) error {
+	endpoint := "/peers/" + peerID + "/ingress/ports"
+	if filterName != "" {
+		endpoint += "?name=" + url.QueryEscape(filterName)
+	}
+	resp, err := s.Client.MakeRequest("GET", endpoint, nil)
 	if err != nil {
 		return err
 	}
@@ -242,20 +345,25 @@ func (s *Service) listIngressPorts(peerID string, outputFormat string) error {
 
 	// Table output
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "ALLOCATION ID\tTARGET PORT\tPUBLIC PORT\tPROTOCOL\tDESCRIPTION")
-	fmt.Fprintln(w, "-------------\t-----------\t-----------\t--------\t-----------")
+	fmt.Fprintln(w, "ALLOCATION ID\tNAME\tENABLED\tINGRESS IP\tREGION\tPORT MAPPINGS")
+	fmt.Fprintln(w, "-------------\t----\t-------\t----------\t------\t-------------")
 
 	for _, allocation := range allocations {
-		desc := allocation.Description
-		if desc == "" {
-			desc = "-"
+		region := allocation.Region
+		if region == "" {
+			region = "-"
 		}
-		fmt.Fprintf(w, "%s\t%d\t%d\t%s\t%s\n",
+		ingressIP := allocation.IngressIP
+		if ingressIP == "" {
+			ingressIP = "-"
+		}
+		fmt.Fprintf(w, "%s\t%s\t%t\t%s\t%s\t%s\n",
 			allocation.ID,
-			allocation.TargetPort,
-			allocation.PublicPort,
-			allocation.Protocol,
-			desc,
+			allocation.Name,
+			allocation.Enabled,
+			ingressIP,
+			region,
+			formatPortRangeMappings(allocation.PortRangeMappings),
 		)
 	}
 	w.Flush()
@@ -287,27 +395,19 @@ func (s *Service) inspectIngressPort(peerID, allocationID string, outputFormat s
 	}
 
 	// Display allocation details
-	fmt.Printf("Allocation ID:  %s\n", allocation.ID)
-	fmt.Printf("Peer ID:        %s\n", allocation.PeerID)
-	fmt.Printf("Target Port:    %d\n", allocation.TargetPort)
-	fmt.Printf("Public Port:    %d\n", allocation.PublicPort)
-	fmt.Printf("Protocol:       %s\n", allocation.Protocol)
-	fmt.Printf("Description:    %s\n", allocation.Description)
-	if allocation.IngressPeer != "" {
-		fmt.Printf("Ingress Peer:   %s\n", allocation.IngressPeer)
-	}
-	if allocation.CreatedAt != "" {
-		fmt.Printf("Created At:     %s\n", allocation.CreatedAt)
-	}
-	if allocation.UpdatedAt != "" {
-		fmt.Printf("Updated At:     %s\n", allocation.UpdatedAt)
-	}
+	fmt.Printf("Allocation ID:   %s\n", allocation.ID)
+	fmt.Printf("Name:            %s\n", allocation.Name)
+	fmt.Printf("Enabled:         %t\n", allocation.Enabled)
+	fmt.Printf("Ingress Peer ID: %s\n", allocation.IngressPeerID)
+	fmt.Printf("Ingress IP:      %s\n", allocation.IngressIP)
+	fmt.Printf("Region:          %s\n", allocation.Region)
+	fmt.Printf("Port Mappings:   %s\n", formatPortRangeMappings(allocation.PortRangeMappings))
 
 	return nil
 }
 
 // createIngressPort creates a new port allocation
-func (s *Service) createIngressPort(peerID string, req models.IngressPortCreateRequest) error {
+func (s *Service) createIngressPort(peerID string, req models.IngressPortAllocationRequest) error {
 	bodyBytes, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %v", err)
@@ -325,26 +425,76 @@ func (s *Service) createIngressPort(peerID string, req models.IngressPortCreateR
 	}
 
 	fmt.Printf("Ingress port allocation created successfully\n")
-	fmt.Printf("Allocation ID:  %s\n", allocation.ID)
-	fmt.Printf("Target Port:    %d\n", allocation.TargetPort)
-	fmt.Printf("Public Port:    %d\n", allocation.PublicPort)
-	fmt.Printf("Protocol:       %s\n", allocation.Protocol)
+	fmt.Printf("Allocation ID:   %s\n", allocation.ID)
+	fmt.Printf("Name:            %s\n", allocation.Name)
+	fmt.Printf("Ingress IP:      %s\n", allocation.IngressIP)
+	fmt.Printf("Port Mappings:   %s\n", formatPortRangeMappings(allocation.PortRangeMappings))
 
 	return nil
 }
 
-// updateIngressPort updates an existing port allocation
-func (s *Service) updateIngressPort(peerID, allocationID string, req models.IngressPortUpdateRequest) error {
+// updateIngressPort updates an existing port allocation, preserving unset fields
+func (s *Service) updateIngressPort(peerID, allocationID, name, enabledValue, portRangesSpec, directPortsSpec string) error {
+	// Fetch current allocation so unset flags keep their values
+	resp, err := s.Client.MakeRequest("GET", "/peers/"+peerID+"/ingress/ports/"+allocationID, nil)
+	if err != nil {
+		return err
+	}
+	var current models.IngressPortAllocation
+	if err := json.NewDecoder(resp.Body).Decode(&current); err != nil {
+		resp.Body.Close()
+		return fmt.Errorf("failed to decode port allocation: %v", err)
+	}
+	resp.Body.Close()
+
+	req := models.IngressPortAllocationRequest{
+		Name:    current.Name,
+		Enabled: current.Enabled,
+	}
+	if name != "" {
+		req.Name = name
+	}
+	if enabledValue != "" {
+		enabled, err := strconv.ParseBool(enabledValue)
+		if err != nil {
+			return fmt.Errorf("invalid value for --enabled: %v", err)
+		}
+		req.Enabled = enabled
+	}
+	if portRangesSpec != "" {
+		ranges, err := parseIngressPortRanges(portRangesSpec)
+		if err != nil {
+			return err
+		}
+		req.PortRanges = ranges
+	} else {
+		// Preserve current ranges (translated side is the peer's requested range)
+		for _, m := range current.PortRangeMappings {
+			req.PortRanges = append(req.PortRanges, models.IngressPortRange{
+				Start:    m.TranslatedStart,
+				End:      m.TranslatedEnd,
+				Protocol: m.Protocol,
+			})
+		}
+	}
+	if directPortsSpec != "" {
+		directPort, err := parseIngressDirectPort(directPortsSpec)
+		if err != nil {
+			return err
+		}
+		req.DirectPort = directPort
+	}
+
 	bodyBytes, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err := s.Client.MakeRequest("PUT", "/peers/"+peerID+"/ingress/ports/"+allocationID, bytes.NewReader(bodyBytes))
+	updateResp, err := s.Client.MakeRequest("PUT", "/peers/"+peerID+"/ingress/ports/"+allocationID, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer updateResp.Body.Close()
 
 	fmt.Printf("Ingress port allocation %s updated successfully\n", allocationID)
 	return nil
@@ -366,16 +516,15 @@ func (s *Service) deleteIngressPort(peerID, allocationID string) error {
 
 	// Build details map
 	details := map[string]string{
-		"Target Port": fmt.Sprintf("%d", allocation.TargetPort),
-		"Public Port": fmt.Sprintf("%d", allocation.PublicPort),
-		"Protocol":    allocation.Protocol,
+		"Enabled":       fmt.Sprintf("%t", allocation.Enabled),
+		"Port Mappings": formatPortRangeMappings(allocation.PortRangeMappings),
 	}
-	if allocation.Description != "" {
-		details["Description"] = allocation.Description
+	if allocation.IngressIP != "" {
+		details["Ingress IP"] = allocation.IngressIP
 	}
 
 	// Ask for confirmation
-	if !helpers.ConfirmSingleDeletion("ingress port allocation", "", allocationID, details) {
+	if !helpers.ConfirmSingleDeletion("ingress port allocation", allocation.Name, allocationID, details) {
 		return nil // User cancelled
 	}
 
@@ -419,24 +568,26 @@ func (s *Service) listIngressPeers(outputFormat string) error {
 
 	// Table output
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "INGRESS PEER ID\tNAME\tLOCATION\tHOSTNAME\tENABLED")
-	fmt.Fprintln(w, "---------------\t----\t--------\t--------\t-------")
+	fmt.Fprintln(w, "INGRESS PEER ID\tPEER ID\tINGRESS IP\tREGION\tENABLED\tCONNECTED\tFALLBACK")
+	fmt.Fprintln(w, "---------------\t-------\t----------\t------\t-------\t---------\t--------")
 
 	for _, peer := range peers {
-		location := peer.Location
-		if location == "" {
-			location = "-"
+		region := peer.Region
+		if region == "" {
+			region = "-"
 		}
-		hostname := peer.Hostname
-		if hostname == "" {
-			hostname = "-"
+		ingressIP := peer.IngressIP
+		if ingressIP == "" {
+			ingressIP = "-"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%t\n",
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%t\t%t\t%t\n",
 			peer.ID,
-			peer.Name,
-			location,
-			hostname,
+			peer.PeerID,
+			ingressIP,
+			region,
 			peer.Enabled,
+			peer.Connected,
+			peer.Fallback,
 		)
 	}
 	w.Flush()
@@ -469,15 +620,14 @@ func (s *Service) inspectIngressPeer(ingressPeerID string, outputFormat string) 
 
 	// Display ingress peer details
 	fmt.Printf("Ingress Peer ID: %s\n", peer.ID)
-	fmt.Printf("Name:            %s\n", peer.Name)
-	fmt.Printf("Location:        %s\n", peer.Location)
-	fmt.Printf("Hostname:        %s\n", peer.Hostname)
+	fmt.Printf("Peer ID:         %s\n", peer.PeerID)
+	fmt.Printf("Ingress IP:      %s\n", peer.IngressIP)
+	fmt.Printf("Region:          %s\n", peer.Region)
 	fmt.Printf("Enabled:         %t\n", peer.Enabled)
-	if peer.CreatedAt != "" {
-		fmt.Printf("Created At:      %s\n", peer.CreatedAt)
-	}
-	if peer.UpdatedAt != "" {
-		fmt.Printf("Updated At:      %s\n", peer.UpdatedAt)
+	fmt.Printf("Connected:       %t\n", peer.Connected)
+	fmt.Printf("Fallback:        %t\n", peer.Fallback)
+	if peer.AvailablePorts != nil {
+		fmt.Printf("Available Ports: tcp=%d udp=%d\n", peer.AvailablePorts.TCP, peer.AvailablePorts.UDP)
 	}
 
 	return nil
@@ -503,25 +653,45 @@ func (s *Service) createIngressPeer(req models.IngressPeerCreateRequest) error {
 
 	fmt.Printf("Ingress peer created successfully\n")
 	fmt.Printf("Ingress Peer ID: %s\n", peer.ID)
-	fmt.Printf("Name:            %s\n", peer.Name)
-	fmt.Printf("Location:        %s\n", peer.Location)
+	fmt.Printf("Peer ID:         %s\n", peer.PeerID)
 	fmt.Printf("Enabled:         %t\n", peer.Enabled)
+	fmt.Printf("Fallback:        %t\n", peer.Fallback)
 
 	return nil
 }
 
-// updateIngressPeer updates an existing ingress peer
-func (s *Service) updateIngressPeer(ingressPeerID string, req models.IngressPeerUpdateRequest) error {
+// updateIngressPeer updates an existing ingress peer, preserving unset fields
+func (s *Service) updateIngressPeer(ingressPeerID, enabledValue, fallbackValue string) error {
+	// Fetch current state so unset flags keep their values
+	resp, err := s.Client.MakeRequest("GET", "/ingress/peers/"+ingressPeerID, nil)
+	if err != nil {
+		return err
+	}
+	var current models.IngressPeer
+	if err := json.NewDecoder(resp.Body).Decode(&current); err != nil {
+		resp.Body.Close()
+		return fmt.Errorf("failed to decode ingress peer: %v", err)
+	}
+	resp.Body.Close()
+
+	req := models.IngressPeerUpdateRequest{
+		Enabled:  current.Enabled,
+		Fallback: current.Fallback,
+	}
+	if err := applyIngressPeerBoolFlags(enabledValue, fallbackValue, &req.Enabled, &req.Fallback); err != nil {
+		return err
+	}
+
 	bodyBytes, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	resp, err := s.Client.MakeRequest("PUT", "/ingress/peers/"+ingressPeerID, bytes.NewReader(bodyBytes))
+	updateResp, err := s.Client.MakeRequest("PUT", "/ingress/peers/"+ingressPeerID, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer updateResp.Body.Close()
 
 	fmt.Printf("Ingress peer %s updated successfully\n", ingressPeerID)
 	return nil
@@ -543,17 +713,16 @@ func (s *Service) deleteIngressPeer(ingressPeerID string) error {
 
 	// Build details map
 	details := map[string]string{
-		"Enabled": fmt.Sprintf("%v", peer.Enabled),
+		"Peer ID":  peer.PeerID,
+		"Enabled":  fmt.Sprintf("%t", peer.Enabled),
+		"Fallback": fmt.Sprintf("%t", peer.Fallback),
 	}
-	if peer.Location != "" {
-		details["Location"] = peer.Location
-	}
-	if peer.Hostname != "" {
-		details["Hostname"] = peer.Hostname
+	if peer.IngressIP != "" {
+		details["Ingress IP"] = peer.IngressIP
 	}
 
 	// Ask for confirmation
-	if !helpers.ConfirmSingleDeletion("ingress peer", peer.Name, ingressPeerID, details) {
+	if !helpers.ConfirmSingleDeletion("ingress peer", peer.PeerID, ingressPeerID, details) {
 		return nil // User cancelled
 	}
 

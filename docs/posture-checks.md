@@ -167,7 +167,10 @@ netbird-manage posture-check --delete <check-id>
 | [Policies](policies.md) | Access control policies and firewall rules |
 | [Routes](routes.md) | Network routing configuration |
 | [DNS](dns.md) | DNS nameserver groups and settings |
+| [DNS Zones](dns-zones.md) | Custom DNS zones and records |
 | [Events](events.md) | Audit logs and traffic monitoring |
+| [Jobs](jobs.md) | Peer jobs and debug bundles |
+| [Notifications](notifications.md) | Notification channels (email/webhook) |
 | [Geo-Locations](geo-locations.md) | Geographic location data |
 | [Accounts](accounts.md) | Account settings and configuration |
 | [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |

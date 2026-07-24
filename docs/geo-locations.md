@@ -37,6 +37,7 @@ netbird-manage geo --cities --country US --output json > us-cities.json
 ## Notes
 
 - Country codes follow ISO 3166-1 alpha-2 standard (e.g., US, GB, DE, FR)
+- `--countries` returns country codes only (the API no longer returns country names)
 - City data includes geoname IDs for precise location matching
 - Use geo-location data when creating posture checks with `--type geo-location`
 
@@ -56,8 +57,11 @@ netbird-manage geo --cities --country US --output json > us-cities.json
 | [Policies](policies.md) | Access control policies and firewall rules |
 | [Routes](routes.md) | Network routing configuration |
 | [DNS](dns.md) | DNS nameserver groups and settings |
+| [DNS Zones](dns-zones.md) | Custom DNS zones and records |
 | [Posture Checks](posture-checks.md) | Device compliance validation |
 | [Events](events.md) | Audit logs and traffic monitoring |
+| [Jobs](jobs.md) | Peer jobs and debug bundles |
+| [Notifications](notifications.md) | Notification channels (email/webhook) |
 | [Accounts](accounts.md) | Account settings and configuration |
 | [Ingress Ports](ingress-ports.md) | Port forwarding (Cloud-only) |
 | [Export & Import](export-import.md) | YAML/JSON configuration management |

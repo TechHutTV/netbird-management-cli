@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strconv"
@@ -516,8 +517,19 @@ func (s *Service) getDNSSettings(outputFormat string) error {
 	}
 	defer resp.Body.Close()
 
+	// GET wraps the payload in an "items" object; fall back to the bare shape
+	var wrapper struct {
+		Items *models.DNSSettings `json:"items"`
+	}
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read DNS settings response: %v", err)
+	}
+
 	var settings models.DNSSettings
-	if err := json.NewDecoder(resp.Body).Decode(&settings); err != nil {
+	if err := json.Unmarshal(bodyBytes, &wrapper); err == nil && wrapper.Items != nil {
+		settings = *wrapper.Items
+	} else if err := json.Unmarshal(bodyBytes, &settings); err != nil {
 		return fmt.Errorf("failed to decode DNS settings response: %v", err)
 	}
 
